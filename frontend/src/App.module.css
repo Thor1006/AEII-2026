@@ -11,8 +11,11 @@
   gap: 16px;
   flex-wrap: wrap;
   padding: 14px 20px;
+  margin: 12px 12px 0;
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--float);
 }
 
 .brand {
@@ -33,17 +36,11 @@
   color: var(--text-muted);
 }
 
-/* Concentric arcs: a radar wavefront. */
+/* Concentric arcs: a radar wavefront (SVG, no gradients). */
 .mark {
   width: 28px;
   height: 28px;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 0 100%, var(--accent) 0 5px, transparent 6px),
-    radial-gradient(circle at 0 100%, transparent 0 10px, var(--accent) 11px 13px, transparent 14px),
-    radial-gradient(circle at 0 100%, transparent 0 18px, var(--accent) 19px 21px, transparent 22px);
-  border-radius: 0 6px 0 0;
-  opacity: 0.9;
+  color: var(--accent);
 }
 
 .controls {

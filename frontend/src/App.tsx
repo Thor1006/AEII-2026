@@ -71,7 +71,12 @@ export function App({ layouts = defaultLayouts, title = 'TrueRehab-RF', autoConn
     <div className={s.app}>
       <header className={s.header}>
         <div className={s.brand}>
-          <span className={s.mark} aria-hidden />
+          <svg className={s.mark} viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+            <circle cx="3" cy="25" r="2" fill="currentColor" stroke="none" />
+            <path d="M3 17a8 8 0 0 1 8 8" />
+            <path d="M3 10a15 15 0 0 1 15 15" />
+            <path d="M3 3a22 22 0 0 1 22 22" />
+          </svg>
           <div>
             <h1>{title}</h1>
             <p>Contactless rehab monitoring</p>
