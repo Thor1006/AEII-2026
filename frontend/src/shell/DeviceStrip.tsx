@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n.tsx';
 import { useSensorStore } from '../state/SensorContext.tsx';
 import s from './shell.module.css';
 
@@ -5,10 +6,11 @@ const MARK = { ok: '✓', missing: '✕', error: '!', off: '–' } as const;
 
 /** "Radar ✓ · Arduino ✕ Not plugged in · AI model ✓", from the Pi's heartbeat. */
 export function DeviceStrip() {
+  const { ui } = useI18n();
   const store = useSensorStore();
   const devices = Object.entries(store.devices);
   if (!devices.length) return null;
-  return (
+  return ui((
     <ul className={s.devices} aria-label="Devices">
       {devices.map(([id, d]) => (
         <li key={id} data-state={d.state} title={d.message}>
@@ -21,5 +23,5 @@ export function DeviceStrip() {
         </li>
       ))}
     </ul>
-  );
+  ));
 }

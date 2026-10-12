@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n.tsx';
 import { useState } from 'react';
 import type { HeatmapCanvasProps } from '../components/HeatmapCanvas.tsx';
 import { HeatmapCanvas } from '../components/HeatmapCanvas.tsx';
@@ -11,11 +12,12 @@ export interface RadarWidgetProps extends Partial<Omit<HeatmapCanvasProps, 'data
 
 /** Live radar map from the latest frame of one view. */
 export function RadarWidget({ view, showReadout = true, ...heatmap }: RadarWidgetProps) {
+  const { ui } = useI18n();
   const store = useSensorStore();
   const [hover, setHover] = useState<{ row: number; col: number; value: number } | null>(null);
   const frame = view ? store.frames.get(view) : store.frames.values().next().value;
 
-  return (
+  return ui((
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 6 }}>
       <HeatmapCanvas
         data={frame?.data ?? null}
@@ -34,5 +36,5 @@ export function RadarWidget({ view, showReadout = true, ...heatmap }: RadarWidge
         </div>
       )}
     </div>
-  );
+  ));
 }

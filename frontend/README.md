@@ -31,6 +31,25 @@ Pis that connected before appear under "Recent". Two views: **Session** (what to
 
 To test over Wi-Fi from a phone or tablet, run `npm run dev` and `npm run mock` on the Mac. Open `http://<mac-ip>:5173/?pi=<mac-ip>` on the other device. The page must be **http**. Browsers block `ws://` from https pages.
 
+## Languages
+
+The header selector supports English (default), ไทย, and 繁體中文（香港）. The preference is saved as `trf-language` in localStorage, and `<html lang>` follows the selected language. Switching languages does not reconnect the data source or reset sessions.
+
+`src/i18n/catalog.ts` contains canonical English messages and their Thai/Hong Kong Traditional Chinese translations; `messages.ts` provides the three dictionaries and interpolation. Each display component calls `useI18n()` and wraps its JSX output in `ui(...)`. This translates text, placeholders, tooltips and screen-reader labels while preserving input values, refs, handlers and sensor payloads. Canvas text calls `t(...)` directly. For a new component, follow that pattern and add its English text to the catalog. For a dynamic message, use named `{placeholders}`; never translate protocol keys or numerical units.
+
+Run `node scripts/check-i18n.cjs` to check dictionary parity, placeholders, dynamic messages, preserved form values, event handlers, refs, code snippets and scientific units.
+
+Product/hardware names, identifiers, scientific units, filenames, user-written markers and unrecognised custom text supplied by external kits remain as supplied. Chinese font fallbacks use installed Traditional Chinese fonts without downloading extra fonts. The interface continues to work when localStorage is unavailable (the preference then lasts only for the open page).
+
+Localization file inventory:
+
+- New: `src/i18n/I18n.tsx`, `src/i18n/catalog.ts`, `src/i18n/messages.ts`, `src/i18n/LanguageSelector.tsx`, `src/i18n/LanguageSelector.module.css`, `scripts/check-i18n.cjs`.
+- App/header/fonts: `src/main.tsx`, `src/Root.tsx`, `src/App.tsx`, `src/home/Home.tsx`, `src/home/Home.module.css`, `src/styles/theme.css`.
+- Display components: `src/components/EventList.tsx`, `HeatmapCanvas.tsx`, `Panel.tsx`, `RecommendationCard.tsx`, `ScoreGauge.tsx`, `Stat.tsx`, `TimeSeriesChart.tsx` (all in `src/components/`).
+- Controls/forms/guide: `src/shell/Banners.tsx`, `ConnectionHelp.tsx`, `ConnectionPill.tsx`, `DeviceStrip.tsx`, `HelpGuide.tsx`, `PlaybackBar.tsx`, `SessionBar.tsx`, `SessionRecorder.tsx`, `SourceForm.tsx`, `StartScreen.tsx`, `ThemeToggle.tsx`, `ViewToggle.tsx` (all in `src/shell/`).
+- Connected panels: `src/widgets/AuxWidget.tsx`, `EventLogWidget.tsx`, `LinkWidget.tsx`, `RadarWidget.tsx`, `RecommendationWidget.tsx`, `RepWidget.tsx`, `ScoresWidget.tsx`, `ScoreTrendWidget.tsx`, `StreamHealthWidget.tsx` (all in `src/widgets/`).
+- Documentation: this `README.md`. Existing help-guide layout changes are retained; dependencies, sensor sources and protocol definitions are unchanged.
+
 ## Folder map
 
 | Path | What |

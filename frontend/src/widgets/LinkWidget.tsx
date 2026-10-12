@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n.tsx';
 import { displayAddress } from '../lib/address.ts';
 import { bytes } from '../lib/format.ts';
 import { WebSocketSource } from '../sensor/sources/WebSocketSource.ts';
@@ -6,6 +7,7 @@ import s from './widgets.module.css';
 
 /** Raw connection numbers for troubleshooting. */
 export function LinkWidget() {
+  const { ui } = useI18n();
   const { source } = useSensor();
   const store = useSensorStore();
   const now = useNow();
@@ -27,7 +29,7 @@ export function LinkWidget() {
     ['Viewers on this Pi', status?.clients === undefined ? '–' : String(status.clients)],
     ['Connected for', connectedS === null ? '–' : `${Math.floor(connectedS / 60)} min ${connectedS % 60} s`],
   ];
-  return (
+  return ui((
     <dl className={s.kv}>
       {rows.map(([k, v]) => (
         <div key={k}>
@@ -36,5 +38,5 @@ export function LinkWidget() {
         </div>
       ))}
     </dl>
-  );
+  ));
 }

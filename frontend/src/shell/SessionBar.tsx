@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n.tsx';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 import { exercises } from '../config/defaults.ts';
@@ -25,6 +26,7 @@ const mmss = (ms: number) => {
 
 /** Start / stop a session on the Pi and show its progress. */
 export function SessionBar() {
+  const { ui, t } = useI18n();
   const { canCommand, sendCommand, source, state } = useSensor();
   const store = useSensorStore();
   const now = useNow();
@@ -75,23 +77,23 @@ export function SessionBar() {
 
   // Sources that can't take commands.
   if (!canCommand) {
-    return (
+    return ui((
       <div className={s.sessionBar} data-state="na">
         <span className={s.muted}>
           {source instanceof ReplaySource ? 'Playing a recording. Session controls are off.' : 'Session controls need a Pi kit.'}
         </span>
       </div>
-    );
+    ));
   }
   if (commands && !commands.includes('session.start')) {
-    return (
+    return ui((
       <div className={s.sessionBar} data-state="na">
         <span className={s.muted}>This kit doesn’t support sessions.</span>
       </div>
-    );
+    ));
   }
 
-  return (
+  return ui((
     <div className={s.sessionBar} data-state={running ? 'running' : 'idle'}>
       {running ? (
         <>
@@ -100,7 +102,7 @@ export function SessionBar() {
           </span>
           <span className={s.sessionInfo}>
             <strong>{exerciseLabel(session.exercise)}</strong>
-            {session.side && <span>{humanize(session.side)} side</span>}
+            {session.side && <span>{t('{side} side', { side: t(humanize(session.side)) })}</span>}
             <span className="num">{mmss(now - (session.startedAt ?? now))}</span>
             <span className="num">
               {reps}
@@ -181,5 +183,5 @@ export function SessionBar() {
       )}
       {err && <span className={s.error}>{err}</span>}
     </div>
-  );
+  ));
 }

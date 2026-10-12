@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n.tsx';
 import type { CSSProperties } from 'react';
 import { useEffect, useRef } from 'react';
 import { cssColor, useCanvasSize } from '../lib/canvas.ts';
@@ -47,6 +48,7 @@ export function TimeSeriesChart({
   className,
   style,
 }: TimeSeriesChartProps) {
+  const { ui, t } = useI18n();
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const size = useCanvasSize(wrapRef, canvasRef);
@@ -98,7 +100,8 @@ export function TimeSeriesChart({
     ctx.textBaseline = 'top';
     const stepS = windowMs >= 60_000 ? 20 : windowMs >= 20_000 ? 10 : 2;
     for (let sec = 0; sec <= windowMs / 1000; sec += stepS) {
-      ctx.fillText(sec === 0 ? 'now' : `-${sec}s`, x(tEnd - sec * 1000), H - PAD.b + 4);
+      ctx.textAlign = sec === 0 ? 'right' : 'center';
+      ctx.fillText(sec === 0 ? t('now') : `-${sec}s`, x(tEnd - sec * 1000), H - PAD.b + 4);
     }
 
     for (const th of thresholds) {
@@ -154,7 +157,7 @@ export function TimeSeriesChart({
     });
   });
 
-  return (
+  return ui((
     <div className={cx(s.root, className)} style={{ height, ...style }}>
       {showLegend && series.length > 0 && (
         <ul className={s.legend}>
@@ -174,7 +177,7 @@ export function TimeSeriesChart({
         <canvas ref={canvasRef} className={s.canvas} />
       </div>
     </div>
-  );
+  ));
 }
 
 function defaultFormat(v: number): string {

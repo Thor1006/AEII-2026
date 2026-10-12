@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n.tsx';
 import type { CSSProperties, ReactNode } from 'react';
 import { clockTime, cx, humanize } from '../lib/format.ts';
 import type { RecommendationAction } from '../sensor/protocol.ts';
@@ -23,11 +24,12 @@ export interface RecommendationCardProps {
 }
 
 export function RecommendationCard({ action, reason, at, styles = {}, emptyText = 'Waiting for the first rep', className, style }: RecommendationCardProps) {
+  const { ui } = useI18n();
   if (!action) {
-    return <div className={cx(s.root, s.empty, className)} style={style}>{emptyText}</div>;
+    return ui(<div className={cx(s.root, s.empty, className)} style={style}>{emptyText}</div>);
   }
   const st = styles[action] ?? { label: humanize(action), tone: 'info' as const };
-  return (
+  return ui((
     <div className={cx(s.root, className)} style={style} data-tone={st.tone} role="status" aria-live="polite">
       {st.icon && <div className={s.icon}>{st.icon}</div>}
       <div className={s.text}>
@@ -37,5 +39,5 @@ export function RecommendationCard({ action, reason, at, styles = {}, emptyText 
       </div>
       {at !== undefined && <time className={s.time}>{clockTime(at)}</time>}
     </div>
-  );
+  ));
 }

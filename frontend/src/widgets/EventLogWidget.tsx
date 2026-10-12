@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n.tsx';
 import type { EventListProps } from '../components/EventList.tsx';
 import { EventList } from '../components/EventList.tsx';
 import { eventTones } from '../config/defaults.ts';
@@ -10,11 +11,12 @@ export interface EventLogWidgetProps extends Partial<Omit<EventListProps, 'event
 }
 
 export function EventLogWidget({ kinds, limit = 50, ...list }: EventLogWidgetProps) {
+  const { ui } = useI18n();
   const store = useSensorStore();
   const events = store.events
     .toArray()
     .filter((e) => (kinds ? kinds.includes(e.kind) : e.kind !== 'rep_start'))
     .slice(-limit)
     .reverse();
-  return <EventList events={events} tones={eventTones} {...list} style={{ maxHeight: 400, ...list.style }} />;
+  return ui(<EventList events={events} tones={eventTones} {...list} style={{ maxHeight: 400, ...list.style }} />);
 }

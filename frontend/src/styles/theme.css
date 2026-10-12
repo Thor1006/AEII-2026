@@ -5,7 +5,7 @@
  * Palette: neutral greys + one blue accent (Fluent-style), muted status colours.
  */
 :root {
-  --font-sans: 'Inter', 'Noto Sans Thai', ui-sans-serif, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --font-sans: 'Inter', 'Noto Sans Thai', 'Noto Sans TC', 'PingFang HK', 'Microsoft JhengHei', ui-sans-serif, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
   --radius: 16px;

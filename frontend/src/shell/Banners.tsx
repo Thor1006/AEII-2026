@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n.tsx';
 import { displayAddress } from '../lib/address.ts';
 import { WebSocketSource } from '../sensor/sources/WebSocketSource.ts';
 import { protocolWarning } from '../state/describe.ts';
@@ -7,6 +8,7 @@ import s from './shell.module.css';
 
 /** One-line notices above the dashboard: demo data, lost connection, version problems. */
 export function Banners() {
+  const { ui } = useI18n();
   const { source, state, error } = useSensor();
   const store = useSensorStore();
   const now = useNow();
@@ -17,7 +19,7 @@ export function Banners() {
   const connectedMs = store.stats.firstRecvT ? now - store.stats.firstRecvT : 0;
   const noHello = isPi && state === 'open' && !store.hello && connectedMs > 3000;
 
-  return (
+  return ui((
     <>
       {lost && (
         <div className={s.banner} data-tone="bad" role="alert">
@@ -51,5 +53,5 @@ export function Banners() {
         </div>
       )}
     </>
-  );
+  ));
 }

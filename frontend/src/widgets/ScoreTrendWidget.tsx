@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n.tsx';
 import type { TimeSeriesChartProps } from '../components/TimeSeriesChart.tsx';
 import { TimeSeriesChart } from '../components/TimeSeriesChart.tsx';
 import type { ScoreDef } from '../config/defaults.ts';
@@ -12,6 +13,7 @@ export interface ScoreTrendWidgetProps extends Partial<Omit<TimeSeriesChartProps
 
 /** Score history over time. Where the temporal "predict the next reps" view will go. */
 export function ScoreTrendWidget({ defs, showConfidence = false, ...chart }: ScoreTrendWidgetProps) {
+  const { ui } = useI18n();
   const store = useSensorStore();
   const series = (defs ?? scoreDefs(store)).map((d) => ({
     key: d.key,
@@ -20,5 +22,5 @@ export function ScoreTrendWidget({ defs, showConfidence = false, ...chart }: Sco
     showConfidence,
     points: store.scores.get(d.key)?.toArray() ?? [],
   }));
-  return <TimeSeriesChart series={series} yRange={[0, 1]} formatY={pct} windowMs={60_000} {...chart} />;
+  return ui(<TimeSeriesChart series={series} yRange={[0, 1]} formatY={pct} windowMs={60_000} {...chart} />);
 }

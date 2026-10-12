@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n.tsx';
 import { useEffect, useState } from 'react';
 
 type Theme = 'system' | 'light' | 'dark';
@@ -12,6 +13,7 @@ function readTheme(): Theme {
 }
 
 export function ThemeToggle() {
+  const { ui } = useI18n();
   const [theme, setTheme] = useState<Theme>(readTheme);
   useEffect(() => {
     const root = document.documentElement;
@@ -23,11 +25,11 @@ export function ThemeToggle() {
       /* private mode */
     }
   }, [theme]);
-  return (
+  return ui((
     <select aria-label="Theme" value={theme} onChange={(e) => setTheme(e.target.value as Theme)}>
       <option value="system">Auto</option>
       <option value="light">Light</option>
       <option value="dark">Dark</option>
     </select>
-  );
+  ));
 }

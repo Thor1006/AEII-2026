@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n.tsx';
 import type { CSSProperties, MouseEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useCanvasSize } from '../lib/canvas.ts';
@@ -43,6 +44,7 @@ export function HeatmapCanvas({
   style,
   onHover,
 }: HeatmapCanvasProps) {
+  const { ui } = useI18n();
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const offscreen = useRef<HTMLCanvasElement | null>(null);
@@ -102,7 +104,7 @@ export function HeatmapCanvas({
 
   const fmt = (n: number) => (Math.abs(n) >= 100 ? n.toFixed(0) : n.toFixed(1));
 
-  return (
+  return ui((
     <div className={cx(s.root, className)} style={style}>
       {yAxis && (
         <div className={s.yAxis}>
@@ -139,7 +141,7 @@ export function HeatmapCanvas({
         </div>
       )}
     </div>
-  );
+  ));
 }
 
 /** Min/max with exponential smoothing so the colors don't flicker frame to frame. */

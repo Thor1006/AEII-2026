@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n.tsx';
 import type { FormEvent } from 'react';
 import { useRef, useState } from 'react';
 import { displayAddress, forgetAddress, normalizePiAddress, recentAddresses } from '../lib/address.ts';
@@ -13,9 +14,10 @@ import s from './StartScreen.module.css';
 
 /** Shown when nothing is connected, or while the first connection is being made. */
 export function StartScreen() {
+  const { ui } = useI18n();
   const { source, state, error } = useSensor();
   const pending = source && state !== 'closed' && state !== 'idle';
-  return (
+  return ui((
     <div className={s.screen}>
       <div className={s.intro}>
         <h2>Connect to your TrueRehab kit</h2>
@@ -25,11 +27,12 @@ export function StartScreen() {
       {!pending && source instanceof WebSocketSource && source.authProblem && state === 'closed' && <KeyPrompt source={source} />}
       {!pending && error && state === 'closed' && !(source instanceof WebSocketSource && source.authProblem) && <p className={s.error}>{error}</p>}
     </div>
-  );
+  ));
 }
 
 /** Shown when the kit's key was missing or wrong. */
 function KeyPrompt({ source }: { source: WebSocketSource }) {
+  const { ui } = useI18n();
   const { connect } = useSensor();
   const [value, setValue] = useState('');
   const [err, setErr] = useState<string>();
@@ -47,7 +50,7 @@ function KeyPrompt({ source }: { source: WebSocketSource }) {
     void connect(new WebSocketSource({ url: source.url, key }));
   };
 
-  return (
+  return ui((
     <form className={s.keyBox} onSubmit={submit} role="alert">
       <h3>{askForKey ? 'Enter the kit key' : 'Can’t trust this kit'}</h3>
       <p>{source.error}</p>
@@ -87,10 +90,11 @@ function KeyPrompt({ source }: { source: WebSocketSource }) {
         </button>
       )}
     </form>
-  );
+  ));
 }
 
 function Choices() {
+  const { ui } = useI18n();
   const { connect } = useSensor();
   const [recent, setRecent] = useState(recentAddresses);
   const [address, setAddress] = useState(() => (recent[0] ? displayAddress(recent[0]) : ''));
@@ -113,7 +117,7 @@ function Choices() {
     connectPi(address);
   };
 
-  return (
+  return ui((
     <>
       <div className={s.cards}>
         <form className={`${s.card} ${s.primary}`} onSubmit={onSubmit}>
@@ -207,10 +211,11 @@ function Choices() {
         </details>
       )}
     </>
-  );
+  ));
 }
 
 function Connecting() {
+  const { ui } = useI18n();
   const { source, state, error, disconnect, connect } = useSensor();
   useNow(1000); // attempt count lives on the source; refresh it
   if (!source) return null;
@@ -225,7 +230,7 @@ function Connecting() {
       ? 'Couldn’t open this source'
       : 'Opening…';
 
-  return (
+  return ui((
     <div className={s.connecting} role="status" aria-live="polite">
       <div className={s.connHead}>
         {!failed || isPi ? <span className={s.spinner} aria-hidden /> : null}
@@ -251,5 +256,5 @@ function Connecting() {
         )}
       </div>
     </div>
-  );
+  ));
 }

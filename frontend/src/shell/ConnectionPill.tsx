@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n.tsx';
 import { displayAddress } from '../lib/address.ts';
 import { bytes } from '../lib/format.ts';
 import { ReplaySource } from '../sensor/sources/ReplaySource.ts';
@@ -8,6 +9,7 @@ import s from './shell.module.css';
 
 /** "KIT-01 · Signal good". Click for details and to disconnect. */
 export function ConnectionPill() {
+  const { ui } = useI18n();
   const { source, state, disconnect } = useSensor();
   const store = useSensorStore();
   const now = useNow();
@@ -24,7 +26,7 @@ export function ConnectionPill() {
   const { stats } = store;
   const total = stats.received + stats.dropped;
 
-  return (
+  return ui((
     <details className={s.pill}>
       <summary data-tone={tone}>
         <span className={s.pillDot} />
@@ -66,5 +68,5 @@ export function ConnectionPill() {
         </button>
       </div>
     </details>
-  );
+  ));
 }

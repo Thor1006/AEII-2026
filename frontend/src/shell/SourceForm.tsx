@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n.tsx';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 import type { FieldValue, SourceDefinition } from '../sensor/sources/index.ts';
@@ -6,6 +7,7 @@ import s from './StartScreen.module.css';
 
 /** A connect form generated from a source definition's `fields`. Used for "More options". */
 export function SourceForm({ def }: { def: SourceDefinition }) {
+  const { ui } = useI18n();
   const { connect } = useSensor();
   const [values, setValues] = useState<Record<string, FieldValue>>(() => Object.fromEntries(def.fields.map((f) => [f.name, f.default])));
   const [err, setErr] = useState<string>();
@@ -22,7 +24,7 @@ export function SourceForm({ def }: { def: SourceDefinition }) {
     }
   };
 
-  return (
+  return ui((
     <form className={s.subForm} onSubmit={onSubmit}>
       <div className={s.subHead}>
         <strong>{def.label}</strong>
@@ -58,5 +60,5 @@ export function SourceForm({ def }: { def: SourceDefinition }) {
         {err && <span className={s.error}>{err}</span>}
       </div>
     </form>
-  );
+  ));
 }

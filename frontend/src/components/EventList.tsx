@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n.tsx';
 import type { CSSProperties, ReactNode } from 'react';
 import { clockTime, cx, humanize } from '../lib/format.ts';
 import type { EventMessage } from '../sensor/protocol.ts';
@@ -39,15 +40,16 @@ export function defaultEventText(e: EventMessage): string {
 }
 
 export function EventList({ events, renderEvent = defaultEventText, tones = {}, emptyText = 'No events yet', className, style }: EventListProps) {
-  if (!events.length) return <div className={cx(s.empty, className)} style={style}>{emptyText}</div>;
-  return (
+  const { ui } = useI18n();
+  if (!events.length) return ui(<div className={cx(s.empty, className)} style={style}>{emptyText}</div>);
+  return ui((
     <ol className={cx(s.list, className)} style={style}>
       {events.map((e) => (
         <li key={`${e.src ?? ''}-${e.seq}-${e.t}`} data-tone={tones[e.kind]}>
           <time>{clockTime(e.t)}</time>
-          <span>{renderEvent(e)}</span>
+          <span translate={e.kind === 'marker' && !/^Marker(?: at \d+:\d+)?$/.test(e.label ?? String(e.data?.label ?? '')) ? 'no' : undefined}>{renderEvent(e)}</span>
         </li>
       ))}
     </ol>
-  );
+  ));
 }

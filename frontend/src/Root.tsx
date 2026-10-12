@@ -1,3 +1,4 @@
+import { useI18n } from './i18n/I18n.tsx';
 import { useEffect, useState } from 'react';
 import { App } from './App.tsx';
 import { Home } from './home/Home.tsx';
@@ -13,6 +14,7 @@ const read = (): Route | null => (location.hash.startsWith('#/app') ? 'app' : lo
  * Opened from a Pi bridge or with ?pi=, go straight to the dashboard: those users want live data, not the intro.
  */
 export function Root() {
+  const { ui } = useI18n();
   const [route, setRoute] = useState<Route | null>(() => {
     takeKeyFromLocation(); // sticker link: save the key, then hide it from the address bar
     return read();
@@ -39,5 +41,5 @@ export function Root() {
   }, [route]);
 
   if (!checked) return null;
-  return (route ?? 'home') === 'app' ? <App /> : <Home />;
+  return ui((route ?? 'home') === 'app' ? <App /> : <Home />);
 }

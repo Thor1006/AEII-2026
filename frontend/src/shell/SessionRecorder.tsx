@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n.tsx';
 import { useEffect, useRef, useState } from 'react';
 import { bytes } from '../lib/format.ts';
 import { toJsonLine } from '../sensor/codec.ts';
@@ -12,6 +13,7 @@ export interface SessionRecorderProps {
 
 /** Records the incoming stream to .ndjson, which the Replay source can play back. */
 export function SessionRecorder({ includeFrames: initialFrames = true, filenamePrefix = 'session' }: SessionRecorderProps) {
+  const { ui } = useI18n();
   const { store } = useSensor();
   const [recording, setRecording] = useState(false);
   const [includeFrames, setIncludeFrames] = useState(initialFrames);
@@ -54,7 +56,7 @@ export function SessionRecorder({ includeFrames: initialFrames = true, filenameP
     lines.current = [];
   };
 
-  return (
+  return ui((
     <div className={s.recorder}>
       {recording ? (
         <>
@@ -74,5 +76,5 @@ export function SessionRecorder({ includeFrames: initialFrames = true, filenameP
         </>
       )}
     </div>
-  );
+  ));
 }

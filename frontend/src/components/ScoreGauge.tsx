@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n.tsx';
 import type { CSSProperties, ReactNode } from 'react';
 import { cx, pct } from '../lib/format.ts';
 import s from './ScoreGauge.module.css';
@@ -43,10 +44,11 @@ export function ScoreGauge({
   className,
   style,
 }: ScoreGaugeProps) {
+  const { ui } = useI18n();
   const tone = scoreTone(value, higherIsWorse, thresholds);
   const v = value === null ? 0 : Math.min(1, Math.max(0, value));
   const stroke = color ?? (tone === 'none' ? 'var(--border)' : `var(--${tone})`);
-  return (
+  return ui((
     <div className={cx(s.root, className)} style={style} data-tone={tone}>
       <svg viewBox="0 0 100 58" className={s.svg} role="img" aria-label={`${typeof label === 'string' ? label : 'score'}: ${value === null ? 'no data' : format(v)}`}>
         <path d="M8 50 A42 42 0 0 1 92 50" className={s.track} />
@@ -61,5 +63,5 @@ export function ScoreGauge({
       {confidence !== undefined && <div className={s.conf}>conf. {pct(confidence)}</div>}
       {footer}
     </div>
-  );
+  ));
 }

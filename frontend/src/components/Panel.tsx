@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n.tsx';
 import type { CSSProperties, ReactNode } from 'react';
 import { useId, useState } from 'react';
 import { cx } from '../lib/format.ts';
@@ -18,9 +19,10 @@ export interface PanelProps {
 
 /** Card shell used by every dashboard panel. */
 export function Panel({ title, info, actions, children, className, style, flush }: PanelProps) {
+  const { ui } = useI18n();
   const [showInfo, setShowInfo] = useState(false);
   const infoId = useId();
-  return (
+  return ui((
     <section className={cx(s.panel, className)} style={style}>
       {(title || actions || info) && (
         <header className={s.header}>
@@ -50,5 +52,5 @@ export function Panel({ title, info, actions, children, className, style, flush 
       )}
       <div className={cx(s.body, flush && s.flush)}>{children}</div>
     </section>
-  );
+  ));
 }

@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n.tsx';
 import { humanize } from '../lib/format.ts';
 import type { StreamHealth, StreamState } from '../state/describe.ts';
 import { streamHealth } from '../state/describe.ts';
@@ -22,13 +23,14 @@ function detail(h: StreamHealth): string | undefined {
 
 /** Every stream the Pi promised, and whether it's arriving. */
 export function StreamHealthWidget() {
+  const { ui } = useI18n();
   const store = useSensorStore();
   const now = useNow();
   const rows = streamHealth(store, now);
   const problems = rows.filter((r) => r.state === 'late' || r.state === 'missing');
   const groups = [...new Set(rows.map((r) => r.group))];
 
-  return (
+  return ui((
     <div className={s.health}>
       <p className={s.summary} data-tone={problems.length ? 'bad' : rows.length ? 'good' : undefined}>
         {!rows.length
@@ -58,5 +60,5 @@ export function StreamHealthWidget() {
         </div>
       ))}
     </div>
-  );
+  ));
 }

@@ -1,7 +1,10 @@
+import { useI18n } from '../i18n/I18n.tsx';
 import { Logo } from '../components/Logo.tsx';
 import { MockSource } from '../sensor/sources/MockSource.ts';
 import { SensorProvider, useSensor } from '../state/SensorContext.tsx';
 import { ThemeToggle } from '../shell/ThemeToggle.tsx';
+import { HelpGuide } from '../shell/HelpGuide.tsx';
+import { LanguageSelector } from '../i18n/LanguageSelector.tsx';
 import { ScoresWidget } from '../widgets/ScoresWidget.tsx';
 import { ScoreTrendWidget } from '../widgets/ScoreTrendWidget.tsx';
 import s from './Home.module.css';
@@ -34,12 +37,13 @@ const compare = {
 
 /** Landing page shown first. The dashboard lives at #/app. */
 export function Home() {
+  const { ui } = useI18n();
   const { connect } = useSensor();
   const tryDemo = () => {
     void connect(new MockSource());
     location.hash = '#/app';
   };
-  return (
+  return ui((
     <div className={s.page}>
       <header className={s.nav}>
         <a className={s.brand} href="#/" aria-label="TrueRehab-RF home">
@@ -48,6 +52,8 @@ export function Home() {
         </a>
         <div className={s.navRight}>
           <a className={s.navLink} href="#/app">Dashboard</a>
+          <HelpGuide />
+          <LanguageSelector />
           <ThemeToggle />
         </div>
       </header>
@@ -153,5 +159,5 @@ export function Home() {
         <p>Built to support physiotherapists, not replace them.</p>
       </footer>
     </div>
-  );
+  ));
 }

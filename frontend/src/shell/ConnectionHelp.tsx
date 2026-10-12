@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n.tsx';
 import type { ReactNode } from 'react';
 import { displayAddress } from '../lib/address.ts';
 import { WebSocketSource } from '../sensor/sources/WebSocketSource.ts';
@@ -50,13 +51,14 @@ export function piChecklist(address: string): { title: string; body: ReactNode; 
 }
 
 export function ConnectionHelp({ source, state, error, compact }: ConnectionHelpProps) {
+  const { ui } = useI18n();
   if (!(source instanceof WebSocketSource)) {
-    return <p className={state === 'error' ? s.error : s.muted}>{state === 'error' ? (error ?? 'Could not open this source.') : 'Opening…'}</p>;
+    return ui(<p className={state === 'error' ? s.error : s.muted}>{state === 'error' ? (error ?? 'Could not open this source.') : 'Opening…'}</p>);
   }
   const address = displayAddress(source.url);
   const items = piChecklist(address);
   const shown = compact ? items.filter((i) => !i.urgent).slice(0, 3) : items;
-  return (
+  return ui((
     <ol className={s.checklist}>
       {shown.map((i) => (
         <li key={i.title} data-urgent={i.urgent || undefined}>
@@ -65,5 +67,5 @@ export function ConnectionHelp({ source, state, error, compact }: ConnectionHelp
         </li>
       ))}
     </ol>
-  );
+  ));
 }

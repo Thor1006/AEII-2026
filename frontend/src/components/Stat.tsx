@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n.tsx';
 import type { CSSProperties, ReactNode } from 'react';
 import { cx } from '../lib/format.ts';
 import s from './Stat.module.css';
@@ -14,7 +15,8 @@ export interface StatProps {
 
 /** A labelled number. */
 export function Stat({ label, value, unit, tone, size = 'sm', className, style }: StatProps) {
-  return (
+  const { ui } = useI18n();
+  return ui((
     <div className={cx(s.stat, s[size], className)} style={style} data-tone={tone}>
       <div className={s.value}>
         {value}
@@ -22,5 +24,5 @@ export function Stat({ label, value, unit, tone, size = 'sm', className, style }
       </div>
       <div className={s.label}>{label}</div>
     </div>
-  );
+  ));
 }

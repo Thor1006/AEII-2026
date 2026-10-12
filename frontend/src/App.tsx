@@ -1,3 +1,4 @@
+import { useI18n } from './i18n/I18n.tsx';
 import type { ComponentType, CSSProperties } from 'react';
 import { useEffect, useState } from 'react';
 import { Logo } from './components/Logo.tsx';
@@ -11,6 +12,8 @@ import { useSensor } from './state/SensorContext.tsx';
 import { Banners } from './shell/Banners.tsx';
 import { ConnectionPill } from './shell/ConnectionPill.tsx';
 import { DeviceStrip } from './shell/DeviceStrip.tsx';
+import { HelpGuide } from './shell/HelpGuide.tsx';
+import { LanguageSelector } from './i18n/LanguageSelector.tsx';
 import { PlaybackBar } from './shell/PlaybackBar.tsx';
 import { SessionBar } from './shell/SessionBar.tsx';
 import { SessionRecorder } from './shell/SessionRecorder.tsx';
@@ -30,6 +33,7 @@ export interface AppProps {
 const VIEW_KEY = 'trf-view';
 
 export function App({ layouts = defaultLayouts, title = 'TrueRehab-RF', autoConnect = true }: AppProps) {
+  const { ui } = useI18n();
   const { source, state, connect } = useSensor();
   const [view, setView] = useState(() => {
     try {
@@ -69,7 +73,7 @@ export function App({ layouts = defaultLayouts, title = 'TrueRehab-RF', autoConn
   const everOpened = source instanceof WebSocketSource ? source.everOpened : state === 'open';
   const showStart = !source || state === 'closed' || state === 'idle' || (!everOpened && state !== 'open');
 
-  return (
+  return ui((
     <div className={s.app}>
       <header className={s.header}>
         <a className={s.brand} href="#/" aria-label="TrueRehab-RF home">
@@ -84,6 +88,8 @@ export function App({ layouts = defaultLayouts, title = 'TrueRehab-RF', autoConn
         )}
         <div className={s.controls}>
           {!showStart && <ConnectionPill />}
+          <HelpGuide />
+          <LanguageSelector />
           <ThemeToggle />
         </div>
       </header>
@@ -111,11 +117,12 @@ export function App({ layouts = defaultLayouts, title = 'TrueRehab-RF', autoConn
         </>
       )}
     </div>
-  );
+  ));
 }
 
 function WidgetSlot({ panel }: { panel: PanelConfig }) {
+  const { ui } = useI18n();
   // The config's discriminated union guarantees props match the widget.
   const Widget = widgets[panel.widget] as ComponentType<Record<string, unknown>>;
-  return <Widget {...(panel.props ?? {})} />;
+  return ui(<Widget {...(panel.props ?? {})} />);
 }

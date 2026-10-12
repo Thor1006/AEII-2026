@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n.tsx';
 import { Stat } from '../components/Stat.tsx';
 import { useSensorStore } from '../state/SensorContext.tsx';
 
@@ -8,6 +9,7 @@ export interface RepWidgetProps {
 
 /** Rep count and range of motion from rep_end events in the current session. */
 export function RepWidget({ target }: RepWidgetProps) {
+  const { ui } = useI18n();
   const store = useSensorStore();
   const reps = store.sessionEvents('rep_end');
   const roms = reps.map((e) => e.data?.romDeg).filter((x): x is number => typeof x === 'number');
@@ -17,7 +19,7 @@ export function RepWidget({ target }: RepWidgetProps) {
   const goal = store.session?.targetReps ?? target;
   const done = goal !== undefined && reps.length >= goal;
 
-  return (
+  return ui((
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <Stat size="lg" label={done ? 'Target reached' : 'Reps'} value={reps.length} unit={goal ? `/ ${goal}` : undefined} tone={done ? 'good' : undefined} />
       {goal !== undefined && (
@@ -35,5 +37,5 @@ export function RepWidget({ target }: RepWidgetProps) {
         />
       </div>
     </div>
-  );
+  ));
 }
