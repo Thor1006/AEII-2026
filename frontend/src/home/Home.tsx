@@ -6,6 +6,32 @@ import { ScoresWidget } from '../widgets/ScoresWidget.tsx';
 import { ScoreTrendWidget } from '../widgets/ScoreTrendWidget.tsx';
 import s from './Home.module.css';
 
+
+const steps = [
+  {
+    title: 'The radar watches',
+    text: 'A small radar tracks how your arm, shoulder and trunk move during an exercise.',
+  },
+  {
+    title: 'AI scores every rep',
+    text: 'It rates fatigue, movement quality and compensation, and watches how they change.',
+  },
+  {
+    title: 'You get a next step',
+    text: 'Keep going, fix your posture, ease off, rest, or see your physiotherapist.',
+  },
+];
+
+/** Radar vs the usual alternatives. Keep claims inside what the proposal says. */
+const compare = {
+  options: ['Camera', 'Wearables', 'Radar'],
+  rows: [
+    { label: 'Privacy', cells: ['Records your face and room', 'Nothing recorded', 'Sees movement only'] },
+    { label: 'Setup', cells: ['Needs good light and framing', 'Straps or patches on the body', 'Nothing to wear'] },
+    { label: 'At home', cells: ['Awkward to place', 'Easy to put on wrong', 'Place it once, then exercise'] },
+  ],
+};
+
 /** Landing page shown first. The dashboard lives at #/app. */
 export function Home() {
   const { connect } = useSensor();
@@ -45,15 +71,14 @@ export function Home() {
           </div>
         </section>
 
-        <section className={s.showcase} aria-labelledby="preview-title">
-          <h2 id="preview-title" className={s.sectionTitle}>
-            Three scores. One clear picture.
-          </h2>
-          <p className={s.sectionLead}>Fatigue, movement quality and compensation, updated as the exercise happens.</p>
+        <section className={s.demo} aria-label="Live demo of the three scores">
           <SensorProvider initialSource={() => new MockSource()}>
             <div className={s.card}>
               <div className={s.cardHead}>
-                <span className={s.live}>Live demo</span>
+                <span className={s.live}>
+                  <span className={s.liveDot} aria-hidden />
+                  Live demo
+                </span>
                 <span className={s.note}>Made-up data, not a measurement</span>
               </div>
               <div className={s.cardBody}>
@@ -66,6 +91,60 @@ export function Home() {
               </div>
             </div>
           </SensorProvider>
+        </section>
+
+        <section className={s.section} aria-labelledby="how-title">
+          <h2 id="how-title" className={s.sectionTitle}>
+            From movement to a clear next step.
+          </h2>
+          <p className={s.sectionLead}>Three things happen while you exercise. You don’t have to do anything.</p>
+          <ol className={s.steps}>
+            {steps.map((st, i) => (
+              <li key={st.title} className={s.step}>
+                <span className={s.stepNum} aria-hidden>
+                  {i + 1}
+                </span>
+                <h3 className={s.stepTitle}>{st.title}</h3>
+                <p className={s.stepText}>{st.text}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section className={s.section} aria-labelledby="why-title">
+          <h2 id="why-title" className={s.sectionTitle}>
+            Why radar.
+          </h2>
+          <p className={s.sectionLead}>
+            Rehab works best when it feels easy. Radar keeps the technology out of the way, and it never replaces your
+            physiotherapist.
+          </p>
+          <div className={s.tableWrap}>
+            <table className={s.compare}>
+              <thead>
+                <tr>
+                  <td />
+                  {compare.options.map((o, i) => (
+                    <th key={o} scope="col" className={i === compare.options.length - 1 ? s.ours : undefined}>
+                      {o}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {compare.rows.map((r) => (
+                  <tr key={r.label}>
+                    <th scope="row">{r.label}</th>
+                    {r.cells.map((c, i) => (
+                      <td key={c} className={i === r.cells.length - 1 ? s.ours : undefined}>
+                        {c}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       </main>
 

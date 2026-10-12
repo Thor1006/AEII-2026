@@ -52,7 +52,7 @@
 .hero {
   max-width: 980px;
   margin: 0 auto;
-  padding: clamp(56px, 12vw, 128px) 24px clamp(48px, 9vw, 96px);
+  padding: clamp(56px, 11vw, 112px) 24px clamp(36px, 6vw, 56px);
   text-align: center;
 }
 
@@ -106,7 +106,13 @@
   border-color: var(--text-muted);
 }
 
-.showcase {
+.demo {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 24px clamp(64px, 11vw, 128px);
+}
+
+.section {
   max-width: 980px;
   margin: 0 auto;
   padding: 0 24px clamp(56px, 10vw, 112px);
@@ -147,15 +153,22 @@
 }
 
 .live {
-  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
   font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+}
+
+.liveDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--good);
 }
 
 .note {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-muted);
 }
 
@@ -171,6 +184,93 @@
   min-width: 0;
 }
 
+/* How it works: plain numbered columns, no cards. */
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 32px;
+  text-align: left;
+}
+
+.step {
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.stepNum {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 40px;
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.stepTitle {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.stepText {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* Why radar: comparison table, radar column highlighted. */
+.tableWrap {
+  overflow-x: auto;
+  text-align: left;
+}
+
+.compare {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.compare th,
+.compare td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.compare thead th {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.compare tbody th {
+  width: 18%;
+  font-weight: 500;
+}
+
+.compare tbody td {
+  color: var(--text-muted);
+}
+
+.compare .ours {
+  color: var(--text);
+  font-weight: 500;
+  background: var(--surface);
+}
+
+.compare thead .ours {
+  color: var(--accent);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
 .footer {
   padding: 32px 24px 48px;
   text-align: center;
@@ -183,8 +283,26 @@
 }
 
 @media (max-width: 760px) {
+  .steps {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+
   .cardBody {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .compare {
+    font-size: 13px;
+  }
+
+  .compare th,
+  .compare td {
+    padding: 10px 8px;
+  }
+
+  .compare thead th {
+    font-size: 13px;
   }
 }
 
