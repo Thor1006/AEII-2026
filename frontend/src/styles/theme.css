@@ -1,0 +1,94 @@
+/*
+ * Design tokens. Restyle the whole app by editing these.
+ * Light is the default; dark follows the OS unless <html data-theme="light|dark"> forces one.
+ * Fonts are system stacks so the demo works offline.
+ */
+:root {
+  --font-sans: ui-sans-serif, -apple-system, 'Segoe UI', 'Noto Sans Thai', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --gap: 14px;
+  --pad: 16px;
+
+  --bg: #f4f3ef;
+  --surface: #ffffff;
+  --surface-2: #f0efe9;
+  --border: #e2e0d8;
+  --text: #1b1f23;
+  --text-muted: #6a6f75;
+  --accent: #0f766e;
+  --accent-contrast: #ffffff;
+
+  --good: #2f855a;
+  --warn: #b7791f;
+  --bad: #c53030;
+  --info: #2b6cb0;
+
+  --series-1: #d97706;
+  --series-2: #0f766e;
+  --series-3: #be3455;
+  --series-4: #4c51bf;
+  --series-5: #718096;
+  --series-6: #2b6cb0;
+
+  --chart-grid: #e7e5de;
+  --chart-text: #8a8f95;
+  --heatmap-bg: #0b0f14;
+
+  --shadow: 0 1px 2px rgb(20 20 20 / 0.04), 0 1px 1px rgb(20 20 20 / 0.03);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0e1215;
+    --surface: #161b1f;
+    --surface-2: #1d2328;
+    --border: #2a3137;
+    --text: #e6e8ea;
+    --text-muted: #949ba2;
+    --accent: #2dd4bf;
+    --accent-contrast: #0b1a18;
+    --good: #48bb78;
+    --warn: #ecc94b;
+    --bad: #fc8181;
+    --info: #63b3ed;
+    --series-1: #f6ad55;
+    --series-2: #2dd4bf;
+    --series-3: #f687b3;
+    --series-4: #a3bffa;
+    --series-5: #a0aec0;
+    --series-6: #63b3ed;
+    --chart-grid: #232a30;
+    --chart-text: #7b838a;
+    --shadow: none;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #0e1215;
+  --surface: #161b1f;
+  --surface-2: #1d2328;
+  --border: #2a3137;
+  --text: #e6e8ea;
+  --text-muted: #949ba2;
+  --accent: #2dd4bf;
+  --accent-contrast: #0b1a18;
+  --good: #48bb78;
+  --warn: #ecc94b;
+  --bad: #fc8181;
+  --info: #63b3ed;
+  --series-1: #f6ad55;
+  --series-2: #2dd4bf;
+  --series-3: #f687b3;
+  --series-4: #a3bffa;
+  --series-5: #a0aec0;
+  --series-6: #63b3ed;
+  --chart-grid: #232a30;
+  --chart-text: #7b838a;
+  --shadow: none;
+  color-scheme: dark;
+}

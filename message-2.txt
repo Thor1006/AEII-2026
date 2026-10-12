@@ -1,0 +1,466 @@
+ได้ครับ ผมว่าตอนนี้เรามีภาพของโครงการชัดพอที่จะจัด **Project Structure แบบ Computer Engineer** ได้แล้ว โดยผมจะยึด Proposal เป็นแกน และเอา Hardware ที่เราเลือกตอนนี้มาใส่ในโครงสร้างด้วย
+
+Proposal เดิมวาง Development Phase ไว้ 7 Phase ตั้งแต่ Proof of Concept → Muscle Signal → Compensation → Fusion → Temporal Prediction → Personalization → Demonstration ซึ่งโครงสร้างด้านล่างจะจัดให้เป็นระบบเดียวกันครับ :chatgpt-content-reference{index="0"}
+
+# TrueRehab-RF — Overall Project Structure
+
+```text
+TRUE REHAB-RF
+│
+├── 1. HARDWARE LAYER
+│   │
+│   ├── 1.1 Main Sensor
+│   │     └── 77-GHz mmWave Radar
+│   │          └── TI AWR1843BOOST
+│   │
+│   ├── 1.2 Radar Data Acquisition
+│   │     └── DCA1000EVM
+│   │
+│   ├── 1.3 Development / Processing
+│   │     ├── Existing Notebook
+│   │     └── Raspberry Pi 5
+│   │         └── Final Edge AI
+│   │
+│   └── 1.4 Ground Truth Hardware
+│         ├── sEMG
+│         ├── IMU
+│         ├── Force Sensor / Load Cell
+│         ├── Arduino
+│         └── iPhone / Android Camera
+│
+│
+├── 2. DATA ACQUISITION
+│   │
+│   ├── 2.1 Radar Data
+│   │     └── Raw I/Q / ADC
+│   │
+│   ├── 2.2 Muscle Ground Truth
+│   │     ├── sEMG
+│   │     ├── Force
+│   │     └── Repetition-to-Failure
+│   │
+│   ├── 2.3 Movement Ground Truth
+│   │     ├── IMU
+│   │     └── Video Pose
+│   │
+│   └── 2.4 Synchronization
+│         └── Common Timestamp
+│
+│
+├── 3. SIGNAL PROCESSING
+│   │
+│   ├── Range FFT
+│   ├── Doppler FFT
+│   ├── Range-Doppler
+│   ├── Micro-Doppler
+│   ├── Time-Frequency Analysis
+│   └── Motion / Body Region Tracking
+│
+│
+├── 4. FEATURE EXTRACTION
+│   │
+│   ├── 4.1 Muscle Features
+│   │     ├── Micro-motion
+│   │     ├── Vibration
+│   │     └── Frequency / Amplitude
+│   │
+│   ├── 4.2 Movement Features
+│   │     ├── ROM
+│   │     ├── Velocity
+│   │     ├── Trajectory
+│   │     └── Symmetry
+│   │
+│   └── 4.3 Compensation Features
+│         ├── Shoulder Elevation
+│         ├── Trunk Movement
+│         └── Body Asymmetry
+│
+│
+├── 5. AI MODEL LAYER
+│   │
+│   ├── 5.1 Fatigue Model
+│   │     Radar Features
+│   │          ↓
+│   │     Ground Truth
+│   │          ↓
+│   │     Fatigue Score
+│   │
+│   ├── 5.2 Movement Model
+│   │     Radar Features
+│   │          ↓
+│   │     IMU / Video
+│   │          ↓
+│   │     Movement Quality Score
+│   │
+│   └── 5.3 Compensation Model
+│         Radar Features
+│              ↓
+│         IMU / Video
+│              ↓
+│         Compensation Score
+│
+│
+├── 6. TEMPORAL AI
+│   │
+│   ├── Fatigue Score
+│   ├── Movement Score
+│   ├── Compensation Score
+│   │
+│   └── Time Series Model
+│         ↓
+│      Fatigue Trend
+│         ↓
+│      Movement Degradation
+│         ↓
+│      Compensation Prediction
+│
+│
+├── 7. PERSONALIZATION
+│   │
+│   ├── User Baseline
+│   ├── Historical Sessions
+│   ├── Fatigue Pattern
+│   ├── Compensation Pattern
+│   │
+│   └── Personal
+│       Fatigue–Compensation Signature
+│
+│
+├── 8. DECISION / RECOMMENDATION
+│   │
+│   ├── Continue
+│   ├── Correct posture
+│   ├── Reduce resistance
+│   ├── Reduce ROM
+│   ├── Rest
+│   └── Consult physiotherapist
+│
+│
+└── 9. SOFTWARE / DASHBOARD
+    │
+    ├── Muscle Fatigue
+    ├── Movement Quality
+    ├── Compensation Level
+    ├── Compensation Risk
+    ├── Prediction
+    └── Recommended Action
+```
+
+---
+
+# สิ่งสำคัญที่สุด: แบ่งระบบเป็น 3 ชั้น
+
+ถ้าต้องอธิบายให้เพื่อนเข้าใจง่าย ผมจะไม่เอา 9 ชั้นด้านบนไปพูดทั้งหมด แต่แบ่งเป็น:
+
+## ① HARDWARE
+
+```text
+AWR1843BOOST
+     ↓
+Radar Data
+
+Ground Truth:
+sEMG
+IMU
+Force
+Camera
+
+Computer:
+Notebook → Development
+Raspberry Pi → Final Edge
+```
+
+Radar เป็น **Sensor หลัก** ส่วน sEMG/IMU/Force/Camera เป็น **เครื่องมืออ้างอิงตอนพัฒนาและ Validate** ไม่ใช่สิ่งที่ผู้ป่วยต้องใส่ทั้งหมดในระบบสุดท้าย ซึ่งตรงกับ Proposal ที่ระบุว่า sEMG และ IMU ใช้เป็น reference/validation และ prototype สุดท้ายมุ่งไปที่ Radar เพียงตัวเดียว :chatgpt-content-reference{index="1"}
+
+---
+
+# ② AI / DATA PROCESSING
+
+นี่คือสมองของโครงการ
+
+```text
+Radar
+  ↓
+Raw Signal
+  ↓
+Signal Processing
+  ↓
+Feature Extraction
+  ↓
+┌────────────┬────────────┬──────────────┐
+│            │            │              │
+Fatigue    Movement    Compensation     │
+ Model       Model         Model         │
+│            │            │              │
+↓            ↓            ↓              │
+Fatigue    Movement    Compensation      │
+Score       Score        Score           │
+└────────────┴────────────┴──────────────┘
+                    ↓
+              Temporal AI
+                    ↓
+          Future Prediction
+                    ↓
+            Personalization
+```
+
+Proposal ระบุ Signal Processing ที่จะพิจารณา เช่น Range FFT, Doppler FFT, Micro-Doppler, Spectrogram และ Motion Trajectory รวมถึง candidate AI เช่น CNN, CNN-LSTM, LSTM, TCN และ Transformer :chatgpt-content-reference{index="2"}
+
+**ยังไม่ควรล็อกว่า Fatigue Model ต้องเป็น XGBoost หรือ LSTM** เพราะ Proposal เองยังเปิดให้เลือก Model ตามข้อมูลจริงและผลการทดลอง
+
+---
+
+# ③ SOFTWARE / DASHBOARD
+
+AI ได้คำตอบแล้วส่งต่อให้ Dashboard:
+
+```text
+AI
+ ↓
+Fatigue = 70%
+Movement Quality = 62%
+Compensation = 35%
+ ↓
+Temporal AI
+ ↓
+Compensation Risk = HIGH
+ ↓
+"Expected within next 2–3 repetitions"
+```
+
+แล้ว Dashboard แสดง:
+
+> ⚠ High Compensation Risk  
+> Shoulder compensation likely to occur  
+> Rest / Reduce resistance
+
+Proposal ระบุ Dashboard ให้แสดง Muscle Fatigue, Movement Quality, Compensation Level, Compensation Risk และ Recommended Action :chatgpt-content-reference{index="3"}
+
+---
+
+# แล้ว Ground Truth อยู่ตรงไหน?
+
+นี่เป็นจุดที่อยากให้ทีมเข้าใจตรงกันที่สุด:
+
+**Ground Truth ไม่ได้อยู่ใน Final Product**
+
+มันเป็น **Development & Validation Layer**
+
+```text
+                 RADAR
+                   │
+                   ▼
+             Radar Features
+                   │
+                   │
+       ┌───────────┴───────────┐
+       │                       │
+       ▼                       ▼
+    AI Model              Ground Truth
+       │                       │
+       │                  ┌────┼─────┐
+       │                  │    │     │
+       │                sEMG  IMU  Force
+       │                  │    │     │
+       └────────────┬─────┴────┴─────┘
+                    ▼
+                Validation
+```
+
+ตัวอย่าง:
+
+### Fatigue
+
+```text
+Radar Feature ────────┐
+                      ├──→ Fatigue Model
+sEMG / Force ──────────┘
+       Ground Truth
+```
+
+### Movement
+
+```text
+Radar Feature ────────┐
+                      ├──→ Movement Model
+IMU / Video ──────────┘
+       Ground Truth
+```
+
+### Compensation
+
+```text
+Radar Feature ────────┐
+                      ├──→ Compensation Model
+IMU / Video ──────────┘
+       Ground Truth
+```
+
+Proposal ระบุ Ground Truth สำหรับ Fatigue เป็น sEMG, Repetition-to-Failure, Force Reduction และ Perceived Exertion ส่วน Movement ใช้ IMU, Video Pose หรือ Optical Motion Capture :chatgpt-content-reference{index="4"}
+
+---
+
+# แล้ว Time Series อยู่ตรงไหน?
+
+ตรงนี้คือ **Phase 5**
+
+หลังจากเรามี:
+
+```text
+Fatigue Score
+Movement Quality Score
+Compensation Score
+```
+
+แล้ว
+
+```text
+Time 1
+Fatigue 20
+Movement 95
+Compensation 0
+
+Time 2
+Fatigue 40
+Movement 85
+Compensation 5
+
+Time 3
+Fatigue 65
+Movement 70
+Compensation 20
+```
+
+เข้า:
+
+```text
+        Temporal AI
+            ↓
+"จาก Trend นี้
+อีก 2–3 ครั้ง
+จะเกิด Compensation หรือไม่?"
+```
+
+นี่ตรงกับ Proposal ที่ระบุ:
+
+**Muscle Fatigue → Movement Degradation → Compensatory Movement** :chatgpt-content-reference{index="5"}
+
+---
+
+# แล้ว Personalization อยู่ตรงไหน?
+
+หลังจากมีข้อมูลหลาย Session ของคนเดียวกัน:
+
+```text
+User A
+Session 1
+Session 2
+Session 3
+Session 4
+...
+```
+
+AI เรียนรู้ว่า:
+
+```text
+Normal
+ ↓
+Fatigue 50%
+ ↓
+Movement degradation
+ ↓
+Shoulder compensation
+```
+
+แต่ User B:
+
+```text
+Normal
+ ↓
+Fatigue 75%
+ ↓
+ROM reduction
+ ↓
+Trunk compensation
+```
+
+จึงสร้าง:
+
+> **Personal Fatigue–Compensation Signature**
+
+ซึ่งเป็นสิ่งที่ Proposal ระบุไว้โดยตรง :chatgpt-content-reference{index="6"}
+
+---
+
+# Development Roadmap
+
+ผมจะใช้ **7 Phase ของ Proposal เป็น Project Management Structure** เลยครับ:
+
+| Phase | ทำอะไร | Hardware หลัก |
+|---|---|---|
+| **1. Proof of Concept** | ตรวจจับ Elbow Flexion / Gross Movement | AWR1843 + Notebook |
+| **2. Muscle Signal Investigation** | หา Radar Feature ที่สัมพันธ์กับ Fatigue | Radar + sEMG/Force/IMU |
+| **3. Compensation Detection** | ตรวจ Shoulder / Trunk Compensation | Radar + Phone/IMU |
+| **4. Signal Fusion** | รวม Muscle State + Movement State | Radar + AI |
+| **5. Temporal Prediction** | Fatigue → Compensation Prediction | AI Computer |
+| **6. Personalization** | สร้าง Personal Signature | AI + Historical Data |
+| **7. Demonstration System** | Real-time Dashboard | Radar + Raspberry Pi + Phone |
+
+ลำดับนี้ตรงกับ Phase 1–7 ใน Proposal โดยตรง :chatgpt-content-reference{index="7"}
+
+---
+
+# สุดท้าย: Final Product จะเหลืออะไร?
+
+นี่คือภาพที่ผมคิดว่าควรเป็น **ภาพหลักของ Project Structure ใน Presentation**
+
+```text
+                 ┌───────────────────┐
+                 │   77 GHz RADAR    │
+                 │   AWR1843BOOST     │
+                 └─────────┬─────────┘
+                           ↓
+                  ┌────────────────┐
+                  │  Signal + AI   │
+                  │                │
+                  │ Fatigue        │
+                  │ Movement       │
+                  │ Compensation   │
+                  │ Temporal AI     │
+                  │ Personalization │
+                  └────────┬───────┘
+                           ↓
+                  ┌────────────────┐
+                  │  Edge Computer │
+                  │ Raspberry Pi 5 │
+                  └────────┬───────┘
+                           ↓
+                  ┌────────────────┐
+                  │   Dashboard    │
+                  │                │
+                  │ Fatigue        │
+                  │ Movement       │
+                  │ Compensation   │
+                  │ Risk Prediction│
+                  │ Recommendation │
+                  └────────────────┘
+```
+
+ส่วน
+
+```text
+sEMG
+IMU
+Force
+Camera
+```
+
+จะอยู่ **ด้านข้างในช่วง Development/Validation** และค่อย ๆ ถูกถอดออกจาก Final System
+
+---
+
+## ถ้าสรุป TrueRehab-RF เป็นประโยคเดียว
+
+> **Hardware เก็บข้อมูล → Signal Processing เปลี่ยน Radar signal เป็น Features → AI ประเมิน Fatigue, Movement และ Compensation → Temporal AI เรียนรู้การเปลี่ยนแปลงตามเวลาเพื่อทำนาย Compensation → Personalization เรียนรู้รูปแบบเฉพาะบุคคล → Dashboard ให้ Feedback แบบ Real-time**
+
+และนี่คือโครงสร้างที่ผมคิดว่า **ทั้ง Engineer, AI Engineer และกรรมการโครงการสามารถเข้าใจตรงกันได้** โดยไม่ทำให้ Proposal ดูซับซ้อนเกินความจำเป็นครับ.

@@ -1,0 +1,22 @@
+# systemd unit: starts the bridge when the Pi boots and restarts it if it crashes.
+# Install (on the Pi, adjust paths and user first):
+#   sudo cp truerehab-bridge.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now truerehab-bridge
+# Check:   sudo systemctl status truerehab-bridge
+# Logs:    journalctl -u truerehab-bridge -f
+
+[Unit]
+Description=TrueRehab-RF bridge (sensor data to the web dashboard)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/AEII-2026/pi-bridge
+ExecStart=/home/pi/AEII-2026/pi-bridge/.venv/bin/python -m truerehab_bridge --config config.toml
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

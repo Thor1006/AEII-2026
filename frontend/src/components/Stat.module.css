@@ -1,0 +1,28 @@
+.stat {
+  min-width: 0;
+}
+
+.value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sm .value { font-size: 13px; font-family: var(--font-mono); }
+.lg .value { font-size: 44px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.05; }
+
+.stat[data-tone='good'] .value { color: var(--good); }
+.stat[data-tone='warn'] .value { color: var(--warn); }
+.stat[data-tone='bad'] .value { color: var(--bad); }
+
+.unit {
+  margin-left: 3px;
+  font-size: 0.6em;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.label {
+  font-size: 11px;
+  color: var(--text-muted);
+}

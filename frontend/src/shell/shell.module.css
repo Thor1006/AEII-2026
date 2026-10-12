@@ -1,0 +1,296 @@
+/* ---------- connection pill ---------- */
+.pill {
+  position: relative;
+}
+
+.pill summary {
+  --tone: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  cursor: pointer;
+  list-style: none;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.pill summary::-webkit-details-marker { display: none; }
+.pill summary[data-tone='good'] { --tone: var(--good); }
+.pill summary[data-tone='warn'] { --tone: var(--warn); }
+.pill summary[data-tone='bad'] { --tone: var(--bad); }
+
+.pillDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--tone);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 22%, transparent);
+}
+
+.pillName {
+  font-weight: 600;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pillWord {
+  color: var(--tone);
+}
+
+.pillPanel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+  font-size: 13px;
+}
+
+.pillPanel p { margin: 0; color: var(--good); }
+
+.reasons {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--warn);
+}
+
+.mini {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+}
+
+.mini dt { font-size: 11px; color: var(--text-muted); }
+.mini dd { margin: 0; font-family: var(--font-mono); font-size: 12px; }
+
+/* ---------- device strip ---------- */
+.devices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+
+.devices li {
+  --tone: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tone) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--tone) 30%, var(--border));
+}
+
+.devices li[data-state='ok'] { --tone: var(--good); }
+.devices li[data-state='missing'],
+.devices li[data-state='error'] { --tone: var(--bad); }
+
+.devMark {
+  color: var(--tone);
+  font-weight: 700;
+}
+
+.devMsg {
+  color: var(--tone);
+}
+
+/* ---------- view toggle ---------- */
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.segmented button {
+  border: 0;
+  background: transparent;
+  padding: 5px 14px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.segmented button[aria-checked='true'] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow), 0 0 0 1px var(--border);
+}
+
+/* ---------- banners ---------- */
+.banner {
+  --tone: var(--info);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 16px;
+  padding: 8px 20px;
+  font-size: 13px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--tone) 11%, var(--bg));
+  border-bottom: 1px solid color-mix(in srgb, var(--tone) 30%, var(--border));
+}
+
+.banner[data-tone='warn'] { --tone: var(--warn); }
+.banner[data-tone='bad'] { --tone: var(--bad); }
+.banner strong { color: var(--tone); }
+.banner details summary { cursor: pointer; font-weight: 600; }
+.banner details[open] { flex-basis: 100%; }
+
+/* ---------- session bar ---------- */
+.sessionBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 14px;
+}
+
+.sessionBar[data-state='running'] {
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+}
+
+.liveTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.sessionInfo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  color: var(--text-muted);
+}
+
+.sessionInfo strong { color: var(--text); }
+
+.spacer { flex: 1; }
+
+.flash {
+  font-size: 13px;
+  color: var(--good);
+}
+
+.danger {
+  background: var(--bad) !important;
+  border-color: var(--bad) !important;
+  color: #fff !important;
+  font-weight: 600;
+}
+
+.sessionForm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.sessionForm label,
+.sessionForm fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.sessionForm fieldset {
+  flex-direction: row;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.sessionForm legend {
+  float: left;
+  margin-right: 8px;
+  padding: 0;
+}
+
+.sessionForm .radio {
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+/* ---------- shared ---------- */
+.muted { color: var(--text-muted); }
+
+.error {
+  font-size: 13px;
+  color: var(--bad);
+}
+
+.playback,
+.recorder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.playback progress {
+  width: 140px;
+  accent-color: var(--accent);
+}
+
+.recDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--bad);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.liveTag .recDot { background: var(--accent); }
+
+@keyframes pulse {
+  50% { opacity: 0.3; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recDot { animation: none; }
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+@media (max-width: 760px) {
+  .banner, .sessionBar { padding-left: 16px; padding-right: 16px; }
+  .pillPanel { position: fixed; left: 16px; right: 16px; top: auto; width: auto; }
+  .pillName { max-width: 120px; }
+}

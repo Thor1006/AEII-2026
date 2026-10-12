@@ -1,0 +1,250 @@
+.screen {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 40px 20px 60px;
+}
+
+.intro h2 {
+  margin: 0 0 6px;
+  font-size: 26px;
+  letter-spacing: -0.02em;
+}
+
+.intro p {
+  margin: 0 0 26px;
+  color: var(--text-muted);
+  font-size: 15px;
+  max-width: 60ch;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: var(--gap);
+  align-items: start;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.card h3 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.card > p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.card > button {
+  align-self: flex-start;
+  padding: 8px 16px;
+}
+
+.primary {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+.cardIcon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  font-size: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.field small {
+  color: var(--chart-text);
+}
+
+.field input,
+.field select {
+  font-size: 15px;
+  padding: 8px 10px;
+  color: var(--text);
+}
+
+.recent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.chip {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.chip button {
+  border: 0;
+  border-radius: 0;
+  padding: 3px 10px;
+  font-size: 12px;
+  background: var(--surface-2);
+}
+
+.chip .chipX {
+  padding: 3px 8px;
+  color: var(--text-muted);
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--chart-text) !important;
+}
+
+.error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--bad);
+}
+
+.muted {
+  margin: 2px 0 0;
+  color: var(--text-muted);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.more {
+  margin-top: 22px;
+}
+
+.more summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.subForm {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  align-items: end;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.subHead {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.subHead span {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.connecting {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 640px;
+  padding: 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.connHead {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.connHead h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.spinner {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+  border-radius: 50%;
+  border: 3px solid var(--surface-2);
+  border-top-color: var(--accent);
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation-duration: 3s; }
+}
+
+.checklist {
+  margin: 0;
+  padding: 0 0 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.checklist li {
+  padding-left: 4px;
+}
+
+.checklist li strong {
+  display: block;
+}
+
+.checklist li span {
+  color: var(--text-muted);
+}
+
+.checklist li[data-urgent] strong {
+  color: var(--bad);
+}
+
+.checklist code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+@media (max-width: 860px) {
+  .cards { grid-template-columns: 1fr; }
+  .screen { padding: 24px 16px 40px; }
+}

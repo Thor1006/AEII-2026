@@ -1,0 +1,74 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px var(--pad) 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  padding: 10px var(--pad) var(--pad);
+}
+
+.flush {
+  padding: 10px 0 0;
+}
+
+.infoBtn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  font-style: italic;
+  font-family: Georgia, serif;
+  line-height: 1;
+  color: var(--text-muted);
+  background: transparent;
+}
+
+.infoBtn[aria-expanded='true'] {
+  font-style: normal;
+  font-family: var(--font-sans);
+  color: var(--text);
+}
+
+.info {
+  margin: 8px var(--pad) 0;
+  padding: 8px 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}

@@ -1,0 +1,4 @@
+# Python 3.11+ (Raspberry Pi OS Bookworm ships 3.11)
+websockets>=13,<16
+numpy>=1.24
+pyserial>=3.5   # only needed when [providers.serial_aux] is enabled

@@ -1,0 +1,27 @@
+{
+  "name": "truerehab-rf-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc -p tsconfig.json && vite build",
+    "preview": "vite preview --host",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.node.json",
+    "mock": "node mock-server/server.ts"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/ws": "^8.18.1",
+    "@vitejs/plugin-react": "^4.4.1",
+    "typescript": "~5.8.3",
+    "vite": "^6.3.5",
+    "ws": "^8.18.2"
+  }
+}
