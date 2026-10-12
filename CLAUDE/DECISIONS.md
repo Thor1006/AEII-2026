@@ -2,6 +2,11 @@
 
 <!-- Newest on top. One short entry per decision that someone might later ask "why did we do it this way?" about. -->
 
+## 2026-10-12 — Dashboard look: Fluent-style neutrals, Inter, floating rounded rectangles, no gradients
+- **Decision:** Neutral greys + one blue accent (`#0f6cbd` light / `#479ef5` dark), muted green/amber/red only for status. Font: Inter + Noto Sans Thai, bundled with `@fontsource` so it works offline on the Pi. Every container is a floating card (layered `--float` shadow, 16px radius); small controls use 10px; no pills. No CSS gradients anywhere. All of it lives in `frontend/src/styles/theme.css`. See [plan](plans/2026-10-12-dashboard-restyle.md).
+- **Why:** The first teal/cyan-on-navy palette looked like generic AI styling. The user chose the Microsoft-like direction and wanted a calm, clinical feel. Bundled fonts keep the Pi demo offline-safe.
+- **Alternatives:** Apple-like or OpenAI-like neutrals; IBM Plex Sans; Google Fonts CDN (needs internet); frosted-glass surfaces (tried, dropped because there are no gradients to blur); real Liquid Glass refraction (Chromium-only SVG filter).
+
 ## 2026-10-11 — Protocol 1.1: the Pi describes itself; Python reference bridge
 - **Decision:** Each Pi sends a `hello` with a manifest of every stream (labels, units, score direction, radar axes, device links, accepted commands). The dashboard labels itself from it and checks that each stream arrives. Commands (`session.start/stop`, `marker`) go back with `ack` replies. The reference Pi side is `pi-bridge/` (Python, `websockets`). It also serves the dashboard over HTTP, so users open `http://<pi>.local:8080` and nothing needs typing. `check_bridge.py` verifies any bridge. See [plan](plans/2026-10-11-easier-ui-and-pi-bridge.md).
 - **Why:** Hardcoded labels in the web break as soon as the Pi changes. A manifest + checker proves the Pi sends everything the page needs. Serving the page from the Pi removes the hardest setup step.

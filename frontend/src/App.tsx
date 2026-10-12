@@ -71,11 +71,12 @@ export function App({ layouts = defaultLayouts, title = 'TrueRehab-RF', autoConn
     <div className={s.app}>
       <header className={s.header}>
         <div className={s.brand}>
-          <svg className={s.mark} viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-            <circle cx="3" cy="25" r="2" fill="currentColor" stroke="none" />
-            <path d="M3 17a8 8 0 0 1 8 8" />
-            <path d="M3 10a15 15 0 0 1 15 15" />
-            <path d="M3 3a22 22 0 0 1 22 22" />
+          <svg className={s.mark} viewBox="0 0 36 36" aria-hidden>
+            <rect width="36" height="36" rx="10" fill="currentColor" />
+            <g fill="var(--bg)" transform="translate(18 18) scale(0.00822 -0.00822) translate(-1247.25 -710.75)">
+            <path transform="translate(0 0)" d="M616 -19.5Q545 -19.5 505 22Q465 63.5 465 138V1193H166.5Q105.5 1193 67.8 1226.2Q30 1259.5 30 1318Q30 1376.5 67.5 1409.8Q105 1443 166.5 1443H1065.5Q1127.5 1443 1164.8 1409.8Q1202 1376.5 1202 1318Q1202 1259.5 1164.2 1226.2Q1126.5 1193 1065.5 1193H767V138Q767 63.5 727 22Q687 -19.5 616 -19.5Z" />
+            <path transform="translate(1232 0)" d="M271 -21.5Q200.5 -21.5 160.2 20.2Q120 62 120 136V1285.5Q120 1360.5 160 1401.8Q200 1443 271 1443H711Q877 1443 993.5 1387.2Q1110 1331.5 1171.2 1228.5Q1232.5 1125.5 1232.5 983Q1232.5 847.5 1168.5 739.8Q1104.5 632 985 580.5L1192.5 221Q1212 188.5 1218.2 166Q1224.5 143.5 1224.5 117Q1224.5 57 1181.5 17.8Q1138.5 -21.5 1073 -21.5Q1036.5 -21.5 1011.2 -11.2Q986 -1 964.8 24Q943.5 49 918.5 92.5L679 527.5Q679 527.5 679 527.5Q679 527.5 679 527.5H422V136Q422 62 382 20.2Q342 -21.5 271 -21.5ZM422 747H682Q796 747 859.5 808Q923 869 923 976.5Q923 1081.5 857.2 1144Q791.5 1206.5 678.5 1206.5H422Z" />
+            </g>
           </svg>
           <div>
             <h1>{title}</h1>

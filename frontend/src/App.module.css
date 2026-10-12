@@ -36,11 +36,11 @@
   color: var(--text-muted);
 }
 
-/* Concentric arcs: a radar wavefront (SVG, no gradients). */
+/* TR monogram: SF Rounded Bold converted to outlines (no font needed), flat, no gradients. */
 .mark {
-  width: 28px;
-  height: 28px;
-  color: var(--accent);
+  width: 32px;
+  height: 32px;
+  color: var(--text);
 }
 
 .controls {
