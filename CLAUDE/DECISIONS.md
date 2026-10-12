@@ -2,6 +2,11 @@
 
 <!-- Newest on top. One short entry per decision that someone might later ask "why did we do it this way?" about. -->
 
+## 2026-10-12 — Home page: no template tells; rules kept in `frontend/DESIGN.md`
+- **Decision:** The live demo sits directly under the hero. "How it works" is a plain numbered list, and "Why radar" is a Camera / Wearables / Radar table. There are no uppercase eyebrows and no rows of identical shadowed cards. The rules and "don'ts" live in `frontend/DESIGN.md`. See [plan](plans/2026-10-12-home-ai-slop-pass.md).
+- **Why:** These were the "AI slop" tells from the video (youtube.com/watch?v=M4DNgmI7MIM) still left after the restyle. Showing the real product early is the most specific visual we have.
+- **Alternatives:** Keep the cards and only drop the eyebrows (still reads as a template). Remove uppercase from dashboard panel titles too (kept, because they are dense UI labels).
+
 ## 2026-10-12 — Home page first, with hash routing (no router library)
 - **Decision:** `#/` is an Apple-style landing page (`frontend/src/home/`), `#/app` is the dashboard. `Root.tsx` picks the route. Opened from a Pi bridge or with `?pi=`, it skips the landing page and goes straight to the dashboard. The page's live preview runs its own nested `SensorProvider` with `MockSource`, so it never touches the real connection. See [plan](plans/2026-10-12-home-page.md).
 - **Why:** The user needed something to present first; the old first screen was "Connect your kit". Two routes don't justify a router package, and the Pi-served page must still open on live data.
