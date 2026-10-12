@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { App } from './App.tsx';
+import { Root } from './Root.tsx';
 import { initialSource } from './dashboard.config.ts';
 import { sourceRegistry } from './sensor/sources/index.ts';
 import { SensorProvider } from './state/SensorContext.tsx';
@@ -16,7 +16,7 @@ const startDef = start ? sourceRegistry.find((d) => d.kind === start.kind) : und
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <SensorProvider initialSource={start && startDef ? () => startDef.create(start.values) : undefined}>
-      <App />
+      <Root />
     </SensorProvider>
   </StrictMode>,
 );

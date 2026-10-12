@@ -2,6 +2,12 @@
 
 <!-- Newest on top. One short entry per decision that someone might later ask "why did we do it this way?" about. -->
 
+## 2026-10-12 — Logo: "TR" monogram, SF Rounded outlined to SVG, mono
+- **Decision:** The header logo is a rounded-square tile with "TR" (SF Rounded Bold), drawn as an inline SVG in `frontend/src/App.tsx`. The letters are traced outlines, not text, so no font is needed. Mono colours that flip with the theme (`currentColor` tile, `var(--bg)` letters); no gradients.
+- **Why:** The first logo (CSS-gradient arcs) was disliked, and the user wanted something other than blue. Outlines look identical on every device and offline on the Pi. Mono avoids a second bright colour next to the blue accent and the status colours.
+- **Alternatives:** Pulse tile, joint angle, target rings, wave, "shape with a ghost" (true vs compensation) and coloured versions; Mistral (Adobe font, can't be bundled); live text in SF Rounded (only looks right on Apple devices).
+- **Open risk:** Apple licenses SF fonts for Apple platforms, so using outlines of them in a public logo is a grey area. For a poster or product logo, redo it with a clearly licensed rounded font (e.g. Nunito).
+
 ## 2026-10-12 — Dashboard look: Fluent-style neutrals, Inter, floating rounded rectangles, no gradients
 - **Decision:** Neutral greys + one blue accent (`#0f6cbd` light / `#479ef5` dark), muted green/amber/red only for status. Font: Inter + Noto Sans Thai, bundled with `@fontsource` so it works offline on the Pi. Every container is a floating card (layered `--float` shadow, 16px radius); small controls use 10px; no pills. No CSS gradients anywhere. All of it lives in `frontend/src/styles/theme.css`. See [plan](plans/2026-10-12-dashboard-restyle.md).
 - **Why:** The first teal/cyan-on-navy palette looked like generic AI styling. The user chose the Microsoft-like direction and wanted a calm, clinical feel. Bundled fonts keep the Pi demo offline-safe.
