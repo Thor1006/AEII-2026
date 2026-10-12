@@ -17,6 +17,7 @@ from websockets.asyncio.server import ServerConnection, serve
 from websockets.exceptions import ConnectionClosed
 
 from . import __version__
+from .auth import Handshake, RateLimiter
 from .config import BridgeConfig
 from .protocol import (
     PROTOCOL_VERSION,
@@ -37,6 +38,8 @@ from .system import cpu_temp_c
 log = logging.getLogger("truerehab.bridge")
 
 COMMANDS = ["session.start", "session.stop", "marker"]
+#: A viewer must answer the key challenge within this many seconds.
+AUTH_TIMEOUT_S = 10.0
 SESSION_EVENTS = ["session_start", "session_end", "marker"]
 
 
@@ -65,6 +68,10 @@ class Bridge:
         self._parts = [p.manifest() for p in providers]
         self._manifest = manifest_wire(self._parts, COMMANDS, cfg.status_interval_ms)
         self._manifest["events"] = sorted(set(self._manifest["events"]) | set(SESSION_EVENTS))
+        key_hex = cfg.resolved_key()
+        #: Kit key as bytes, or None for an open kit (anyone on the Wi-Fi can connect).
+        self.key: bytes | None = bytes.fromhex(key_hex) if key_hex else None
+        self.limiter = RateLimiter()
 
     @property
     def synthetic(self) -> bool:
@@ -111,6 +118,7 @@ class Bridge:
             "protocol": PROTOCOL_VERSION_STRING,
             "device": {"name": self.cfg.name, "kitId": self.cfg.kit_id, "bridgeVersion": __version__},
             "synthetic": self.synthetic,
+            "auth": "hmac-sha256" if self.key else "none",
             "manifest": self._manifest,
             "session": self.session.wire() if self.session else None,
         }
@@ -201,18 +209,61 @@ class Bridge:
 
     # ---------- connections ----------
 
+    async def _authenticate(self, ws: ServerConnection, peer: str) -> Handshake | None:
+        """Run the key handshake. Returns the passed handshake, or None after closing the connection."""
+        assert self.key is not None
+        if self.limiter.locked(peer):
+            await ws.send(dumps({"type": "autherr", "error": "locked"}))
+            await ws.close(4401, "locked")
+            log.warning("refused %s: too many wrong keys", peer)
+            return None
+        hs = Handshake(self.key, self.cfg.kit_id)
+        await ws.send(dumps(hs.challenge()))
+        try:
+            raw = await asyncio.wait_for(ws.recv(), AUTH_TIMEOUT_S)
+        except asyncio.TimeoutError:
+            await ws.close(4401, "no key sent")
+            return None
+        proof = None
+        if isinstance(raw, str):
+            try:
+                msg = json.loads(raw)
+            except json.JSONDecodeError:
+                msg = None
+            if isinstance(msg, dict):
+                proof = hs.check_auth(msg)
+        if proof is None:
+            self.limiter.fail(peer)
+            log.warning("viewer %s sent a wrong key", peer)
+            await ws.send(dumps({"type": "autherr", "error": "wrong-key"}))
+            await ws.close(4401, "wrong key")
+            return None
+        await ws.send(dumps({"type": "authok", "proof": proof}))
+        return hs
+
     async def handler(self, ws: ServerConnection) -> None:
-        viewer = Viewer(ws, asyncio.Queue(maxsize=self.cfg.client_queue))
         peer = ws.remote_address[0] if ws.remote_address else "?"
-        await ws.send(dumps(self.hello()))
+        hs: Handshake | None = None
+        if self.key is not None:
+            try:
+                hs = await self._authenticate(ws, peer)
+            except ConnectionClosed:
+                return
+            if hs is None:
+                return
+        viewer = Viewer(ws, asyncio.Queue(maxsize=self.cfg.client_queue))
+        try:
+            await ws.send(dumps(self.hello()))
+        except ConnectionClosed:
+            return
         self.viewers.add(viewer)
-        log.info("viewer connected from %s (%d watching)", peer, len(self.viewers))
+        log.info("viewer connected from %s (%d watching)%s", peer, len(self.viewers), "" if hs is None else ", key accepted")
         sender = asyncio.create_task(self._pump(viewer))
         try:
             async for raw in ws:
                 if isinstance(raw, bytes):
                     continue
-                reply = self._on_text(raw)
+                reply = self._on_text(raw, hs)
                 if reply is not None:
                     await ws.send(dumps(reply))
         except ConnectionClosed:
@@ -222,7 +273,8 @@ class Bridge:
             sender.cancel()
             log.info("viewer %s left (%d watching, %d messages dropped for it)", peer, len(self.viewers), viewer.dropped)
 
-    def _on_text(self, raw: str) -> dict[str, Any] | None:
+    def _on_text(self, raw: str, hs: Handshake | None = None) -> dict[str, Any] | None:
+        """Handle one text message. `hs` is the passed handshake on a protected kit, None on an open one."""
         try:
             msg = json.loads(raw)
         except json.JSONDecodeError:
@@ -233,8 +285,15 @@ class Bridge:
             return {"type": "pong", "id": msg.get("id"), "clientT": msg.get("clientT"), "t": now_ms()}
         if msg.get("type") == "command":
             cid = msg.get("id")
-            name = msg.get("name")
-            args = msg.get("args") or {}
+            if self.key is not None:
+                # Protected kit: only commands signed with this connection's session key count.
+                signed = hs.read_command(msg) if hs else None
+                if signed is None:
+                    return {"type": "ack", "id": cid, "ok": False, "error": "Command not signed correctly"}
+                name, args = signed
+            else:
+                name = msg.get("name")
+                args = msg.get("args") or {}
             if not isinstance(name, str) or not isinstance(args, dict):
                 return {"type": "ack", "id": cid, "ok": False, "error": "Malformed command"}
             ok, error, result = self.handle_command(name, args)

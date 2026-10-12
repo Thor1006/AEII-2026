@@ -4,6 +4,7 @@
  * Adding an input means writing a SensorSource and calling `registerSource`.
  */
 import { normalizePiAddress } from '../../lib/address.ts';
+import { getKey } from '../../lib/keystore.ts';
 import type { SensorSource } from '../SensorSource.ts';
 import { MockSource } from './MockSource.ts';
 import { ReplaySource } from './ReplaySource.ts';
@@ -42,7 +43,7 @@ export const sourceRegistry: SourceDefinition[] = [
     create: (v) => {
       const url = normalizePiAddress(String(v.address ?? ''));
       if (!url) throw new Error('Type the Pi’s address, e.g. trh-kit-01.local or 192.168.1.20');
-      return new WebSocketSource({ url });
+      return new WebSocketSource({ url, key: getKey(url) });
     },
   },
   {

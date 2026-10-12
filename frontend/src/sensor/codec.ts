@@ -121,7 +121,7 @@ export function parseJsonMessage(text: string): SensorMessage | ControlMessage |
 }
 
 export function normalizeMessage(raw: Record<string, unknown>): SensorMessage | ControlMessage | null {
-  if (raw.type === 'pong' || raw.type === 'ack') return raw as unknown as ControlMessage;
+  if (raw.type === 'pong' || raw.type === 'ack' || raw.type === 'challenge' || raw.type === 'authok' || raw.type === 'autherr') return raw as unknown as ControlMessage;
   if (typeof raw.type !== 'string' || !MESSAGE_TYPES.has(raw.type)) return null;
 
   const msg = {

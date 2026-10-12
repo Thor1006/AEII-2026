@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { App } from './App.tsx';
 import { Home } from './home/Home.tsx';
 import { detectAutoConnect } from './lib/address.ts';
+import { takeKeyFromLocation } from './lib/keystore.ts';
 
 type Route = 'home' | 'app';
 
@@ -12,7 +13,10 @@ const read = (): Route | null => (location.hash.startsWith('#/app') ? 'app' : lo
  * Opened from a Pi bridge or with ?pi=, go straight to the dashboard: those users want live data, not the intro.
  */
 export function Root() {
-  const [route, setRoute] = useState<Route | null>(read);
+  const [route, setRoute] = useState<Route | null>(() => {
+    takeKeyFromLocation(); // sticker link: save the key, then hide it from the address bar
+    return read();
+  });
   const [checked, setChecked] = useState(route !== null);
 
   useEffect(() => {

@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
-Check that a bridge sends everything the dashboard needs (protocol 1.1).
+Check that a bridge sends everything the dashboard needs (protocol 1.2).
 
     python check_bridge.py                          # ws://localhost:8765, 10 s
     python check_bridge.py trh-kit-01.local --seconds 20
     python check_bridge.py ws://192.168.1.20:8765 --commands   # also test session start/stop
+    python check_bridge.py trh-kit-01.local --key <64 hex>     # kit with a key (protocol 1.2)
+    python check_bridge.py trh-kit-01.local --key <64 hex> --auth-selftest   # also prove wrong keys and bad commands are refused
 
 Runs from any computer on the same network (only needs `websockets`).
 Exit code 0 = everything passed (warnings allowed), 1 = something failed, 2 = could not connect.
@@ -14,8 +16,11 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
+import hmac
 import json
 import math
+import secrets
 import statistics
 import struct
 import sys
@@ -109,7 +114,116 @@ def parse_frame(buf: bytes) -> tuple[dict[str, Any] | None, str | None]:
     return header, None
 
 
-async def run(url: str, seconds: float, test_commands: bool) -> int:
+# ---------- kit key (protocol 1.2) ----------
+
+
+def hmac_hex(key: bytes, *parts: Any) -> str:
+    return hmac.new(key, "|".join(str(p) for p in parts).encode(), hashlib.sha256).hexdigest()
+
+
+class Signer:
+    """Signs commands for one authenticated connection."""
+
+    def __init__(self, session_key: bytes) -> None:
+        self.session_key = session_key
+        self.ctr = 0
+
+    def command(self, cid: int, name: str, args: dict[str, Any]) -> dict[str, Any]:
+        self.ctr += 1
+        payload = json.dumps({"name": name, "args": args}, separators=(",", ":"))
+        return {"type": "command", "id": cid, "ctr": self.ctr, "payload": payload, "mac": hmac_hex(self.session_key, self.ctr, payload)}
+
+
+async def handshake(ws: Any, key_hex: str, fake_server_ok: bool = False) -> tuple[Signer | None, dict[str, Any] | None]:
+    """Answer the kit's challenge. Returns (signer, None) on success or (None, the refusing message / problem)."""
+    key = bytes.fromhex(key_hex)
+    try:
+        ch = json.loads(await asyncio.wait_for(ws.recv(), 5))
+    except (asyncio.TimeoutError, ValueError, ConnectionClosed):
+        return None, {"error": "no challenge within 5 s"}
+    if ch.get("type") != "challenge":
+        return None, {"error": f"first message is {ch.get('type')!r}, not a challenge: this kit isn't asking for a key"}
+    cnonce = secrets.token_hex(16)
+    kit = ch.get("kitId") or ""
+    await ws.send(json.dumps({"type": "auth", "cnonce": cnonce, "proof": hmac_hex(key, "trf-client", ch["nonce"], cnonce, kit)}))
+    try:
+        reply = json.loads(await asyncio.wait_for(ws.recv(), 5))
+    except (asyncio.TimeoutError, ValueError, ConnectionClosed):
+        return None, {"error": "no answer to the key"}
+    if reply.get("type") != "authok":
+        return None, reply
+    if not hmac.compare_digest(str(reply.get("proof")), hmac_hex(key, "trf-server", ch["nonce"], cnonce, kit)):
+        return None, {"error": "the kit's own proof is wrong (impostor?)"}
+    session = hmac.new(key, f"trf-session|{ch['nonce']}|{cnonce}".encode(), hashlib.sha256).digest()
+    return Signer(session), None
+
+
+async def auth_selftest(url: str, key_hex: str, rep: "Report") -> None:
+    """Prove the kit refuses what it must refuse. Uses a command that does nothing, so a live session isn't touched.
+    Doesn't test the lock-out after 5 wrong keys: that would lock this computer out for a minute."""
+    rep.section("Key checks (these must all be refused)")
+    other = secrets.token_hex(32)
+    async with connect(url, open_timeout=5, max_size=None, ping_interval=None) as ws:
+        signer, problem = await handshake(ws, other)
+        if signer is None and problem and problem.get("type") == "autherr":
+            rep.ok("Wrong key → refused")
+        else:
+            rep.fail(f"Wrong key was NOT refused: {problem}")
+        try:
+            await asyncio.wait_for(ws.wait_closed(), 3)
+            rep.ok("Connection closed after the wrong key")
+        except asyncio.TimeoutError:
+            rep.fail("Connection stayed open after the wrong key")
+
+    async with connect(url, open_timeout=5, max_size=None, ping_interval=None) as ws:
+        await ws.recv()  # challenge
+        await ws.send(json.dumps({"type": "ping", "id": 1, "clientT": 0}))
+        await ws.send(json.dumps({"type": "command", "id": 1, "name": "session.start", "args": {}}))
+        got = await _await_reply(ws, lambda m: m.get("type") in ("pong", "ack", "hello"), 1.5)
+        if got is None:
+            rep.ok("Ping and command before the key → ignored, no data sent")
+        else:
+            rep.fail(f"Kit answered before the key was given: {got.get('type')}")
+
+    async with connect(url, open_timeout=5, max_size=None, ping_interval=None) as ws:
+        signer, problem = await handshake(ws, key_hex)
+        if signer is None:
+            rep.fail(f"Right key was refused: {problem}")
+            return
+        rep.ok("Right key → accepted, and the kit proved it knows the key too")
+        await _await_reply(ws, lambda m: m.get("type") == "hello", 3)
+
+        async def ask(msg: dict[str, Any]) -> dict[str, Any] | None:
+            await ws.send(json.dumps(msg))
+            return await _await_reply(ws, lambda m: m.get("type") == "ack" and m.get("id") == msg["id"], 3)
+
+        # A signed command that does nothing: "Unknown command" proves the signature was accepted.
+        good = signer.command(7001, "no.such.command", {})
+        a = await ask(good)
+        if a and "Unknown command" in str(a.get("error")):
+            rep.ok("Signed command → signature accepted")
+        else:
+            rep.fail(f"Signed command wasn't accepted: {a}")
+        a = await ask(good)
+        if a and "not signed" in str(a.get("error")):
+            rep.ok("Same signed command sent again (replay) → refused")
+        else:
+            rep.fail(f"Replayed command was NOT refused: {a}")
+        edited = signer.command(7002, "no.such.command", {})
+        edited["payload"] = edited["payload"].replace("no.such", "no.suck")
+        a = await ask(edited)
+        if a and "not signed" in str(a.get("error")):
+            rep.ok("Command edited after signing → refused")
+        else:
+            rep.fail(f"Edited command was NOT refused: {a}")
+        a = await ask({"type": "command", "id": 7003, "name": "no.such.command", "args": {}})
+        if a and "not signed" in str(a.get("error")):
+            rep.ok("Unsigned command → refused")
+        else:
+            rep.fail(f"Unsigned command was NOT refused: {a}")
+
+
+async def run(url: str, seconds: float, test_commands: bool, key: str | None = None, selftest: bool = False) -> int:
     rep = Report()
     print(f"TrueRehab bridge check → {url}  ({seconds:.0f} s)")
     rep.section("Connection")
@@ -123,13 +237,28 @@ async def run(url: str, seconds: float, test_commands: bool) -> int:
         return 2
     rep.ok(f"Connected in {(time.perf_counter() - t0) * 1000:.0f} ms")
 
+    signer: Signer | None = None
     try:
-        return await _check(ws, rep, seconds, test_commands)
+        if key:
+            rep.section("Kit key")
+            signer, problem = await handshake(ws, key)
+            if signer is None:
+                rep.fail(f"The kit didn't accept the key: {problem}")
+                return 1
+            rep.ok("Key accepted, and the kit proved it knows the key too")
+        code = await _check(ws, rep, seconds, test_commands, signer)
     finally:
         await ws_cm.__aexit__(None, None, None)
+    if selftest:
+        if not key:
+            rep.fail("--auth-selftest needs --key")
+            return 1
+        await auth_selftest(url, key, rep)
+        return 1 if rep.counts["fail"] else code
+    return code
 
 
-async def _check(ws: Any, rep: Report, seconds: float, test_commands: bool) -> int:
+async def _check(ws: Any, rep: Report, seconds: float, test_commands: bool, signer: Signer | None = None) -> int:
     # ---- hello ----
     rep.section("Self-description (hello)")
     hello: dict[str, Any] | None = None
@@ -143,6 +272,8 @@ async def _check(ws: Any, rep: Report, seconds: float, test_commands: bool) -> i
             m = json.loads(first)
             if m.get("type") == "hello":
                 hello = m
+            elif m.get("type") == "challenge":
+                rep.fail("This kit is protected with a key. Run again with --key <the 64-character key from the sticker>")
         except json.JSONDecodeError:
             pass
     manifest: dict[str, Any] = {}
@@ -397,7 +528,7 @@ async def _check(ws: Any, rep: Report, seconds: float, test_commands: bool) -> i
 
     # ---- commands ----
     if test_commands:
-        await _check_commands(ws, rep, manifest, hello)
+        await _check_commands(ws, rep, manifest, hello, signer)
 
     c = rep.counts
     summary = f"{c['pass']} passed, {c['warn']} warning(s), {c['fail']} failed"
@@ -422,7 +553,7 @@ async def _await_reply(ws: Any, match: Any, timeout: float) -> dict[str, Any] | 
     return None
 
 
-async def _check_commands(ws: Any, rep: Report, manifest: dict[str, Any], hello: dict[str, Any] | None) -> None:
+async def _check_commands(ws: Any, rep: Report, manifest: dict[str, Any], hello: dict[str, Any] | None, signer: Signer | None = None) -> None:
     rep.section("Commands")
     cmds = manifest.get("commands", [])
     if "session.start" not in cmds:
@@ -435,7 +566,7 @@ async def _check_commands(ws: Any, rep: Report, manifest: dict[str, Any], hello:
     async def command(cid: int, name: str, args: dict[str, Any], also: Any = None) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
         """Send a command; wait for its ack and (optionally) a second message matching `also`.
         Both are collected together because the bridge may send the side effect before the ack."""
-        await ws.send(json.dumps({"type": "command", "id": cid, "name": name, "args": args}))
+        await ws.send(json.dumps(signer.command(cid, name, args) if signer else {"type": "command", "id": cid, "name": name, "args": args}))
         ack: dict[str, Any] | None = None
         extra: dict[str, Any] | None = None
         deadline = time.monotonic() + 5
@@ -487,13 +618,21 @@ async def _check_commands(ws: Any, rep: Report, manifest: dict[str, Any], hello:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Check a TrueRehab bridge against protocol 1.1.")
+    ap = argparse.ArgumentParser(description="Check a TrueRehab bridge against protocol 1.2.")
     ap.add_argument("address", nargs="?", default="localhost", help="Pi address or ws:// URL (default localhost)")
     ap.add_argument("--seconds", "-s", type=float, default=10, help="How long to collect data (default 10)")
     ap.add_argument("--commands", action="store_true", help="Also start/stop a short test session")
+    ap.add_argument("--key", help="Kit key (64 hex characters) for a protected kit")
+    ap.add_argument("--auth-selftest", action="store_true", help="Also prove a wrong key, unsigned, edited and replayed commands are refused (needs --key)")
     args = ap.parse_args()
+    key = None
+    if args.key:
+        key = args.key.replace("-", "").replace(" ", "").lower()
+        if len(key) != 64 or any(ch not in "0123456789abcdef" for ch in key):
+            print("--key must be 64 letters and numbers (0-9, a-f)", file=sys.stderr)
+            return 2
     try:
-        return asyncio.run(run(normalize_url(args.address), args.seconds, args.commands))
+        return asyncio.run(run(normalize_url(args.address), args.seconds, args.commands, key, args.auth_selftest))
     except KeyboardInterrupt:
         return 1
 

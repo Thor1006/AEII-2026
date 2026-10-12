@@ -1,5 +1,5 @@
 /**
- * TrueRehab-RF wire protocol, version 1.1.
+ * TrueRehab-RF wire protocol, version 1.2.
  *
  * Every input (Pi bridge, Web Serial, replay file, mock) produces these messages,
  * so the UI never depends on where data comes from.
@@ -10,6 +10,10 @@
  * - commands web → Pi (`command`) with `ack` replies
  * - device health and session info in `status`; `kitId` / `sessionId` on every message
  *
+ * v1.2 adds (optional; a kit without a key behaves exactly like 1.1):
+ * - kit key: `challenge` / `auth` / `authok` handshake before any data, then signed commands (`ctr`, `payload`, `mac`)
+ * - `hello.auth` says whether the kit is protected
+ *
  * This file is shared with the Node mock server, so it must stay DOM-free and
  * use erasable TypeScript only (no enums).
  */
@@ -17,7 +21,7 @@
 /** Envelope `v`: the major version. Breaking changes bump it. */
 export const PROTOCOL_VERSION = 1;
 /** Full version announced in `hello`. */
-export const PROTOCOL_VERSION_STRING = '1.1';
+export const PROTOCOL_VERSION_STRING = '1.2';
 
 /** Fields every sensor message carries. */
 export interface Envelope {
@@ -220,6 +224,8 @@ export interface HelloMessage extends Envelope {
     firmware?: Record<string, string>;
   };
   synthetic: boolean;
+  /** 'hmac-sha256' = the viewer proved it knows the kit key. 'none' = open kit, anyone on the Wi-Fi can connect. Default 'none'. */
+  auth?: AuthMode;
   manifest: Manifest;
   session?: SessionInfo | null;
 }
@@ -255,6 +261,49 @@ export interface CommandMessage {
   args?: Record<string, unknown>;
 }
 
+/**
+ * Web → Pi on a kit with a key. `payload` is the exact JSON text of `{"name":…,"args":…}`;
+ * `mac = HMAC(sessionKey, "<ctr>|<payload>")` as lowercase hex. `ctr` starts at 1 and must increase.
+ * Signing the raw text (not re-serialised JSON) avoids JavaScript/Python formatting differences.
+ */
+export interface SignedCommandMessage {
+  type: 'command';
+  id: number;
+  ctr: number;
+  payload: string;
+  mac: string;
+}
+
+// ---------- kit key handshake (protocol 1.2) ----------
+
+export type AuthMode = 'none' | 'hmac-sha256';
+
+/** Pi → web, first message on a protected kit. `nonce` is 16 random bytes as hex, new every connection. */
+export interface ChallengeMessage {
+  type: 'challenge';
+  nonce: string;
+  kitId?: string;
+}
+
+/** Web → Pi. `proof = HMAC(key, "trf-client|nonce|cnonce|kitId")` as hex. */
+export interface AuthMessage {
+  type: 'auth';
+  cnonce: string;
+  proof: string;
+}
+
+/** Pi → web. `proof = HMAC(key, "trf-server|nonce|cnonce|kitId")`: proves the Pi knows the key too. */
+export interface AuthOkMessage {
+  type: 'authok';
+  proof: string;
+}
+
+/** Pi → web just before it closes the connection (code 4401). */
+export interface AuthErrMessage {
+  type: 'autherr';
+  error: 'wrong-key' | 'locked' | 'bad-request';
+}
+
 export interface AckMessage {
   type: 'ack';
   id: number;
@@ -277,7 +326,7 @@ export interface PongMessage {
   t?: number;
 }
 
-export type ControlMessage = AckMessage | PongMessage;
+export type ControlMessage = AckMessage | PongMessage | ChallengeMessage | AuthOkMessage | AuthErrMessage;
 
 /** Binary frame element types. Integer types are rescaled with `scale = [min, max]`. */
 export type FrameDType = 'f32' | 'u8' | 'u16';

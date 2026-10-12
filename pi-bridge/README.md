@@ -46,7 +46,23 @@ Connects like a dashboard and checks that the Pi sends everything the page needs
 
 Exit code 0 = pass, 1 = something failed, 2 = can't connect. It also works against the frontend's Node mock (`npm run mock`).
 
-## What the Pi must send (protocol 1.1)
+## Pairing a kit: the kit key (protocol 1.2)
+
+A kit key proves **who** is connecting. Nobody on the Wi-Fi can watch the data or press start/stop without it, and your laptop can tell a real kit from a fake one. The key itself is never sent over the Wi-Fi.
+
+1. Make a key, saving it as a file (works without a screen or remote login, e.g. on the SD card while it's in your Mac, in the boot partition):
+   `python -m truerehab_bridge --new-key --write /boot/firmware/trh-key.txt`
+2. In `config.toml`, under `[bridge]`: `key_file = "/boot/firmware/trh-key.txt"`.
+3. Start the bridge. It prints `Kit key: ON`. Print the sticker link with `python -m truerehab_bridge -c config.toml --show-link` and make a QR code from it.
+4. Scanning the QR opens the dashboard with the key saved in the browser (the part after `#` never goes to a server, and the page removes it from the address bar). Or type the key into the connect screen.
+
+If someone loses the sticker, anyone who can take out the SD card can read the file. That is on purpose: physical access means ownership. To change a key, delete the file and make a new one.
+
+Check it: `python check_bridge.py trh-kit-01.local --key <the key> --auth-selftest` proves a wrong key, an unsigned command, an edited command and a replayed command are all refused.
+
+**What it doesn't do:** the data is still plain text on the Wi-Fi (`ws://`), so someone who relays traffic can read it. Use a Wi-Fi you trust. After 5 wrong keys from one address, the Pi refuses that address for a minute.
+
+## What the Pi must send (protocol 1.2, same as 1.1 plus the key)
 
 The full byte-level spec is in `frontend/README.md`. In short:
 
@@ -81,10 +97,12 @@ Edit `truerehab_bridge/providers/radar.py`; the docstring lists the steps. Rules
 | `truerehab_bridge/providers/` | `synthetic.py` (demo), `serial_aux.py` (Arduino on the Pi), `radar.py` (template) |
 | `truerehab_bridge/web.py` | Serves `frontend/dist` and `/truerehab-bridge.json` |
 | `check_bridge.py` | Conformance checker |
+| `truerehab_bridge/auth.py` | Kit key: handshake, signed commands, rate limit |
 | `tests/` | Unit tests: `.venv/bin/python -m unittest discover -s tests` |
 
 ## Limits
 
-- No login: anyone on the same Wi-Fi can view the kit and start or stop sessions. Fine for a lab or demo network. The multi-kit plan covers real accounts.
+- Without a kit key, anyone on the same Wi-Fi can view the kit and start or stop sessions. Set a key (see "Pairing a kit"). Real accounts and owner binding come later (multi-kit plan).
+- The key proves who connects, but the data isn't encrypted.
 - The bridge doesn't record to disk yet. Use the dashboard's Record button.
 - Plain `http`/`ws` only. Open the dashboard over http, not https.

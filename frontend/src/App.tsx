@@ -5,6 +5,7 @@ import { Panel } from './components/Panel.tsx';
 import type { Layout, PanelConfig } from './dashboard.config.ts';
 import { layouts as defaultLayouts } from './dashboard.config.ts';
 import { detectAutoConnect, rememberAddress } from './lib/address.ts';
+import { getKey } from './lib/keystore.ts';
 import { WebSocketSource } from './sensor/sources/WebSocketSource.ts';
 import { useSensor } from './state/SensorContext.tsx';
 import { Banners } from './shell/Banners.tsx';
@@ -44,7 +45,7 @@ export function App({ layouts = defaultLayouts, title = 'TrueRehab-RF', autoConn
     if (!autoConnect) return;
     let cancelled = false;
     void detectAutoConnect().then((found) => {
-      if (found && !cancelled) void connect(new WebSocketSource({ url: found.url }));
+      if (found && !cancelled) void connect(new WebSocketSource({ url: found.url, key: getKey(found.url) }));
     });
     return () => {
       cancelled = true;

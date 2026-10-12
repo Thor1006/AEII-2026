@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react';
 import { useRef, useState } from 'react';
 import { displayAddress, forgetAddress, normalizePiAddress, recentAddresses } from '../lib/address.ts';
+import { cleanKey, forgetKey, getKey, saveKey } from '../lib/keystore.ts';
 import { MockSource } from '../sensor/sources/MockSource.ts';
 import { ReplaySource } from '../sensor/sources/ReplaySource.ts';
 import { primarySourceKinds, sourceRegistry } from '../sensor/sources/index.ts';
@@ -21,8 +22,71 @@ export function StartScreen() {
         <p>The kit’s radar watches the exercise and this page shows the results live. Pick where the data comes from.</p>
       </div>
       {pending ? <Connecting /> : <Choices />}
-      {!pending && error && state === 'closed' && <p className={s.error}>{error}</p>}
+      {!pending && source instanceof WebSocketSource && source.authProblem && state === 'closed' && <KeyPrompt source={source} />}
+      {!pending && error && state === 'closed' && !(source instanceof WebSocketSource && source.authProblem) && <p className={s.error}>{error}</p>}
     </div>
+  );
+}
+
+/** Shown when the kit's key was missing or wrong. */
+function KeyPrompt({ source }: { source: WebSocketSource }) {
+  const { connect } = useSensor();
+  const [value, setValue] = useState('');
+  const [err, setErr] = useState<string>();
+  const problem = source.authProblem;
+  const askForKey = problem === 'needs-key' || problem === 'wrong-key';
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    const key = cleanKey(value);
+    if (!key) {
+      setErr('A kit key is 64 letters and numbers (0 to 9 and a to f). Copy it from the kit’s sticker.');
+      return;
+    }
+    saveKey(source.url, key);
+    void connect(new WebSocketSource({ url: source.url, key }));
+  };
+
+  return (
+    <form className={s.keyBox} onSubmit={submit} role="alert">
+      <h3>{askForKey ? 'Enter the kit key' : 'Can’t trust this kit'}</h3>
+      <p>{source.error}</p>
+      {askForKey && (
+        <>
+          <label className={s.field}>
+            <span>Kit key</span>
+            <input
+              value={value}
+              onChange={(e) => {
+                setValue(e.target.value);
+                setErr(undefined);
+              }}
+              placeholder="64 letters and numbers from the sticker"
+              autoCapitalize="off"
+              autoCorrect="off"
+              autoComplete="off"
+              spellCheck={false}
+              type="password"
+            />
+          </label>
+          {err && <p className={s.error}>{err}</p>}
+          <button type="submit" className="primary">
+            Connect with this key
+          </button>
+        </>
+      )}
+      {problem === 'no-key-on-kit' && (
+        <button
+          type="button"
+          onClick={() => {
+            forgetKey(source.url);
+            void connect(new WebSocketSource({ url: source.url }));
+          }}
+        >
+          Forget the saved key and connect anyway
+        </button>
+      )}
+    </form>
   );
 }
 
@@ -41,7 +105,7 @@ function Choices() {
       return;
     }
     setErr(undefined);
-    void connect(new WebSocketSource({ url }));
+    void connect(new WebSocketSource({ url, key: getKey(url) }));
   };
 
   const onSubmit = (e: FormEvent) => {

@@ -81,7 +81,7 @@ class BridgeLogic(unittest.TestCase):
         h = self.bridge.hello()
         self.assertEqual(h["type"], "hello")
         self.assertEqual(h["seq"], -1)
-        self.assertEqual(h["protocol"], "1.1")
+        self.assertEqual(h["protocol"], "1.2")
         self.assertTrue(h["synthetic"])
         m = h["manifest"]
         self.assertEqual([f["view"] for f in m["frames"]], ["range_doppler"])

@@ -2,6 +2,11 @@
 
 <!-- Newest on top. One short entry per decision that someone might later ask "why did we do it this way?" about. -->
 
+## 2026-10-12 — Home page first, with hash routing (no router library)
+- **Decision:** `#/` is an Apple-style landing page (`frontend/src/home/`), `#/app` is the dashboard. `Root.tsx` picks the route. Opened from a Pi bridge or with `?pi=`, it skips the landing page and goes straight to the dashboard. The page's live preview runs its own nested `SensorProvider` with `MockSource`, so it never touches the real connection. See [plan](plans/2026-10-12-home-page.md).
+- **Why:** The user needed something to present first; the old first screen was "Connect your kit". Two routes don't justify a router package, and the Pi-served page must still open on live data.
+- **Alternatives:** A router library (heavier for two routes); making the connect screen prettier (no story, no demo); a static preview image (not live).
+
 ## 2026-10-12 — Logo: "TR" monogram, SF Rounded outlined to SVG, mono
 - **Decision:** The header logo is a rounded-square tile with "TR" (SF Rounded Bold), drawn as an inline SVG in `frontend/src/App.tsx`. The letters are traced outlines, not text, so no font is needed. Mono colours that flip with the theme (`currentColor` tile, `var(--bg)` letters); no gradients.
 - **Why:** The first logo (CSS-gradient arcs) was disliked, and the user wanted something other than blue. Outlines look identical on every device and offline on the Pi. Mono avoids a second bright colour next to the blue accent and the status colours.

@@ -46,7 +46,7 @@ To test over Wi-Fi from a phone or tablet, run `npm run dev` and `npm run mock` 
 | `src/config/defaults.ts` | Fallback labels (used when the Pi sends no manifest), panel explainers, exercise list |
 | `src/dashboard.config.ts` | The two layouts (Session, Technical): panels, sizes, props, ⓘ texts |
 | `src/styles/theme.css` | Design tokens (colors, radius, fonts), light + dark |
-| `mock-server/` | Node mock of the Pi bridge (synthetic, protocol 1.1, `BREAK=` modes for testing the checker) |
+| `mock-server/` | Node mock of the Pi bridge (synthetic, protocol 1.2, optional `KEY=`, `BREAK=` modes for testing the checker and the key check) |
 | `samples/` | Arduino sketch and a Python bridge sketch |
 
 ## Customizing
@@ -59,6 +59,19 @@ To test over Wi-Fi from a phone or tablet, run `npm run dev` and `npm run mock` 
 - **New input:** extend `BaseSource` (`src/sensor/SensorSource.ts`), call `this.emit(msg)`, and add a `SourceDefinition` to `src/sensor/sources/index.ts`. The picker builds its form from `fields`.
 - **Colormap:** `registerColormap('mine', ['#000000', '#ff0000', '#ffffff'])` from `src/lib/colormaps.ts`.
 - **Custom layout without the config:** import components and widgets directly inside `<SensorProvider>`.
+
+## Kit key (protocol 1.2)
+
+A kit can be protected with a 64-character key. Nothing is sent before the handshake:
+
+1. Pi → `{"type":"challenge","nonce":"<32 hex>","kitId":"KIT-01"}`
+2. page → `{"type":"auth","cnonce":"<32 hex>","proof":"<hex>"}` with `proof = HMAC-SHA256(key, "trf-client|nonce|cnonce|kitId")`
+3. Pi → `{"type":"authok","proof":"<hex>"}` with `"trf-server|…"` in place of `"trf-client|…"`. The page checks it, so a fake Pi is caught. A wrong key gets `{"type":"autherr","error":"wrong-key"}` and close code 4401.
+4. Then `hello` (with `"auth":"hmac-sha256"`) and the normal stream. `sessionKey = HMAC(key, "trf-session|nonce|cnonce")`.
+
+Commands then look like `{"type":"command","id":1,"ctr":1,"payload":"{\"name\":\"marker\",\"args\":{}}","mac":"<hex>"}` with `mac = HMAC(sessionKey, "<ctr>|<payload>")`. `ctr` must keep increasing. The Pi signs nothing back and the stream isn't signed or encrypted. A kit with no key skips all this and says `"auth":"none"` in `hello`.
+
+The page keeps keys per kit address in `localStorage` (`src/lib/keystore.ts`) and uses its own SHA-256/HMAC (`src/lib/hmac.ts`), because browsers don't offer `crypto.subtle` on plain `http://` pages. Tests: `node scripts/check-hmac.ts` (known answers) and `node scripts/check-auth.ts` (starts the mock with a key and tries every way in). To try the mock with a key: `KEY=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))") npm run mock`.
 
 ## Protocol 1.1 (for whoever writes the Pi bridge)
 

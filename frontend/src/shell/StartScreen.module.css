@@ -250,3 +250,26 @@
   .cards { grid-template-columns: 1fr; }
   .screen { padding: 24px 16px 40px; }
 }
+
+.keyBox {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 520px;
+  margin-top: 16px;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--float);
+}
+
+.keyBox h3 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.keyBox p {
+  margin: 0;
+  color: var(--text-muted);
+}

@@ -35,6 +35,11 @@ export function Banners() {
           <strong>Demo data.</strong> Everything on this screen is made up. It is not a measurement.
         </div>
       )}
+      {isPi && state === 'open' && source.authMode === 'none' && (
+        <div className={s.banner} data-tone="warn" role="note">
+          <strong>This kit isn’t protected with a key.</strong> Anyone on the same Wi-Fi can see the data and start or stop sessions. Set a key on the kit to fix this.
+        </div>
+      )}
       {proto && (
         <div className={s.banner} data-tone="bad" role="alert">
           {proto}

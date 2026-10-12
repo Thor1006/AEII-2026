@@ -1,5 +1,5 @@
 """
-Protocol 1.1, Python side. Must match frontend/src/sensor/protocol.ts and the spec
+Protocol 1.2, Python side. Must match frontend/src/sensor/protocol.ts and the spec
 in frontend/README.md. check_bridge.py verifies a running bridge against it.
 
 Providers create the small message objects below (Frame, Scores, Aux, Event).
@@ -17,7 +17,7 @@ from typing import Any, Literal, Union
 import numpy as np
 
 PROTOCOL_VERSION = 1
-PROTOCOL_VERSION_STRING = "1.1"
+PROTOCOL_VERSION_STRING = "1.2"
 MAGIC = b"TRF1"
 
 Tone = Literal["good", "warn", "bad", "info"]

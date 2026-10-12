@@ -11,6 +11,11 @@ status_interval_ms = 1000
 frame_dtype = "f32"           # "u16" or "u8" cut Wi-Fi traffic 2–4× with a little precision loss
 client_queue = 120            # per-viewer buffer; a slow phone drops messages instead of slowing the Pi
 
+# ---- Kit key: who may connect (protocol 1.2). Leave both empty for an OPEN kit (anyone on the Wi-Fi). ----
+# Make one:  python -m truerehab_bridge --new-key --write /boot/firmware/trh-key.txt
+key_file = ""                 # file holding the key. Put it on the SD card's boot partition so any computer can read it
+key = ""                      # or the key itself (64 characters). The file is better: keep keys out of config files you share
+
 # ---- Data providers. Turn on what this kit has. ----
 
 [providers.synthetic]
