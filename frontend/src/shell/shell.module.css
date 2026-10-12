@@ -10,7 +10,7 @@
   gap: 8px;
   padding: 6px 12px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   cursor: pointer;
   list-style: none;
@@ -94,7 +94,7 @@
   align-items: center;
   gap: 5px;
   padding: 3px 9px;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--tone) 10%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--tone) 30%, var(--border));
 }
@@ -117,7 +117,7 @@
   display: inline-flex;
   padding: 3px;
   gap: 2px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--surface-2);
   border: 1px solid var(--border);
 }
@@ -126,7 +126,7 @@
   border: 0;
   background: transparent;
   padding: 5px 14px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--text-muted);
   font-weight: 600;
 }
@@ -148,7 +148,10 @@
   font-size: 13px;
   color: var(--text);
   background: color-mix(in srgb, var(--tone) 11%, var(--bg));
-  border-bottom: 1px solid color-mix(in srgb, var(--tone) 30%, var(--border));
+  margin: 12px 12px 0;
+  border: 1px solid color-mix(in srgb, var(--tone) 30%, var(--border));
+  border-radius: var(--radius);
+  box-shadow: var(--float);
 }
 
 .banner[data-tone='warn'] { --tone: var(--warn); }
@@ -164,7 +167,10 @@
   align-items: center;
   gap: 10px 14px;
   padding: 10px 20px;
-  border-bottom: 1px solid var(--border);
+  margin: 12px 12px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--float);
   background: var(--surface);
   font-size: 14px;
 }
