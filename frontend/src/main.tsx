@@ -4,6 +4,10 @@ import { App } from './App.tsx';
 import { initialSource } from './dashboard.config.ts';
 import { sourceRegistry } from './sensor/sources/index.ts';
 import { SensorProvider } from './state/SensorContext.tsx';
+import '@fontsource/inter/latin-400.css';
+import '@fontsource/inter/latin-500.css';
+import '@fontsource/noto-sans-thai/thai-400.css';
+import '@fontsource/noto-sans-thai/thai-500.css';
 import './styles/global.css';
 
 const start = initialSource;
