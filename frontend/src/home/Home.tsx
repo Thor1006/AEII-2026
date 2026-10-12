@@ -82,7 +82,7 @@ export function Home() {
                 <span className={s.note}>Made-up data, not a measurement</span>
               </div>
               <div className={s.cardBody}>
-                <div className={s.gauges}>
+                <div>
                   <ScoresWidget showDirection={false} />
                 </div>
                 <div className={s.chart}>

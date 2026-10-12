@@ -7,15 +7,15 @@
 ## Current focus
 Two synthetic-only pieces are ready and waiting on real radar data:
 - CNN frame encoder v0.1 in `sandbox/Encoder_0.1/`
-- TypeScript dashboard in `frontend/`, now protocol 1.1: the Pi describes itself (`hello` + manifest), and the page sends start/stop commands. It has a start screen, Session/Technical views and plain-language help. Restyled 2026-10-12: Fluent-style palette, Inter, floating rounded cards, no gradients (`src/styles/theme.css`). It now opens on an Apple-style home page (`#/`, `src/home/`) with the live demo right under the hero, a numbered how-it-works list and a Camera/Wearables/Radar table; the dashboard is at `#/app`. Design rules + "don'ts" in `frontend/DESIGN.md`. New "TR" logo (`components/Logo.tsx`).
-- **Kit key (protocol 1.2), committed 2026-10-12 (`c16d563`):** challenge/response handshake + signed commands. Page side and mock server verified (`node scripts/check-hmac.ts`, `node scripts/check-auth.ts`, browser). Python side (`pi-bridge/truerehab_bridge/auth.py`, `server.py`, `__main__.py --new-key/--show-link`, `check_bridge.py --key --auth-selftest`) is written and `tests/test_auth.py` passes (21 ok, 4 skipped) but the **bridge has never been run**. Plan: [kit-pairing-key](plans/2026-10-12-kit-pairing-key.md).
-- **Paused on purpose:** the Python Pi bridge `pi-bridge/` is still never run. The user said **do not install its packages (`websockets`, `numpy`) now; ask again when we are really setting up a Pi.** See [report](output/2026-10-11-1828-easier-ui-pi-bridge.md).
+- TypeScript dashboard in `frontend/`, now protocol 1.1: the Pi describes itself (`hello` + manifest), and the page sends start/stop commands. It has a start screen, Session/Technical views and plain-language help. Restyled 2026-10-12 (Fluent palette, Inter, floating cards; `src/styles/theme.css`). Opens on an Apple-style home page (`#/`, `src/home/`) with a live demo, how-it-works list and Camera/Wearables/Radar table; the dashboard is at `#/app`. Design rules in `frontend/DESIGN.md`. "TR" logo in `components/Logo.tsx`.
+- **Kit key (protocol 1.2), committed (`c16d563`):** challenge/response handshake + signed commands. Page side and mock server verified (`scripts/check-hmac.ts`, `scripts/check-auth.ts`, browser). Python side (`auth.py`, `server.py`, `__main__.py --new-key/--show-link`, `check_bridge.py --key --auth-selftest`) passes `tests/test_auth.py` (21 ok, 4 skipped) but the bridge has never been run. Plan: [kit-pairing-key](plans/2026-10-12-kit-pairing-key.md).
+- **Paused on purpose:** the Python Pi bridge `pi-bridge/` has never run. The user said **do not install its packages (`websockets`, `numpy`) now; ask again when we are really setting up a Pi.** See [report](output/2026-10-11-1828-easier-ui-pi-bridge.md).
 
 ## Recent changes
-- 2026-10-12 — Home page "AI slop" pass: demo above the fold, no eyebrows/card grids, comparison table, DESIGN.md; pushed ([report](output/2026-10-12-2243-home-ai-slop-pass.md))
-- 2026-10-12 — Home page + hash routing + new TR logo; pushed ([report](output/2026-10-12-2220-home-page.md))
+- 2026-10-12 — Kit key (protocol 1.2): challenge/response + signed commands ([plan](plans/2026-10-12-kit-pairing-key.md))
+- 2026-10-12 — Home page "AI slop" pass: demo above the fold, no eyebrows/card grids, comparison table, DESIGN.md([report](output/2026-10-12-2243-home-ai-slop-pass.md))
+- 2026-10-12 — Home page + hash routing + new TR logo([report](output/2026-10-12-2220-home-page.md))
 - 2026-10-12 — Dashboard restyle: Fluent palette, Inter, floating rounded cards, no gradients; pushed to GitHub ([report](output/2026-10-12-2131-dashboard-restyle.md))
-- 2026-10-11 — Easier UI + protocol 1.1 + Python Pi bridge and checker (frontend verified, Python untested) ([report](output/2026-10-11-1828-easier-ui-pi-bridge.md))
 - 2026-10-10 — Built the TypeScript dashboard + mock Pi bridge; typecheck, build and browser checks pass ([report](output/2026-10-10-2154-typescript-frontend.md))
 
 ## Open questions
