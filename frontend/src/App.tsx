@@ -94,28 +94,30 @@ export function App({ layouts = defaultLayouts, title = 'TrueRehab-RF', autoConn
         </div>
       </header>
 
-      {showStart ? (
-        <StartScreen />
-      ) : (
-        <>
-          <Banners />
-          <SessionBar />
-          <div className={s.subbar}>
-            <DeviceStrip />
-            <div className={s.subbarRight}>
-              <PlaybackBar />
-              <SessionRecorder />
+      <div key={showStart ? 'connection' : 'dashboard'} className={s.screen}>
+        {showStart ? (
+          <StartScreen />
+        ) : (
+          <>
+            <Banners />
+            <SessionBar />
+            <div className={s.subbar}>
+              <DeviceStrip />
+              <div className={s.subbarRight}>
+                <PlaybackBar />
+                <SessionRecorder />
+              </div>
             </div>
-          </div>
-          <main className={s.grid}>
-            {layout.panels.map((p) => (
-              <Panel key={`${layout.key}-${p.id}`} title={p.title} info={p.info} style={{ '--span': p.span ?? 4, '--rows': p.rows ?? 1 } as CSSProperties} className={s.cell}>
-                <WidgetSlot panel={p} />
-              </Panel>
-            ))}
-          </main>
-        </>
-      )}
+            <main key={layout.key} className={s.grid}>
+              {layout.panels.map((p) => (
+                <Panel key={`${layout.key}-${p.id}`} title={p.title} info={p.info} style={{ '--span': p.span ?? 4, '--rows': p.rows ?? 1 } as CSSProperties} className={s.cell}>
+                  <WidgetSlot panel={p} />
+                </Panel>
+              ))}
+            </main>
+          </>
+        )}
+      </div>
     </div>
   ));
 }

@@ -23,7 +23,9 @@ export function StartScreen() {
         <h2>Connect to your TrueRehab kit</h2>
         <p>The kit’s radar watches the exercise and this page shows the results live. Pick where the data comes from.</p>
       </div>
-      {pending ? <Connecting /> : <Choices />}
+      <div key={pending ? 'connecting' : 'choices'} className={s.stage}>
+        {pending ? <Connecting /> : <Choices />}
+      </div>
       {!pending && source instanceof WebSocketSource && source.authProblem && state === 'closed' && <KeyPrompt source={source} />}
       {!pending && error && state === 'closed' && !(source instanceof WebSocketSource && source.authProblem) && <p className={s.error}>{error}</p>}
     </div>

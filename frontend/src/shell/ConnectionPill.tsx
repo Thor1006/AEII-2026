@@ -27,7 +27,7 @@ export function ConnectionPill() {
   const total = stats.received + stats.dropped;
 
   return ui((
-    <details className={s.pill}>
+    <details className={s.pill} data-popup>
       <summary data-tone={tone}>
         <span className={s.pillDot} />
         <span className={s.pillName}>{name}</span>

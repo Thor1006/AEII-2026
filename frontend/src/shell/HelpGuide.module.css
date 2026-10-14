@@ -26,8 +26,43 @@
   line-height: 1.6;
 }
 
-.dialog::backdrop {
+.dialog[open] {
+  animation: var(--motion-dialog);
+}
+
+.dialog[open]::backdrop {
   background: rgb(0 0 0 / 0.42);
+  animation: var(--motion-fade);
+}
+
+/* Native dialog closing, Escape and focus restoration remain immediate. */
+@supports (transition-behavior: allow-discrete) {
+  .dialog {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity var(--motion-dialog-time) ease,
+      transform var(--motion-dialog-time) var(--motion-ease),
+      display var(--motion-dialog-time) allow-discrete,
+      overlay var(--motion-dialog-time) allow-discrete;
+  }
+
+  .dialog[open] { animation: none; opacity: 1; transform: none; }
+
+  .dialog:not([open]), .dialog:not([open])::backdrop { pointer-events: none; }
+
+  .dialog::backdrop {
+    background: rgb(0 0 0 / 0);
+    transition: background var(--motion-dialog-time) ease,
+      display var(--motion-dialog-time) allow-discrete,
+      overlay var(--motion-dialog-time) allow-discrete;
+  }
+
+  .dialog[open]::backdrop { animation: none; background: rgb(0 0 0 / 0.42); }
+
+  @starting-style {
+    .dialog[open] { opacity: 0; transform: translateY(24px); }
+    .dialog[open]::backdrop { background: rgb(0 0 0 / 0); }
+  }
 }
 
 .largeText {
@@ -135,6 +170,7 @@
 
 .content {
   padding-top: 24px;
+  animation: var(--motion-reveal);
 }
 
 .content h3 {

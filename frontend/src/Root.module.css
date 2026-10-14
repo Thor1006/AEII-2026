@@ -1,0 +1,5 @@
+.page {
+  display: flow-root;
+  min-height: 100vh;
+  animation: var(--motion-page);
+}

@@ -94,7 +94,7 @@ export function SessionBar() {
   }
 
   return ui((
-    <div className={s.sessionBar} data-state={running ? 'running' : 'idle'}>
+    <div key={running ? 'running' : formOpen ? 'form' : 'idle'} className={s.sessionBar} data-state={running ? 'running' : 'idle'}>
       {running ? (
         <>
           <span className={s.liveTag}>
@@ -117,7 +117,7 @@ export function SessionBar() {
             </button>
           )}
           {confirmStop ? (
-            <>
+            <span className={s.confirm}>
               <span>Stop now?</span>
               <button type="button" className={s.danger} disabled={busy} onClick={() => void run('session.stop', undefined, () => setConfirmStop(false))}>
                 Yes, stop
@@ -125,7 +125,7 @@ export function SessionBar() {
               <button type="button" onClick={() => setConfirmStop(false)}>
                 Keep going
               </button>
-            </>
+            </span>
           ) : (
             <button type="button" onClick={() => setConfirmStop(true)} disabled={busy || !supports('session.stop')}>
               Stop session

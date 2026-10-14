@@ -96,7 +96,7 @@ export function HelpGuide() {
             ))}
           </nav>
 
-          <section className={s.content} aria-labelledby={`${titleId}-${topic}`}>
+          <section key={topic} className={s.content} aria-labelledby={`${titleId}-${topic}`}>
             {topic === 'start' && (
               <>
                 <h3 id={`${titleId}-start`}>Try the website first</h3>

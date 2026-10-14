@@ -45,8 +45,8 @@ export function Panel({ title, info, actions, children, className, style, flush 
           </div>
         </header>
       )}
-      {info && showInfo && (
-        <p id={infoId} className={s.info}>
+      {info && (
+        <p id={infoId} className={s.info} data-motion="reveal" hidden={!showInfo} aria-hidden={!showInfo}>
           {info}
         </p>
       )}

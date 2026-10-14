@@ -13,6 +13,19 @@
   --gap: 14px;
   --pad: 16px;
 
+  /* One shared motion language for user-triggered reveals. */
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-fast: 140ms;
+  --motion-popup-time: 180ms;
+  --motion-dialog-time: 260ms;
+  --motion-disclosure-time: 220ms;
+  --motion-dialog: trf-dialog-enter 260ms var(--motion-ease) both;
+  --motion-popover: trf-reveal 180ms var(--motion-ease) both;
+  --motion-reveal: trf-reveal 200ms var(--motion-ease) both;
+  --motion-fade: trf-fade-in 200ms ease-out both;
+  /* No forwards fill: fixed pop-ups keep their viewport positioning afterwards. */
+  --motion-page: trf-page-enter 280ms var(--motion-ease) backwards;
+
   --bg: #f3f2f1;
   --surface: #ffffff;
   --surface-2: #f3f2f1;
@@ -41,6 +54,20 @@
   --float: 0 1px 2px rgb(32 31 30 / 0.06), 0 6px 14px rgb(32 31 30 / 0.07), 0 18px 40px rgb(32 31 30 / 0.10);
   --shadow: 0 1px 2px rgb(20 20 20 / 0.06), 0 1px 1px rgb(20 20 20 / 0.04);
   color-scheme: light;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-popup-time: 0ms;
+    --motion-dialog-time: 0ms;
+    --motion-disclosure-time: 0ms;
+    --motion-dialog: none;
+    --motion-popover: none;
+    --motion-reveal: none;
+    --motion-fade: none;
+    --motion-page: none;
+  }
 }
 
 @media (prefers-color-scheme: dark) {

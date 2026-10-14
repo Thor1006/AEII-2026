@@ -95,14 +95,14 @@ export function LanguageSelector() {
         <Flag language={language} /><span lang={language}>{selected.name}</span>
         <svg className={s.chevron} width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" aria-hidden="true"><path d="m3 4.5 3 3 3-3" /></svg>
       </button>
-      {open && <div ref={list} id={id} className={s.options} role="listbox" tabIndex={-1}
+      <div ref={list} id={id} className={s.options} data-motion="popup" hidden={!open} aria-hidden={!open} role="listbox" tabIndex={-1}
         aria-label={t('Language')} aria-activedescendant={`${id}-${active}`} onKeyDown={handleKey}>
         {languages.map((item, index) => <div key={item.code} id={`${id}-${index}`} role="option"
           aria-selected={language === item.code} className={`${s.option} ${active === index ? s.active : ''}`}
           onPointerMove={() => setActive(index)} onClick={() => choose(index)}>
           <Flag language={item.code} /><span lang={item.code}>{item.name}</span>
         </div>)}
-      </div>}
+      </div>
     </div>
   );
 }

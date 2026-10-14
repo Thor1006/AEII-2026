@@ -4,6 +4,10 @@
   padding: 40px 20px 60px;
 }
 
+.stage {
+  animation: var(--motion-reveal);
+}
+
 .intro h2 {
   margin: 0 0 6px;
   font-size: 26px;
@@ -119,6 +123,7 @@
 }
 
 .error {
+  animation: var(--motion-fade);
   margin: 0;
   font-size: 13px;
   color: var(--bad);
@@ -214,6 +219,7 @@
 }
 
 .checklist {
+  animation: var(--motion-reveal);
   margin: 0;
   padding: 0 0 0 20px;
   display: flex;
@@ -252,6 +258,7 @@
 }
 
 .keyBox {
+  animation: var(--motion-reveal);
   display: flex;
   flex-direction: column;
   gap: 10px;

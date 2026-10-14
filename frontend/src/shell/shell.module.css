@@ -139,6 +139,7 @@
 
 /* ---------- banners ---------- */
 .banner {
+  animation: var(--motion-fade);
   --tone: var(--info);
   display: flex;
   flex-wrap: wrap;
@@ -162,6 +163,7 @@
 
 /* ---------- session bar ---------- */
 .sessionBar {
+  animation: var(--motion-fade);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -201,6 +203,7 @@
 .flash {
   font-size: 13px;
   color: var(--good);
+  animation: var(--motion-reveal);
 }
 
 .danger {
@@ -210,8 +213,17 @@
   font-weight: 600;
 }
 
+.confirm {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  animation: var(--motion-reveal);
+}
+
 .sessionForm {
   display: flex;
+  animation: var(--motion-reveal);
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 12px;
@@ -252,12 +264,14 @@
 .muted { color: var(--text-muted); }
 
 .error {
+  animation: var(--motion-fade);
   font-size: 13px;
   color: var(--bad);
 }
 
 .playback,
 .recorder {
+  animation: var(--motion-fade);
   display: flex;
   align-items: center;
   gap: 8px;

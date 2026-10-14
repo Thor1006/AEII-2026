@@ -4,6 +4,7 @@ import { App } from './App.tsx';
 import { Home } from './home/Home.tsx';
 import { detectAutoConnect } from './lib/address.ts';
 import { takeKeyFromLocation } from './lib/keystore.ts';
+import s from './Root.module.css';
 
 type Route = 'home' | 'app';
 
@@ -41,5 +42,11 @@ export function Root() {
   }, [route]);
 
   if (!checked) return null;
-  return ui((route ?? 'home') === 'app' ? <App /> : <Home />);
+  const currentRoute = route ?? 'home';
+  return ui(
+    // Restart only on navigation, never on language changes or sensor updates.
+    <div key={currentRoute} className={s.page}>
+      {currentRoute === 'app' ? <App /> : <Home />}
+    </div>,
+  );
 }

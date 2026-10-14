@@ -30,6 +30,9 @@ button {
   background: var(--surface);
   border-radius: var(--radius-sm);
   padding: 6px 12px;
+  transition: border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease, color var(--motion-fast) ease,
+    translate var(--motion-fast) ease, scale var(--motion-fast) ease;
 }
 
 button:hover:not(:disabled) {
@@ -73,4 +76,101 @@ select {
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+/* Animate revealed content once, not on live sensor updates. */
+details[open] > :not(summary) {
+  animation: var(--motion-reveal);
+}
+
+a, summary {
+  transition: color var(--motion-fast) ease, background-color var(--motion-fast) ease;
+}
+
+/* Keep hidden content mounted only for its exit transition; never interactive. */
+[data-motion] { animation: var(--motion-reveal); }
+[data-motion='popup'] { animation: var(--motion-popover); }
+
+[data-motion][hidden] {
+  display: none;
+  pointer-events: none;
+}
+
+/* Progressive enhancement: older browsers retain the existing entrance effect. */
+@supports (transition-behavior: allow-discrete) {
+  :root [data-motion] {
+    animation: none;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity var(--motion-popup-time) ease,
+      transform var(--motion-popup-time) var(--motion-ease),
+      display var(--motion-popup-time) allow-discrete;
+  }
+
+  [data-motion]:not([hidden]) {
+    opacity: 1;
+    transform: none;
+  }
+
+  @starting-style {
+    [data-motion]:not([hidden]) {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+}
+
+@supports selector(details::details-content) and (transition-behavior: allow-discrete) {
+  details[open] > :not(summary) { animation: none; }
+
+  details::details-content {
+    opacity: 0;
+    transition: opacity var(--motion-disclosure-time) ease,
+      content-visibility var(--motion-disclosure-time) allow-discrete;
+  }
+
+  details[open]::details-content { opacity: 1; }
+  details:not([open])::details-content { pointer-events: none; }
+
+  @supports (interpolate-size: allow-keywords) {
+    /* Don't clip floating connection menus; only expand in-flow disclosures. */
+    details:not([data-popup])::details-content {
+      interpolate-size: allow-keywords;
+      block-size: 0;
+      overflow: clip;
+      transition: block-size var(--motion-disclosure-time) var(--motion-ease),
+        opacity var(--motion-disclosure-time) ease,
+        content-visibility var(--motion-disclosure-time) allow-discrete;
+    }
+
+    details[open]:not([data-popup])::details-content { block-size: auto; }
+  }
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  button:hover:not(:disabled) { translate: 0 -1px; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  button:active:not(:disabled) { translate: 0 0; scale: 0.98; }
+}
+
+@keyframes trf-dialog-enter {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes trf-reveal {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes trf-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes trf-page-enter {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
 }

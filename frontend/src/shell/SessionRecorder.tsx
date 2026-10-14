@@ -57,7 +57,7 @@ export function SessionRecorder({ includeFrames: initialFrames = true, filenameP
   };
 
   return ui((
-    <div className={s.recorder}>
+    <div key={recording ? 'recording' : 'idle'} className={s.recorder}>
       {recording ? (
         <>
           <span className={s.recDot} />
