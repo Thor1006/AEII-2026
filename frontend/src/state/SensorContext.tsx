@@ -4,12 +4,15 @@ import type { AckMessage, CommandName, SessionInfo } from '../sensor/protocol.ts
 import type { SensorSource, SourceState } from '../sensor/SensorSource.ts';
 import { CommandError } from '../sensor/SensorSource.ts';
 import { SensorStore } from './SensorStore.ts';
+import { loadReportHistory, saveReportHistory } from './SessionReportHistory.ts';
+import type { HistoryWarning } from './SessionReportHistory.ts';
 
 interface SensorContextValue {
   store: SensorStore;
   source: SensorSource | null;
   state: SourceState;
   error?: string;
+  reportStorageWarning: HistoryWarning;
   /** Replace the active source. Call from a click handler (Web Serial needs the gesture). */
   connect(source: SensorSource): Promise<void>;
   disconnect(): void;
@@ -30,11 +33,30 @@ export interface SensorProviderProps {
 }
 
 export function SensorProvider({ children, store: external, initialSource }: SensorProviderProps) {
-  const store = useMemo(() => external ?? new SensorStore(), [external]);
+  const restored = useMemo(() => {
+    if (external) return { store: external, warning: undefined };
+    const saved = loadReportHistory();
+    return { store: new SensorStore({ reportHistory: saved.records }), warning: saved.warning };
+  }, [external]);
+  const store = restored.store;
+  const [reportStorageWarning, setReportStorageWarning] = useState<HistoryWarning>(restored.warning);
   const [source, setSource] = useState<SensorSource | null>(null);
   const [state, setState] = useState<SourceState>('idle');
   const [error, setError] = useState<string>();
   const current = useRef<{ source: SensorSource; unsubs: (() => void)[] } | null>(null);
+
+  useEffect(() => {
+    setReportStorageWarning(restored.warning);
+    let previous = store.reports.records;
+    const persist = () => {
+      const records = store.reports.records;
+      if (records === previous) return; // Never write on each live reading.
+      previous = records;
+      setReportStorageWarning(saveReportHistory(records) ? undefined : 'unavailable');
+    };
+    const unsubscribe = store.subscribe(persist);
+    return unsubscribe;
+  }, [store, restored.warning]);
 
   const disconnect = useCallback(() => {
     if (!current.current) return;
@@ -86,8 +108,8 @@ export function SensorProvider({ children, store: external, initialSource }: Sen
   }, []);
 
   const value = useMemo(
-    () => ({ store, source, state, error, connect, disconnect, sendCommand, canCommand: !!source?.command }),
-    [store, source, state, error, connect, disconnect, sendCommand],
+    () => ({ store, source, state, error, reportStorageWarning, connect, disconnect, sendCommand, canCommand: !!source?.command }),
+    [store, source, state, error, reportStorageWarning, connect, disconnect, sendCommand],
   );
   return <SensorContext.Provider value={value}>{children}</SensorContext.Provider>;
 }

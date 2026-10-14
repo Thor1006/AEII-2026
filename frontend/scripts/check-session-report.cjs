@@ -101,4 +101,63 @@ for (const language of ['en', 'th', 'zh-HK']) {
   assert.ok(reportCsv(report,t).includes(`"${t('Completed reps')}"`));
   assert.notEqual(language === 'en' ? 'translated' : t('Session summary'), 'Session summary');
 }
-console.log('PASS: complete long-session totals, bounded trends, duplicate/out-of-session filtering, frozen reports, missing/invalid data, loss warnings, resets and localized safe CSV.');
+const { loadReportHistory, saveReportHistory, REPORT_HISTORY_KEY } = load('src/state/SessionReportHistory.ts');
+const historyStore = new SensorStore();
+const originals = [];
+for (let i = 1; i <= 6; i++) {
+  const active = start(historyStore, `history-${i}`, i * 10000);
+  historyStore.ingest(message({ type: 'scores', t: i * 10000 + 100, scores: { fatigue: { value: i / 10 } } }));
+  originals.push(stop(historyStore, active, i * 10000 + i * 1000, 0));
+  assert.equal(historyStore.reports.records.length, Math.min(i, 5));
+}
+assert.deepEqual(historyStore.reports.records.map(item => item.session.id), ['history-6', 'history-5', 'history-4', 'history-3', 'history-2']);
+const older = historyStore.reports.records[4];
+assert.equal(older, originals[1]);
+assert.equal(older.durationMs, 2000);
+assert.equal(older.scores.find(score => score.key === 'fatigue').mean, .2);
+assert.equal(historyStore.reports.latest.durationMs, 6000);
+const historySnapshot = JSON.stringify(historyStore.reports.records);
+const recordsPointer = historyStore.reports.records;
+historyStore.reset();
+assert.equal(historyStore.reports.records, recordsPointer);
+historyStore.setSession({ ...older.session, state: 'running' }, true);
+historyStore.setSession(older.session, false, 0);
+assert.equal(historyStore.reports.records, recordsPointer); // Replaying a saved session does not duplicate it.
+assert.equal(JSON.stringify(historyStore.reports.records), historySnapshot);
+assert.ok(reportCsv(older).includes('"Duration","2","s"')); // Export the selected old snapshot, not the latest.
+let stored = null;
+const memoryStorage = {
+  getItem: key => { assert.equal(key, REPORT_HISTORY_KEY); return stored; },
+  setItem: (key, value) => { assert.equal(key, REPORT_HISTORY_KEY); stored = value; },
+};
+assert.deepEqual(loadReportHistory(() => memoryStorage), { records: [], warning: undefined });
+assert.equal(saveReportHistory(historyStore.reports.records, () => memoryStorage), true);
+const restored = loadReportHistory(() => memoryStorage);
+assert.equal(restored.warning, undefined);
+assert.deepEqual(restored.records, historyStore.reports.records);
+const reloadedStore = new SensorStore({ reportHistory: restored.records });
+assert.deepEqual(reloadedStore.reports.records, historyStore.reports.records);
+const seventh = start(reloadedStore, 'history-7', 80000);
+stop(reloadedStore, seventh, 81000, 0);
+assert.deepEqual(reloadedStore.reports.records.map(item => item.session.id), ['history-7', 'history-6', 'history-5', 'history-4', 'history-3']);
+assert.equal(JSON.stringify(historyStore.reports.records), historySnapshot);
+assert.equal(saveReportHistory(originals, () => memoryStorage), true);
+assert.equal(JSON.parse(stored).records.length, 5);
+stored = 'broken JSON';
+assert.deepEqual(loadReportHistory(() => memoryStorage), { records: [], warning: 'invalid' });
+stored = JSON.stringify({ version: 99, records: restored.records });
+assert.equal(loadReportHistory(() => memoryStorage).warning, 'invalid');
+const corrupt = JSON.parse(JSON.stringify(older)); corrupt.scores[0].points = [{ t: 10, v: 8, samples: 1 }];
+stored = JSON.stringify({ version: 1, records: [corrupt, null, older, older] });
+assert.deepEqual(loadReportHistory(() => memoryStorage), { records: [older], warning: 'invalid' });
+const denied = () => { throw new Error('Storage denied'); };
+assert.deepEqual(loadReportHistory(denied), { records: [], warning: 'unavailable' });
+assert.equal(saveReportHistory(restored.records, denied), false);
+assert.equal(saveReportHistory(restored.records, () => ({ ...memoryStorage, setItem: () => { throw new Error('Quota exceeded'); } })), false);
+assert.equal(JSON.stringify(historyStore.reports.records), historySnapshot);
+for (const language of ['en', 'th', 'zh-HK']) {
+  const t = createTranslator(language);
+  if (language !== 'en') assert.notEqual(t('Saved sessions'), 'Saved sessions');
+  assert.ok(!t('Open saved session {number}: {exercise}, {date}', { number: 1, exercise: 'test', date: 'today' }).includes('{number}'));
+}
+console.log('PASS: session aggregation, frozen snapshots, localized safe CSV, five-record eviction, deduplication, reload persistence and damaged/denied/full storage.');

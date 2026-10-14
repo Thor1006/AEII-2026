@@ -9,6 +9,7 @@ import type {
 } from '../sensor/protocol.ts';
 import { RingBuffer } from './RingBuffer.ts';
 import { SessionReportTracker } from './SessionReport.ts';
+import type { SessionReport } from './SessionReport.ts';
 import { scoreDefs } from './describe.ts';
 
 export interface TimedValue {
@@ -36,6 +37,7 @@ export interface SensorStoreOptions {
   /** Samples kept per score / aux channel. */
   historyLength?: number;
   eventLength?: number;
+  reportHistory?: readonly SessionReport[];
 }
 
 /** Stream ids: "frame:<view>", "score:<key>", "aux:<key>", "status". */
@@ -46,7 +48,7 @@ export type StreamId = string;
  * widgets read it directly and re-render on `subscribe` (throttled by useSensorStore).
  */
 export class SensorStore {
-  readonly reports = new SessionReportTracker();
+  readonly reports: SessionReportTracker;
   readonly frames = new Map<string, FrameMessage>();
   readonly scores = new Map<string, RingBuffer<TimedValue>>();
   readonly aux = new Map<string, RingBuffer<TimedValue>>();
@@ -67,6 +69,7 @@ export class SensorStore {
   private readonly rawListeners = new Set<(msg: SensorMessage) => void>();
 
   constructor(opts: SensorStoreOptions = {}) {
+    this.reports = new SessionReportTracker(opts.reportHistory);
     this.historyLength = opts.historyLength ?? 3000;
     this.events = new RingBuffer(opts.eventLength ?? 300);
   }

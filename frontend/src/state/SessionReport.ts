@@ -51,12 +51,18 @@ const finite = (value: unknown): value is number => typeof value === 'number' &&
 const timestamp = (value: unknown): value is number => finite(value) && Math.abs(value) <= 8.64e15;
 const validReps = (value: unknown): value is number => finite(value) && Number.isInteger(value) && value >= 0;
 
-/** Whole-session running statistics, independent of the live chart/event buffers.
- * Only the latest completed report is retained; no patient data is written to storage.
- */
+export const REPORT_HISTORY_LIMIT = 5;
+
+/** Whole-session snapshots, independent of the live chart/event buffers. */
 export class SessionReportTracker {
-  latest: SessionReport | null = null;
+  private history: readonly SessionReport[];
   private active: Active | null = null;
+
+  constructor(records: readonly SessionReport[] = []) {
+    this.history = records.slice(0, REPORT_HISTORY_LIMIT);
+  }
+  get records(): readonly SessionReport[] { return this.history; }
+  get latest(): SessionReport | null { return this.history[0] ?? null; }
 
   reset(): void { this.active = null; }
 
@@ -66,7 +72,7 @@ export class SessionReportTracker {
       const same = this.active?.session.id === session.id && this.active.session.startedAt === session.startedAt;
       if (!same) {
         // An old running status must not reopen an already completed session.
-        if (this.latest?.session.id === session.id && this.latest.session.startedAt === session.startedAt) return;
+        if (this.history.some(report => report.session.id === session.id && report.session.startedAt === session.startedAt && report.device === context.device)) return;
         this.active = { session: { ...session }, context: { ...context }, partial: false, observedStart,
           scores: new Map(context.defs.map(def => [def.key, { def: { ...def }, directionKnown: true, count: 0, sum: 0, points: [] }])),
           reps: new Set(), seen: new Set() };
@@ -81,7 +87,7 @@ export class SessionReportTracker {
     if (!active || active.session.id !== session.id || active.session.startedAt !== session.startedAt) return;
     const validTimes = timestamp(session.startedAt) && timestamp(session.endedAt) && session.endedAt >= session.startedAt;
     const observedReps = active.reps.size;
-    this.latest = {
+    const report: SessionReport = {
       session: { ...session }, device: active.context.device,
       synthetic: active.context.synthetic || context.synthetic,
       partial: !active.observedStart || active.partial || !validTimes || context.dropped > active.context.dropped
@@ -98,6 +104,7 @@ export class SessionReportTracker {
         points: metric.points.map(point => ({ ...point })).sort((a,b) => a.t - b.t),
       })),
     };
+    this.history = [report, ...this.history].slice(0, REPORT_HISTORY_LIMIT);
     this.active = null;
   }
 

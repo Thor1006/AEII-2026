@@ -12,21 +12,24 @@ const duration = (ms: number | null) => ms === null ? '—' : `${Math.floor(ms /
 
 /** A stable snapshot: live readings never change the finished report. */
 export function SessionSummary() {
-  const { store } = useSensor();
+  const { store, reportStorageWarning } = useSensor();
   const { ui, t, language } = useI18n();
   const subscribe = useCallback((notify: () => void) => store.subscribe(notify), [store]);
-  const report = useSyncExternalStore(subscribe, () => store.reports.latest);
+  const records = useSyncExternalStore(subscribe, () => store.reports.records);
+  const latest = records[0];
+  const [report, setReport] = useState<SessionReport | undefined>(latest);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string>();
-  const previous = useRef(report);
+  const previous = useRef(latest);
   const dialog = useRef<HTMLDialogElement>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
+  const trigger = useRef<HTMLButtonElement | null>(null);
   const id = useId();
 
   useEffect(() => {
-    if (report && report !== previous.current) { setOpen(true); setError(undefined); }
-    previous.current = report;
-  }, [report]);
+    // Keep the selected snapshot unchanged while someone is reading it.
+    if (latest && latest !== previous.current && !open) { setReport(latest); setOpen(true); setError(undefined); }
+    previous.current = latest;
+  }, [latest, open]);
   useEffect(() => {
     if (!open || !dialog.current) return;
     const element = dialog.current;
@@ -36,10 +39,19 @@ export function SessionSummary() {
     return () => { if (element.open) element.close(); document.body.style.overflow = overflow; };
   }, [open]);
 
-  if (!report) return null;
-  const exercise = exercises.find(item => item.key === report.session.exercise)?.label ?? (report.session.exercise ? humanize(report.session.exercise) : t('Not available'));
+  const exerciseName = (item: SessionReport) => exercises.find(exercise => exercise.key === item.session.exercise)?.label
+    ?? (item.session.exercise ? humanize(item.session.exercise) : 'Not available');
+  const exercise = report ? exerciseName(report) : 'Not available';
   const time = (value?: number) => value !== undefined && Number.isFinite(new Date(value).getTime())
     ? new Intl.DateTimeFormat(language, { dateStyle: 'medium', timeStyle: 'medium' }).format(value) : t('Not available');
+  const storageNotice = reportStorageWarning === 'unavailable'
+    ? 'Browser storage is unavailable. New records may be lost after reloading. Download a copy to keep them.'
+    : reportStorageWarning === 'invalid' ? 'Some saved records could not be loaded. Available records are shown below.' : undefined;
+
+  function viewRecord(item: SessionReport, button: HTMLButtonElement) {
+    trigger.current = button;
+    setReport(item); setError(undefined); setOpen(true);
+  }
 
   function download() {
     try {
@@ -76,12 +88,30 @@ export function SessionSummary() {
 
   return ui(
     <div data-summary-host>
-      <aside className={s.strip} aria-label="Last completed session">
+      {latest && <aside className={s.strip} aria-label="Last completed session">
         <span>Last completed session</span>
-        <span>{t(exercise)} · {duration(report.durationMs)}</span>
-        <button ref={trigger} type="button" onClick={() => { setError(undefined); setOpen(true); }} aria-haspopup="dialog">View session summary</button>
-      </aside>
-      <dialog ref={dialog} data-session-report className={s.dialog} aria-labelledby={id} aria-describedby={`${id}-note`}
+        <span>{t(exerciseName(latest))} · {duration(latest.durationMs)}</span>
+        <button ref={trigger} type="button" onClick={event => viewRecord(latest, event.currentTarget)} aria-haspopup="dialog">View session summary</button>
+      </aside>}
+      <details className={s.history}>
+        <summary>Saved sessions <span className={s.count}>{records.length} / 5</span></summary>
+        <div className={s.historyBody}>
+          <p className={s.caption}>The latest 5 summaries are saved in this browser. A sixth replaces the oldest. Clearing browser data removes them.</p>
+          <p className={s.caption}>Records may include your patient code. Other people using this browser can view them.</p>
+          {storageNotice && <p role="alert" className={s.warning}>{storageNotice}</p>}
+          {records.length ? <ol className={s.recordList}>{records.map((item, index) =>
+            <li key={JSON.stringify([item.device, item.session.id, item.session.startedAt])}>
+              <button type="button" onClick={event => viewRecord(item, event.currentTarget)} aria-haspopup="dialog"
+                aria-label={t('Open saved session {number}: {exercise}, {date}', { number: index + 1, exercise: t(exerciseName(item)), date: time(item.session.endedAt) })}>
+                <span className={s.recordHeading}><span>{t(exerciseName(item))}</span>{item.synthetic && <small>Demo data</small>}</span>
+                <span className={s.recordMeta}>{time(item.session.endedAt)} · {item.session.side ? t(humanize(item.session.side)) : t('Not available')}</span>
+                <span className={s.recordMeta}>{t('Duration')}: {duration(item.durationMs)} · {t('Completed reps')}: {item.reps ?? '—'}</span>
+                <span className={s.recordLink}>View session summary<span aria-hidden="true"> →</span></span>
+              </button>
+            </li>)}</ol> : <p className={s.empty}>No saved sessions yet. Finish a session to save its summary automatically.</p>}
+        </div>
+      </details>
+      {report && <dialog ref={dialog} data-session-report className={s.dialog} aria-labelledby={id} aria-describedby={`${id}-note`}
         onClose={() => { setOpen(false); trigger.current?.focus(); }} onClick={event => { if (event.target === event.currentTarget) setOpen(false); }}>
         <header className={s.header}>
           <div><h2 id={id}>Session summary</h2><p>TrueRehab-RF</p></div>
@@ -123,7 +153,8 @@ export function SessionSummary() {
           <h3>Session score trends</h3>
           <ReportTrend report={report} />
           <p className={s.caption}>Statistics use every valid received sample. Trend points are averaged for display. A dash means no data.</p>
-          <p className={s.caption}>Only the latest completed summary is kept in this open page. Download or print it before reloading.</p>
+          <p className={s.caption}>The latest 5 summaries are saved in this browser. A sixth replaces the oldest. Clearing browser data removes them.</p>
+          {storageNotice && <p role="alert" className={s.warning}>{storageNotice}</p>}
           {error && <p role="alert" className={s.warning}>{error}</p>}
           <footer className={s.noPrint}>
             <button type="button" className="primary" onClick={download}>Download CSV</button>
@@ -132,7 +163,7 @@ export function SessionSummary() {
             <p className={s.caption}>To save a PDF, choose “Save as PDF” in your browser’s print dialog.</p>
           </footer>
         </div>
-      </dialog>
+      </dialog>}
     </div>,
   );
 }

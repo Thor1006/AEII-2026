@@ -18,6 +18,21 @@
 .strip > span:first-child { font-weight: 500; }
 .strip > span:nth-child(2) { color: var(--text-muted); }
 .strip button { margin-left: auto; min-height: 44px; }
+.history { margin: 12px 12px 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.history > summary { padding: 12px 20px; cursor: pointer; min-height: 44px; font-weight: 500; }
+.count { margin-left: 8px; color: var(--text-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.historyBody { padding: 0 20px 16px; }
+.recordList { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 8px; }
+.recordList button {
+  width: 100%; min-height: 44px; padding: 14px 16px; text-align: left;
+  display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+  white-space: normal; overflow-wrap: anywhere;
+}
+.recordHeading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; font-weight: 500; }
+.recordHeading small { color: var(--text-muted); font-size: 12px; font-weight: 400; }
+.recordMeta { color: var(--text-muted); font-size: 13px; }
+.recordLink { color: var(--accent); font-size: 13px; margin-top: 4px; }
+.empty { color: var(--text-muted); font-size: 14px; margin: 16px 0 0; }
 .header {
   position: sticky; top: 0; z-index: 1;
   display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;

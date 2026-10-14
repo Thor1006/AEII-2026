@@ -1,5 +1,12 @@
 /** Canonical English text → [Thai, Traditional Chinese as used in Hong Kong]. */
 export const catalog: Record<string, readonly [string, string]> = {
+  'Saved sessions': ['ประวัติเซสชัน', '已儲存的訓練'],
+  'The latest 5 summaries are saved in this browser. A sixth replaces the oldest. Clearing browser data removes them.': ['บันทึกสรุปผล 5 ครั้งล่าสุดไว้ในเบราว์เซอร์นี้ เมื่อมีครั้งที่ 6 จะลบครั้งเก่าสุดออก หากล้างข้อมูลเบราว์เซอร์ ประวัติจะหายไป', '此瀏覽器會儲存最近 5 次訓練摘要。儲存第 6 次時，會移除最舊的一次。清除瀏覽器資料亦會刪除這些記錄。'],
+  'Records may include your patient code. Other people using this browser can view them.': ['ประวัติอาจมีรหัสผู้ป่วยของคุณ บุคคลอื่นที่ใช้เบราว์เซอร์นี้สามารถเปิดดูได้', '記錄可能包含你的病人代碼。其他使用此瀏覽器的人亦可查看。'],
+  'No saved sessions yet. Finish a session to save its summary automatically.': ['ยังไม่มีประวัติเซสชัน เมื่อจบเซสชัน ระบบจะบันทึกสรุปผลให้อัตโนมัติ', '尚未有已儲存的訓練。完成訓練後，系統會自動儲存摘要。'],
+  'Browser storage is unavailable. New records may be lost after reloading. Download a copy to keep them.': ['เบราว์เซอร์ไม่สามารถบันทึกข้อมูลได้ ประวัติใหม่อาจหายไปเมื่อโหลดหน้าใหม่ กรุณาดาวน์โหลดสำเนาเพื่อเก็บไว้', '瀏覽器無法儲存資料。重新載入後，新記錄可能會遺失。請下載副本以保留記錄。'],
+  'Some saved records could not be loaded. Available records are shown below.': ['ไม่สามารถโหลดประวัติบางรายการได้ รายการที่ยังเปิดได้แสดงอยู่ด้านล่าง', '部分已儲存的記錄未能載入。可用的記錄會顯示於下方。'],
+  'Open saved session {number}: {exercise}, {date}': ['เปิดประวัติเซสชันรายการที่ {number}: {exercise}, {date}', '開啟已儲存的訓練 {number}：{exercise}，{date}'],
   'Kit counter': ['ตัวนับของชุดอุปกรณ์', '套件計數'],
   'Completed reps count received finished movements.': ['จำนวนครั้งที่ทำสำเร็จนับจากข้อมูลการทำท่าครบที่ได้รับ', '已完成次數按接收到的完整動作記錄計算。'],
   'Kit counter: {count}. This may include an unfinished repetition.': ['ตัวนับของชุดอุปกรณ์: {count} ครั้ง อาจรวมครั้งที่ยังทำไม่ครบ', '套件計數：{count} 次，可能包括尚未完成的一次動作。'],
