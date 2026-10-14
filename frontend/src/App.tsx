@@ -17,6 +17,7 @@ import { LanguageSelector } from './i18n/LanguageSelector.tsx';
 import { PlaybackBar } from './shell/PlaybackBar.tsx';
 import { SessionBar } from './shell/SessionBar.tsx';
 import { SessionRecorder } from './shell/SessionRecorder.tsx';
+import { SessionSummary } from './shell/SessionSummary.tsx';
 import { StartScreen } from './shell/StartScreen.tsx';
 import { ThemeToggle } from './shell/ThemeToggle.tsx';
 import { ViewToggle } from './shell/ViewToggle.tsx';
@@ -93,6 +94,8 @@ export function App({ layouts = defaultLayouts, title = 'TrueRehab-RF', autoConn
           <ThemeToggle />
         </div>
       </header>
+
+      <SessionSummary />
 
       <div key={showStart ? 'connection' : 'dashboard'} className={s.screen}>
         {showStart ? (

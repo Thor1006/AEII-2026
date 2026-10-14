@@ -31,6 +31,14 @@ Pis that connected before appear under "Recent". Two views: **Session** (what to
 
 To test over Wi-Fi from a phone or tablet, run `npm run dev` and `npm run mock` on the Mac. Open `http://<mac-ip>:5173/?pi=<mac-ip>` on the other device. The page must be **http**. Browsers block `ws://` from https pages.
 
+## Completed-session reports
+
+Stopping a session opens a localized summary with repetitions, duration, score statistics and a full-session trend. Reopen it with **View session summary**. The latest completed report remains in memory across view/source changes; reloading discards it. No report is sent to a server or saved in localStorage. Download CSV or choose **Print / Save as PDF** before reloading; PDF saving uses the browser's print dialog.
+
+`src/state/SessionReport.ts` accumulates every valid score and rep event independently of the rolling live buffers. Trend display is bounded to 240 averaged points per score; first/last/mean use all received valid samples. Late joins, invalid values, gaps, and message loss are marked as partial data. Completed repetitions count received rep-end events. The device's counter is separate because it may include the current unfinished repetition; absent data is never presented as a measured zero. Synthetic reports are labelled as demo data, not clinical measurements. CSV quotes all fields, includes a UTF-8 BOM, and neutralizes formulas in external text.
+
+Run `node scripts/check-session-report.cjs` for aggregation, long-session, duplicate, partial-data, reset and CSV tests.
+
 ## Languages
 
 The header selector supports English (default), ไทย, and 繁體中文（香港）. The preference is saved as `trf-language` in localStorage, and `<html lang>` follows the selected language. Switching languages does not reconnect the data source or reset sessions.

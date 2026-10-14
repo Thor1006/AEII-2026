@@ -8,6 +8,8 @@ import type {
   StatusMessage,
 } from '../sensor/protocol.ts';
 import { RingBuffer } from './RingBuffer.ts';
+import { SessionReportTracker } from './SessionReport.ts';
+import { scoreDefs } from './describe.ts';
 
 export interface TimedValue {
   /** Sensor time, ms. */
@@ -44,6 +46,7 @@ export type StreamId = string;
  * widgets read it directly and re-render on `subscribe` (throttled by useSensorStore).
  */
 export class SensorStore {
+  readonly reports = new SessionReportTracker();
   readonly frames = new Map<string, FrameMessage>();
   readonly scores = new Map<string, RingBuffer<TimedValue>>();
   readonly aux = new Map<string, RingBuffer<TimedValue>>();
@@ -121,14 +124,16 @@ export class SensorStore {
         break;
     }
 
+    this.reports.ingest(msg, this.session, this.reportContext());
     this.updateRates(now);
     for (const fn of this.rawListeners) fn(msg);
     this.notify();
   }
 
   /** Update the session from a command reply without waiting for the next status. */
-  setSession(session: SessionInfo | null): void {
+  setSession(session: SessionInfo | null, observedStart = false, reportedReps?: unknown): void {
     this.session = session;
+    this.reports.update(session, this.reportContext(), observedStart, reportedReps);
     this.notify();
   }
 
@@ -138,6 +143,7 @@ export class SensorStore {
   }
 
   reset(): void {
+    this.reports.reset();
     this.frames.clear();
     this.scores.clear();
     this.aux.clear();
@@ -207,6 +213,11 @@ export class SensorStore {
 
   private notify(): void {
     for (const fn of this.listeners) fn();
+  }
+
+  private reportContext() {
+    return { defs: scoreDefs(this), device: this.hello?.device.name ?? 'Unknown device',
+      synthetic: this.synthetic, dropped: this.stats.dropped };
   }
 }
 

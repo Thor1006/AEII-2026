@@ -73,7 +73,7 @@ export function SensorProvider({ children, store: external, initialSource }: Sen
       if (!src?.command) throw new CommandError('This source can\u2019t receive commands');
       const ack = await src.command(name, args);
       const session = ack.result?.session as SessionInfo | undefined;
-      if (ack.ok && session) store.setSession(session);
+      if (ack.ok && session) store.setSession(session, name === 'session.start', ack.result?.reps);
       return ack;
     },
     [store],

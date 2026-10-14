@@ -1,0 +1,89 @@
+.dialog {
+  composes: dialog from './HelpGuide.module.css';
+  width: min(1040px, calc(100vw - 32px));
+  font-size: 16px;
+}
+.strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: 12px 12px 0;
+  padding: 10px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  animation: var(--motion-reveal);
+}
+.strip > span:first-child { font-weight: 500; }
+.strip > span:nth-child(2) { color: var(--text-muted); }
+.strip button { margin-left: auto; min-height: 44px; }
+.header {
+  position: sticky; top: 0; z-index: 1;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  padding: 20px 24px; background: var(--surface); border-bottom: 1px solid var(--border);
+}
+.header h2 { margin: 0; font-size: 26px; font-weight: 500; }
+.header p { margin: 4px 0 0; color: var(--text-muted); font-size: 14px; }
+.body { padding: 20px 24px 24px; }
+.body h3 { font-size: 19px; font-weight: 500; margin: 24px 0 10px; }
+.notice, .warning { padding: 12px 16px; margin: 0 0 16px; background: var(--surface-2); border-left: 3px solid var(--accent); }
+.warning { border-left-color: var(--warn); }
+.metadata { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px 24px; margin: 20px 0; }
+.metadata div { min-width: 0; }
+.metadata dt { color: var(--text-muted); font-size: 13px; }
+.metadata dd { margin: 3px 0 0; overflow-wrap: anywhere; }
+.totals { display: flex; flex-wrap: wrap; gap: 24px 64px; padding: 16px 0; margin: 0; border-block: 1px solid var(--border); }
+.totals dt { color: var(--text-muted); font-size: 14px; }
+.totals dd { margin: 4px 0 0; font-size: 30px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.caption { margin: 10px 0; font-size: 13px; color: var(--text-muted); }
+.tableWrap { max-width: 100%; overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.table th, .table td { text-align: right; padding: 12px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.table th { font-weight: 500; }
+.table th:first-child { text-align: left; white-space: normal; min-width: 140px; }
+.table small { display: block; color: var(--text-muted); font-size: 12px; font-weight: 400; }
+.plot { position: relative; padding-left: 42px; }
+.trend svg { display: block; width: 100%; height: 200px; overflow: visible; }
+.yAxis { position: absolute; left: 0; top: 0; bottom: 0; width: 34px; display: flex; flex-direction: column; justify-content: space-between; text-align: right; }
+.xAxis { display: flex; justify-content: space-between; margin: 8px 0 0 42px; }
+.xAxis, .yAxis { font-size: 12px; line-height: 1; color: var(--text-muted); }
+.legend { display: flex; flex-wrap: wrap; list-style: none; padding: 0; gap: 8px 18px; font-size: 13px; }
+.legend li { display: inline-flex; align-items: center; gap: 6px; }
+.legend span { width: 16px; height: 3px; }
+.body footer { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+.body footer button, .header button { min-height: 44px; }
+.body footer p { flex-basis: 100%; }
+@media (max-width: 600px) {
+  .header, .body { padding: 16px; }
+  .metadata { grid-template-columns: 1fr; }
+  .header h2 { font-size: 23px; }
+  .totals { gap: 16px 32px; }
+}
+@media print {
+  :global(body[data-print-session]) {
+    --bg: #fff; --surface: #fff; --surface-2: #f5f5f5; --text: #000; --text-muted: #444; --border: #ccc;
+    background: #fff; color: #000;
+  }
+  :global(body[data-print-session]) [data-summary-print-path] {
+    display: block !important; margin: 0 !important; padding: 0 !important;
+    min-height: 0 !important; overflow: visible !important; animation: none !important; transform: none !important;
+  }
+  :global(body[data-print-session]) [data-summary-print-path] > :not([data-summary-print-path]):not([data-session-report]) { display: none !important; }
+  .dialog[open] {
+    position: static !important; width: 100% !important; max-height: none !important;
+    margin: 0 !important; border: 0; box-shadow: none; overflow: visible !important;
+    opacity: 1 !important; transform: none !important; animation: none !important; transition: none !important;
+    font-size: 11pt; color: #000; background: #fff;
+  }
+  .dialog::backdrop { display: none; }
+  .header { position: static; padding: 0 0 12px; }
+  .body { padding: 12px 0 0; }
+  .noPrint { display: none !important; }
+  .metadata { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .tableWrap { overflow: visible; }
+  .table { font-size: 9pt; }
+  .table th, .table td { padding: 8px 6px; }
+  .table tr, .totals, .trend { break-inside: avoid; }
+  .trend { print-color-adjust: exact; }
+}
