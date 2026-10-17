@@ -1,10 +1,17 @@
 /** Canonical English text → [Thai, Traditional Chinese as used in Hong Kong]. */
 export const catalog: Record<string, readonly [string, string]> = {
+  'Delete': ['ลบ', '刪除'],
+  'Delete this saved session?': ['ต้องการลบประวัติเซสชันนี้หรือไม่?', '要刪除此訓練記錄嗎？'],
+  'This removes the summary from this browser and frees one slot. This cannot be undone. Downloaded files are not deleted.': ['การลบจะนำสรุปผลออกจากเบราว์เซอร์นี้และคืนพื้นที่ว่าง 1 รายการ ไม่สามารถกู้คืนได้ ไฟล์ที่ดาวน์โหลดไว้จะไม่ถูกลบ', '刪除後會從此瀏覽器移除摘要，並騰出一個記錄位置。此操作無法還原，已下載的檔案不會被刪除。'],
+  'Yes, delete': ['ยืนยันการลบ', '確認刪除'],
+  'Session deleted. A slot is now available.': ['ลบประวัติเซสชันแล้ว มีพื้นที่ว่างสำหรับบันทึกครั้งใหม่', '已刪除訓練記錄，現可儲存新記錄。'],
+  'This session is no longer in your saved history.': ['เซสชันนี้ไม่ได้อยู่ในประวัติที่บันทึกไว้แล้ว', '此訓練已不在已儲存的記錄內。'],
+  'Delete saved session {number}: {exercise}, {date}': ['ลบประวัติเซสชันรายการที่ {number}: {exercise}, {date}', '刪除已儲存的訓練 {number}：{exercise}，{date}'],
   'Saved sessions': ['ประวัติเซสชัน', '已儲存的訓練'],
   'The latest 5 summaries are saved in this browser. A sixth replaces the oldest. Clearing browser data removes them.': ['บันทึกสรุปผล 5 ครั้งล่าสุดไว้ในเบราว์เซอร์นี้ เมื่อมีครั้งที่ 6 จะลบครั้งเก่าสุดออก หากล้างข้อมูลเบราว์เซอร์ ประวัติจะหายไป', '此瀏覽器會儲存最近 5 次訓練摘要。儲存第 6 次時，會移除最舊的一次。清除瀏覽器資料亦會刪除這些記錄。'],
   'Records may include your patient code. Other people using this browser can view them.': ['ประวัติอาจมีรหัสผู้ป่วยของคุณ บุคคลอื่นที่ใช้เบราว์เซอร์นี้สามารถเปิดดูได้', '記錄可能包含你的病人代碼。其他使用此瀏覽器的人亦可查看。'],
   'No saved sessions yet. Finish a session to save its summary automatically.': ['ยังไม่มีประวัติเซสชัน เมื่อจบเซสชัน ระบบจะบันทึกสรุปผลให้อัตโนมัติ', '尚未有已儲存的訓練。完成訓練後，系統會自動儲存摘要。'],
-  'Browser storage is unavailable. New records may be lost after reloading. Download a copy to keep them.': ['เบราว์เซอร์ไม่สามารถบันทึกข้อมูลได้ ประวัติใหม่อาจหายไปเมื่อโหลดหน้าใหม่ กรุณาดาวน์โหลดสำเนาเพื่อเก็บไว้', '瀏覽器無法儲存資料。重新載入後，新記錄可能會遺失。請下載副本以保留記錄。'],
+  'Browser storage is unavailable. Changes to saved sessions may be lost after reloading. Download a copy to keep them.': ['เบราว์เซอร์ไม่สามารถบันทึกข้อมูลได้ การเพิ่มหรือลบประวัติอาจไม่ถูกบันทึกเมื่อโหลดหน้าใหม่ กรุณาดาวน์โหลดสำเนาที่ต้องการเก็บไว้', '瀏覽器無法儲存資料。新增或刪除記錄的變更可能無法在重新載入後保留。請下載所需記錄的副本。'],
   'Some saved records could not be loaded. Available records are shown below.': ['ไม่สามารถโหลดประวัติบางรายการได้ รายการที่ยังเปิดได้แสดงอยู่ด้านล่าง', '部分已儲存的記錄未能載入。可用的記錄會顯示於下方。'],
   'Open saved session {number}: {exercise}, {date}': ['เปิดประวัติเซสชันรายการที่ {number}: {exercise}, {date}', '開啟已儲存的訓練 {number}：{exercise}，{date}'],
   'Kit counter': ['ตัวนับของชุดอุปกรณ์', '套件計數'],

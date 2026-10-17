@@ -20,16 +20,24 @@ export function SessionSummary() {
   const [report, setReport] = useState<SessionReport | undefined>(latest);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string>();
-  const previous = useRef(latest);
+  const [deleteTarget, setDeleteTarget] = useState<SessionReport>();
+  const [historyStatus, setHistoryStatus] = useState<string>();
+  const previous = useRef(records);
   const dialog = useRef<HTMLDialogElement>(null);
   const trigger = useRef<HTMLButtonElement | null>(null);
+  const deleteTrigger = useRef<HTMLButtonElement | null>(null);
+  const historyTrigger = useRef<HTMLElement | null>(null);
   const id = useId();
 
   useEffect(() => {
     // Keep the selected snapshot unchanged while someone is reading it.
-    if (latest && latest !== previous.current && !open) { setReport(latest); setOpen(true); setError(undefined); }
-    previous.current = latest;
-  }, [latest, open]);
+    // Removing the latest entry must not open the next-oldest summary.
+    if (latest && !previous.current.includes(latest)) {
+      setHistoryStatus(undefined);
+      if (!open) { setReport(latest); setOpen(true); setError(undefined); }
+    }
+    previous.current = records;
+  }, [records, latest, open]);
   useEffect(() => {
     if (!open || !dialog.current) return;
     const element = dialog.current;
@@ -45,12 +53,26 @@ export function SessionSummary() {
   const time = (value?: number) => value !== undefined && Number.isFinite(new Date(value).getTime())
     ? new Intl.DateTimeFormat(language, { dateStyle: 'medium', timeStyle: 'medium' }).format(value) : t('Not available');
   const storageNotice = reportStorageWarning === 'unavailable'
-    ? 'Browser storage is unavailable. New records may be lost after reloading. Download a copy to keep them.'
+    ? 'Browser storage is unavailable. Changes to saved sessions may be lost after reloading. Download a copy to keep them.'
     : reportStorageWarning === 'invalid' ? 'Some saved records could not be loaded. Available records are shown below.' : undefined;
 
   function viewRecord(item: SessionReport, button: HTMLButtonElement) {
     trigger.current = button;
+    setDeleteTarget(undefined);
     setReport(item); setError(undefined); setOpen(true);
+  }
+
+  function cancelDelete() {
+    setDeleteTarget(undefined);
+    deleteTrigger.current?.focus();
+  }
+
+  function deleteRecord(item: SessionReport) {
+    const removed = store.deleteSessionReport(item);
+    setDeleteTarget(undefined);
+    if (removed && report === item) setReport(undefined);
+    setHistoryStatus(removed ? 'Session deleted. A slot is now available.' : 'This session is no longer in your saved history.');
+    historyTrigger.current?.focus();
   }
 
   function download() {
@@ -94,20 +116,39 @@ export function SessionSummary() {
         <button ref={trigger} type="button" onClick={event => viewRecord(latest, event.currentTarget)} aria-haspopup="dialog">View session summary</button>
       </aside>}
       <details className={s.history}>
-        <summary>Saved sessions <span className={s.count}>{records.length} / 5</span></summary>
+        <summary ref={historyTrigger}>Saved sessions <span className={s.count}>{records.length} / 5</span></summary>
         <div className={s.historyBody}>
           <p className={s.caption}>The latest 5 summaries are saved in this browser. A sixth replaces the oldest. Clearing browser data removes them.</p>
           <p className={s.caption}>Records may include your patient code. Other people using this browser can view them.</p>
           {storageNotice && <p role="alert" className={s.warning}>{storageNotice}</p>}
+          {historyStatus && <p role="status" className={s.caption}>{historyStatus}</p>}
           {records.length ? <ol className={s.recordList}>{records.map((item, index) =>
             <li key={JSON.stringify([item.device, item.session.id, item.session.startedAt])}>
-              <button type="button" onClick={event => viewRecord(item, event.currentTarget)} aria-haspopup="dialog"
+              <div className={s.recordRow}>
+              <button type="button" className={s.recordOpen} onClick={event => viewRecord(item, event.currentTarget)} aria-haspopup="dialog"
                 aria-label={t('Open saved session {number}: {exercise}, {date}', { number: index + 1, exercise: t(exerciseName(item)), date: time(item.session.endedAt) })}>
                 <span className={s.recordHeading}><span>{t(exerciseName(item))}</span>{item.synthetic && <small>Demo data</small>}</span>
                 <span className={s.recordMeta}>{time(item.session.endedAt)} · {item.session.side ? t(humanize(item.session.side)) : t('Not available')}</span>
                 <span className={s.recordMeta}>{t('Duration')}: {duration(item.durationMs)} · {t('Completed reps')}: {item.reps ?? '—'}</span>
                 <span className={s.recordLink}>View session summary<span aria-hidden="true"> →</span></span>
               </button>
+              <button type="button" className={s.deleteButton} aria-expanded={deleteTarget === item}
+                aria-controls={deleteTarget === item ? `${id}-delete-${index}` : undefined}
+                aria-label={t('Delete saved session {number}: {exercise}, {date}', { number: index + 1, exercise: t(exerciseName(item)), date: time(item.session.endedAt) })}
+                onClick={event => { deleteTrigger.current = event.currentTarget; setHistoryStatus(undefined); setDeleteTarget(item); }}>Delete</button>
+              </div>
+              {deleteTarget === item && <div id={`${id}-delete-${index}`} className={s.deleteConfirm} data-motion="reveal"
+                role="group" aria-labelledby={`${id}-delete-title-${index}`} onKeyDown={event => {
+                  if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); cancelDelete(); }
+                }}>
+                <p id={`${id}-delete-title-${index}`}>Delete this saved session?</p>
+                <p className={s.caption}>{t(exerciseName(item))} · {time(item.session.endedAt)} · <span translate="no">{item.session.id}</span></p>
+                <p className={s.caption}>This removes the summary from this browser and frees one slot. This cannot be undone. Downloaded files are not deleted.</p>
+                <div className={s.deleteActions}>
+                  <button type="button" autoFocus onClick={cancelDelete}>Cancel</button>
+                  <button type="button" onClick={() => deleteRecord(item)}>Yes, delete</button>
+                </div>
+              </div>}
             </li>)}</ol> : <p className={s.empty}>No saved sessions yet. Finish a session to save its summary automatically.</p>}
         </div>
       </details>

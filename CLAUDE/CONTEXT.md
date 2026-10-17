@@ -2,38 +2,35 @@
 
 <!-- Living state. Updated by /wrap-up at the end of every loop. Keep under ~40 lines: replace, don't append forever. -->
 
-**Last updated:** 2026-10-12 (late evening)
+**Last updated:** 2026-10-17 (evening)
 
 ## Current focus
-Two synthetic-only pieces are ready and waiting on real radar data:
-- CNN frame encoder v0.1 in `sandbox/Encoder_0.1/`
-- TypeScript dashboard in `frontend/`, now protocol 1.1: the Pi describes itself (`hello` + manifest), and the page sends start/stop commands. It has a start screen, Session/Technical views and plain-language help. Restyled 2026-10-12 (Fluent palette, Inter, floating cards; `src/styles/theme.css`). Opens on an Apple-style home page (`#/`, `src/home/`) with a live demo, how-it-works list and Camera/Wearables/Radar table; the dashboard is at `#/app`. Design rules in `frontend/DESIGN.md`. "TR" logo in `components/Logo.tsx`.
-- **Kit key (protocol 1.2), committed (`c16d563`):** challenge/response handshake + signed commands. Page side and mock server verified (`scripts/check-hmac.ts`, `scripts/check-auth.ts`, browser). Python side (`auth.py`, `server.py`, `__main__.py --new-key/--show-link`, `check_bridge.py --key --auth-selftest`) passes `tests/test_auth.py` (21 ok, 4 skipped) but the bridge has never been run. Plan: [kit-pairing-key](plans/2026-10-12-kit-pairing-key.md).
-- **Paused on purpose:** the Python Pi bridge `pi-bridge/` has never run. The user said **do not install its packages (`websockets`, `numpy`) now; ask again when we are really setting up a Pi.** See [report](output/2026-10-11-1828-easier-ui-pi-bridge.md).
+**Still no real radar capture.** The Oct 5 plan wanted one by Oct 12 and data collection from Oct 20; Nov 15 is ~4 weeks away. Everything below runs on synthetic data:
+- CNN frame encoder v0.1 in `sandbox/Encoder_0.1/`.
+- TypeScript dashboard `frontend/` (protocol 1.2): home page `#/`, dashboard `#/app`, kit key, Session/Technical views; since Oct 13 also EN/TH/zh-HK (`src/i18n/`), Help & Guide, transitions, session summaries (CSV/print) and 5 saved summaries in localStorage. **Uncommitted:** Delete a saved summary, which passes its tests and a browser check. See [report](output/2026-10-17-2101-oct13-17-catchup.md).
+- **Paused on purpose:** the Python bridge `pi-bridge/` has never run. The user said **do not install its packages (`websockets`, `numpy`) now; ask again when we are really setting up a Pi.**
+- `Phisit/` (teammate): separate FastAPI + React demo. It shows "future compensation risk" and "reps to compensation", which `frontend/` doesn't.
 
 ## Recent changes
+- 2026-10-13–17 — Languages, help guide, transitions, session summaries + 5-session history; Delete feature uncommitted ([report](output/2026-10-17-2101-oct13-17-catchup.md))
 - 2026-10-12 — Kit key (protocol 1.2): challenge/response + signed commands ([plan](plans/2026-10-12-kit-pairing-key.md))
-- 2026-10-12 — Home page "AI slop" pass: demo above the fold, no eyebrows/card grids, comparison table, DESIGN.md([report](output/2026-10-12-2243-home-ai-slop-pass.md))
-- 2026-10-12 — Home page + hash routing + new TR logo([report](output/2026-10-12-2220-home-page.md))
-- 2026-10-12 — Dashboard restyle: Fluent palette, Inter, floating rounded cards, no gradients; pushed to GitHub ([report](output/2026-10-12-2131-dashboard-restyle.md))
-- 2026-10-10 — Built the TypeScript dashboard + mock Pi bridge; typecheck, build and browser checks pass ([report](output/2026-10-10-2154-typescript-frontend.md))
+- 2026-10-12 — Home page "AI slop" pass: demo above the fold, comparison table, DESIGN.md ([report](output/2026-10-12-2243-home-ai-slop-pass.md))
+- 2026-10-12 — Home page + hash routing + new TR logo ([report](output/2026-10-12-2220-home-page.md))
+- 2026-10-12 — Dashboard restyle: Fluent palette, Inter, floating cards ([report](output/2026-10-12-2131-dashboard-restyle.md))
 
 ## Open questions
-- Does `radar_ml_context.md` (presence/range/behavior heads, Mac host) replace or adjust the Oct 5 plan (TrueRehab heads, Pi 5)?
-- The real AWR1843 chirp config, which sets the encoder input (view, H, W, C).
-- Phase 2 micro-vibration: is it a 1D phase signal (needing its own branch)?
-- Team agreement on scope and roles. Is ethics approval needed for healthy volunteers?
-- Who writes the radar capture in `pi-bridge/truerehab_bridge/providers/radar.py`? Can the Pi 5 run DCA1000 capture + FFT at 20 fps?
-- Multi-kit plan (proposed) suggests MQTT. For now we connect straight to each Pi over WebSocket; `kitId`/`sessionId` are already in protocol 1.1.
-- Teammate (KINKIN-007) pushed `Phisit/`: a separate simulation dashboard + FastAPI backend. Merge with `frontend/` / `pi-bridge/`, or keep separate?
-- Home page: sign off tagline + comparison-table wording; add a problem section or Thai? Logo uses outlined Apple SF Rounded, so check the licence before any public poster.
-- Restyle follow-up: check light mode and a wide window; heatmap colour ramp is still a smooth blend (data colouring) — change it?
+- The real AWR1843 chirp config, which sets the encoder input (view, H, W, C). Who does the first capture, and when?
+- Shoulder elevation is invisible to a front radar at chest height (sandbox). Elevation antennas or a different mount height, decided before data collection?
+- One dashboard or two: merge `Phisit/` ideas (compensation risk, reps-to-compensation) into `frontend/`, or keep separate?
+- Does `radar_ml_context.md` replace or adjust the Oct 5 plan? Phase 2 micro-vibration: a 1D phase branch?
+- Team scope and roles; ethics approval for healthy volunteers?
+- `CLAUDE.md` says macOS/zsh, but recent work runs on Windows (git user KINKIN-007, Oct 12 commits by Thor1006). Update the instruction?
+- Home page copy sign-off; SF Rounded logo licence before any public poster. Poster says "oral health" (typo?).
 
 ## Next steps
-1. Team sign-off on the home page copy (tagline, comparison table); then a problem section (and Thai if wanted). Look at `Phisit/` with the teammate.
-2. When we really set up a Pi (**ask the user then** before installing packages): install the pi-bridge packages in a venv, run all unit tests (the 4 skipped key tests too), start the bridge with a key, run `check_bridge.py --commands` and `--key … --auth-selftest`, `--new-key --write …`, and open the bridge-served page with a sticker link.
-3. Get radar streaming and a first real capture (mmWave Studio + DCA1000). Write down the chirp config.
-4. Set the real `InputContract` from that capture, then rerun `check_encoder.py`.
-5. Try radar height / elevation angle for shoulder elevation (sandbox finding).
-6. Write the real radar provider in `pi-bridge/` (template + steps are in `providers/radar.py`).
-7. Later: temporal attention block that takes `[B, T, E]` embeddings.
+1. Commit the Delete feature (8 files in `frontend/`) together with this report.
+2. Get radar streaming and a first real capture (mmWave Studio + DCA1000). Write down the chirp config.
+3. Set the real `InputContract` from that capture, then rerun `check_encoder.py`; try radar height or elevation for shoulder elevation.
+4. Small fixes: the Reps panel keeps counting after a session stops (`sessionEvents` ignores `endedAt`); the Python bridge's `session_end` lacks `reps`; `sandbox/ml_Try-1.py` doesn't run.
+5. When we really set up a Pi (**ask the user first** before installing packages): venv, all pi-bridge tests, `check_bridge.py --commands` and `--key … --auth-selftest`.
+6. Write the real radar provider in `pi-bridge/providers/radar.py`; later a temporal block on `[B, T, E]` embeddings.

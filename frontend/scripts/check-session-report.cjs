@@ -160,4 +160,58 @@ for (const language of ['en', 'th', 'zh-HK']) {
   if (language !== 'en') assert.notEqual(t('Saved sessions'), 'Saved sessions');
   assert.ok(!t('Open saved session {number}: {exercise}, {date}', { number: 1, exercise: 'test', date: 'today' }).includes('{number}'));
 }
-console.log('PASS: session aggregation, frozen snapshots, localized safe CSV, five-record eviction, deduplication, reload persistence and damaged/denied/full storage.');
+// Deletion changes only the selected snapshot and notifies persistence without a live sensor.
+const deletionStore = new SensorStore({ reportHistory: restored.records });
+let deleteNotifications = 0;
+const unsubscribeDeletion = deletionStore.subscribe(() => deleteNotifications++);
+const beforeDelete = deletionStore.reports.records;
+const middleReport = beforeDelete[2];
+assert.equal(deletionStore.deleteSessionReport({ ...middleReport }), false); // Stale/cloned objects cannot delete another snapshot.
+assert.equal(deletionStore.reports.records, beforeDelete);
+assert.equal(deleteNotifications, 0);
+assert.equal(deletionStore.deleteSessionReport(middleReport), true);
+assert.equal(deleteNotifications, 1);
+assert.equal(deletionStore.reports.records.length, 4);
+assert.equal(deletionStore.reports.latest, beforeDelete[0]);
+assert.deepEqual(deletionStore.reports.records, beforeDelete.filter(item => item !== middleReport));
+assert.equal(JSON.stringify(beforeDelete), historySnapshot); // Existing snapshots were not mutated.
+assert.equal(saveReportHistory(deletionStore.reports.records, () => memoryStorage), true);
+assert.deepEqual(loadReportHistory(() => memoryStorage).records, deletionStore.reports.records);
+const retainedOldest = deletionStore.reports.records[3];
+const fillSlot = start(deletionStore, 'fills-deleted-slot', 90000);
+stop(deletionStore, fillSlot, 91000, 0);
+assert.equal(deletionStore.reports.records.length, 5);
+assert.equal(deletionStore.reports.records[4], retainedOldest); // Filling a freed slot must not evict another record.
+const latestBeforeDelete = deletionStore.reports.latest;
+const latestAfterDelete = deletionStore.reports.records[1];
+assert.equal(deletionStore.deleteSessionReport(latestBeforeDelete), true);
+assert.equal(deletionStore.reports.latest, latestAfterDelete);
+deletionStore.setSession({ ...latestBeforeDelete.session, state: 'running' }, true);
+deletionStore.setSession(latestBeforeDelete.session, false, 0);
+assert.equal(deletionStore.reports.records.includes(latestBeforeDelete), false); // A late ack does not resurrect a deleted report.
+const activeDuringDelete = start(deletionStore, 'active-during-delete', 92000);
+assert.equal(deletionStore.deleteSessionReport(deletionStore.reports.records.at(-1)), true);
+deletionStore.ingest(message({ type: 'scores', t: 92100, scores: { fatigue: { value: .7 } } }));
+const afterDeleteSession = stop(deletionStore, activeDuringDelete, 93000, 0);
+assert.equal(afterDeleteSession.scores.find(score => score.key === 'fatigue').mean, .7);
+assert.equal(JSON.stringify(beforeDelete), historySnapshot);
+// Reused IDs with different start times are distinct sessions.
+const reusedId = start(deletionStore, latestBeforeDelete.session.id, 94000);
+const reusedReport = stop(deletionStore, reusedId, 95000, 0);
+assert.equal(reusedReport.session.startedAt, 94000);
+for (const savedReport of [...deletionStore.reports.records]) assert.equal(deletionStore.deleteSessionReport(savedReport), true);
+assert.equal(deletionStore.reports.latest, null);
+assert.deepEqual(deletionStore.reports.records, []);
+assert.equal(saveReportHistory(deletionStore.reports.records, () => memoryStorage), true);
+assert.deepEqual(loadReportHistory(() => memoryStorage), { records: [], warning: undefined });
+deletionStore.reset();
+assert.equal(deletionStore.reports.records.length, 0);
+const afterEmpty = start(deletionStore, 'after-empty', 96000);
+stop(deletionStore, afterEmpty, 97000, 0);
+assert.equal(deletionStore.reports.records.length, 1);
+unsubscribeDeletion();
+for (const language of ['th', 'zh-HK']) {
+  const t = createTranslator(language);
+  for (const key of ['Delete', 'Delete this saved session?', 'Yes, delete', 'Session deleted. A slot is now available.']) assert.notEqual(t(key), key);
+}
+console.log('PASS: session aggregation, safe localized CSV, five-record history, delete/free-slot behavior, active-session isolation, deletion persistence, late-message protection and storage failures.');

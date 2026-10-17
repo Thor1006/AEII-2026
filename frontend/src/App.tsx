@@ -95,7 +95,7 @@ export function App({ layouts = defaultLayouts, title = 'TrueRehab-RF', autoConn
         </div>
       </header>
 
-      <SessionSummary />
+      {!showStart && (layout.key === 'session' || layout.key === 'technical') && <SessionSummary />}
 
       <div key={showStart ? 'connection' : 'dashboard'} className={s.screen}>
         {showStart ? (

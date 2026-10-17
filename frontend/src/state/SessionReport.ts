@@ -50,6 +50,7 @@ interface Active {
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 const timestamp = (value: unknown): value is number => finite(value) && Math.abs(value) <= 8.64e15;
 const validReps = (value: unknown): value is number => finite(value) && Number.isInteger(value) && value >= 0;
+const sessionIdentity = (session: SessionInfo, device: string) => JSON.stringify([device, session.id, session.startedAt]);
 
 export const REPORT_HISTORY_LIMIT = 5;
 
@@ -57,12 +58,21 @@ export const REPORT_HISTORY_LIMIT = 5;
 export class SessionReportTracker {
   private history: readonly SessionReport[];
   private active: Active | null = null;
+  private readonly completed = new Set<string>();
 
   constructor(records: readonly SessionReport[] = []) {
     this.history = records.slice(0, REPORT_HISTORY_LIMIT);
+    for (const report of this.history) this.completed.add(sessionIdentity(report.session, report.device));
   }
   get records(): readonly SessionReport[] { return this.history; }
   get latest(): SessionReport | null { return this.history[0] ?? null; }
+
+  /** Remove only the exact saved snapshot; session IDs can be reused by kits. */
+  remove(report: SessionReport): boolean {
+    if (!this.history.includes(report)) return false;
+    this.history = this.history.filter(item => item !== report);
+    return true;
+  }
 
   reset(): void { this.active = null; }
 
@@ -72,7 +82,7 @@ export class SessionReportTracker {
       const same = this.active?.session.id === session.id && this.active.session.startedAt === session.startedAt;
       if (!same) {
         // An old running status must not reopen an already completed session.
-        if (this.history.some(report => report.session.id === session.id && report.session.startedAt === session.startedAt && report.device === context.device)) return;
+        if (this.completed.has(sessionIdentity(session, context.device))) return;
         this.active = { session: { ...session }, context: { ...context }, partial: false, observedStart,
           scores: new Map(context.defs.map(def => [def.key, { def: { ...def }, directionKnown: true, count: 0, sum: 0, points: [] }])),
           reps: new Set(), seen: new Set() };
@@ -105,6 +115,9 @@ export class SessionReportTracker {
       })),
     };
     this.history = [report, ...this.history].slice(0, REPORT_HISTORY_LIMIT);
+    // Late messages must not recreate a deleted report. Keep this guard bounded.
+    this.completed.add(sessionIdentity(session, report.device));
+    if (this.completed.size > 64) this.completed.delete(this.completed.values().next().value!);
     this.active = null;
   }
 

@@ -140,6 +140,13 @@ export class SensorStore {
     this.notify();
   }
 
+  /** Notify the UI and persistence subscriber even when no source is connected. */
+  deleteSessionReport(report: SessionReport): boolean {
+    if (!this.reports.remove(report)) return false;
+    this.notify();
+    return true;
+  }
+
   setRtt(ms: number): void {
     this.stats.rttMs = ms;
     this.notify();
