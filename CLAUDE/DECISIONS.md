@@ -2,6 +2,11 @@
 
 <!-- Newest on top. One short entry per decision that someone might later ask "why did we do it this way?" about. -->
 
+## 2026-11-03 — radar-lab: on-chip heatmaps over USB, 3D in pyqtgraph, 60 fps with both heatmaps
+- **Decision:** A standalone `radar-lab/` folder reads the AWR2944PEVM's mmWave demo over USB serial. Clutter removal is off and the static (range-azimuth) and range-Doppler heatmaps are on, so still objects show. 3D = that map as a floor + the point cloud at its measured height, in `view3d.py` (pyqtgraph/PyQt6/PyOpenGL in `radar-lab/.venv`). It runs at 60 radar fps with both heatmaps; redraws follow the display. See [plan](plans/2026-11-03-radar-lab-fullmap.md), [plan](plans/2026-11-03-radar-lab-3d-60fps.md).
+- **Why:** The board we have runs TI's UART demo (no Ethernet command), and the demo's point cloud drops everything still. Heatmaps need no flashing and no DCA1000. Measured: 601/601 frames at 60 fps with spare time. matplotlib can't draw 3D at 60 fps.
+- **Alternatives:** LAN via TI's Ethernet firmware (needs flashing, sends points only); raw ADC via DCA1000 (not on hand); a browser three.js viewer with Web Serial (no install, but a JS rewrite); dropping the range-Doppler heatmap for 60 fps (not needed after measuring).
+
 ## 2026-10-12 — Home page: no template tells; rules kept in `frontend/DESIGN.md`
 - **Decision:** The live demo sits directly under the hero. "How it works" is a plain numbered list, and "Why radar" is a Camera / Wearables / Radar table. There are no uppercase eyebrows and no rows of identical shadowed cards. The rules and "don'ts" live in `frontend/DESIGN.md`. See [plan](plans/2026-10-12-home-ai-slop-pass.md).
 - **Why:** These were the "AI slop" tells from the video (youtube.com/watch?v=M4DNgmI7MIM) still left after the restyle. Showing the real product early is the most specific visual we have.
