@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TrueRehab-RF · Live radar</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f6fa;color:#17283d;font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}.page{max-width:1120px;margin:auto;padding:28px 28px 18px}header{display:flex;justify-content:space-between;gap:20px;align-items:center}h1{font-size:27px;letter-spacing:-.6px;margin:3px 0}p{margin:4px 0;color:#526278}.eyebrow{font-size:12px;letter-spacing:1.5px;font-weight:700;color:#436187}.status{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:30px;background:#e8edf4;color:#44556d;font-weight:650;white-space:nowrap}.dot{height:8px;width:8px;background:currentColor;border-radius:50%}.status.live{color:#146343;background:#e2f4e9}.status.error{color:#a13228;background:#fde8e5}.controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:22px 0 14px}button,select{font:inherit;border:1px solid #cad4e0;background:#fff;border-radius:8px;padding:10px 15px;color:#243b58}button{cursor:pointer}button:disabled{opacity:.5;cursor:default}button.primary{background:#205bc4;color:#fff;border-color:#205bc4}button:hover:not(:disabled){filter:brightness(.96)}button:focus-visible,select:focus-visible{outline:3px solid #74a5ff;outline-offset:2px}.viewrange{margin-left:auto;display:flex;gap:8px;align-items:center;font-size:13px}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#dbe3ed;border:1px solid #dbe3ed;border-radius:10px;overflow:hidden;margin:12px 0 18px}.metric{background:#fff;padding:13px 18px}.metric span{display:block;color:#607188;font-size:12px}.metric strong{font-size:23px;display:block;margin-top:3px;font-variant-numeric:tabular-nums}.plot{position:relative;background:#fff;border:1px solid #dbe3ed;border-radius:12px;padding:16px 14px 10px}.plotheading{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0 9px 8px}.plotheading h2{font-size:16px;margin:0}.plotheading span{font-size:12px;color:#62738b}canvas{display:block;width:100%;height:450px;touch-action:pan-y}.caption{display:flex;justify-content:space-between;gap:15px;padding:8px 10px 0;font-size:12px;color:#617188}.message{min-height:26px;margin:12px 2px;color:#425974}footer{font-size:12px;color:#6b7b90;margin-top:16px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}.tooltip{position:absolute;pointer-events:none;background:#17283d;color:#fff;padding:9px 12px;border-radius:7px;font-size:12px;white-space:pre;display:none;z-index:2}.notice{color:#687b92;font-size:12px}@media(max-width:650px){.page{padding:18px 12px}header{align-items:flex-start}h1{font-size:22px}.status{font-size:12px;padding:7px 10px}.viewrange{margin-left:0}.metrics{grid-template-columns:repeat(2,1fr)}canvas{height:360px}.plotheading,.caption{flex-wrap:wrap}.metric{padding:10px 13px}}@media(prefers-color-scheme:dark){body{background:#111b2a;color:#e1e9f4}p,.message{color:#afbed2}.eyebrow{color:#9bb9e8}.metric,.plot,button,select{background:#19273a;color:#e1e9f4}.metrics,.plot,button,select{border-color:#334459}.metrics{background:#334459}.metric span,.plotheading span,.caption,footer,.notice{color:#9cadc4}.status{background:#293b53;color:#b9c9df}.status.live{background:#193c32;color:#8ce0b6}.status.error{background:#4c282b;color:#ffb4ac}}
+@media(min-width:451px) and (max-width:650px){.metrics{grid-template-columns:repeat(4,1fr)}.metric{padding:10px}.metric strong{font-size:20px}.metric span{font-size:11px}canvas{height:300px}.page{padding-top:14px}.controls{margin-top:15px}}
+.heatlegend{margin:10px 10px 3px;max-width:420px}.heatlegend-labels{display:flex;justify-content:space-between;gap:12px;font-size:12px;color:#617188;margin-bottom:5px}.heatlegend-bar{height:10px;border-radius:8px;background:linear-gradient(to right,rgb(239,68,68) 0%,rgb(249,115,22) 25%,rgb(34,197,94) 50%,rgb(6,182,212) 75%,rgb(37,99,235) 100%)}.heatnote{font-size:12px;color:#617188;margin:7px 10px 0}@media(prefers-color-scheme:dark){.heatlegend-labels,.heatnote{color:#9cadc4}}
+.camera-controls{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:2px 9px 8px}.camera-controls button{padding:6px 10px;font-size:12px}.camera-controls output{font-size:11px;color:#617188;margin-left:auto;font-variant-numeric:tabular-nums}.camera-help{font-size:12px;color:#617188;margin:4px 10px 0}canvas{touch-action:none;cursor:grab;border-radius:8px}canvas.dragging{cursor:grabbing}canvas:focus-visible{outline:3px solid #74a5ff;outline-offset:2px}@media(prefers-color-scheme:dark){.camera-help,.camera-controls output{color:#9cadc4}}@media(max-width:650px){.camera-controls output{width:100%;margin:0}canvas{height:350px}}
+.metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.profile-info{font-size:12px;color:#617188;margin:5px 2px;min-height:18px}.metric strong{font-size:21px}@media(min-width:1000px){.metrics{grid-template-columns:repeat(6,minmax(0,1fr))}}@media(prefers-color-scheme:dark){.profile-info{color:#9cadc4}}
+.map-controls{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:8px 9px;padding:10px;border-radius:8px;background:#f0f4f9;font-size:12px}.map-controls button,.map-controls select{font-size:12px;padding:6px 9px}.map-controls label{display:flex;align-items:center;gap:6px}.map-controls[hidden],.map-info[hidden]{display:none}.map-info{margin:7px 10px 10px;font-size:12px;color:#526278}.map-badge{font-weight:650;color:#176044}.map-badge.frozen{color:#996122}.map-note{display:block;margin-top:4px}.view-select{display:flex;gap:6px;align-items:center;font-size:12px;margin-right:4px}.view-select select{font-size:12px;padding:6px 9px}@media(prefers-color-scheme:dark){.map-controls{background:#223349}.map-info{color:#afbed2}.map-badge{color:#8ce0b6}.map-badge.frozen{color:#ffd08c}}
+</style></head><body><main class="page">
+<header><div><div class="eyebrow">TRUEREHAB-RF / HARDWARE CHECK</div><h1>Live radar · 3D view</h1><p>AWR2944PEVM · TI TDM demo · local diagnostic viewer</p></div><div class="status" id="status" role="status"><span class="dot"></span><span id="statusText">Connecting</span></div></header>
+<section class="controls" aria-label="Radar controls"><button id="start" class="primary">Start live radar</button><button id="stop" disabled>Stop radar</button><label class="viewrange">Display range <select id="range"><option value="3">3 m</option><option value="5">5 m</option><option value="10" selected>10 m</option><option value="25">25 m</option></select></label></section>
+<p id="profileInfo" class="profile-info"></p><section class="metrics" aria-label="Live data status"><div class="metric"><span>Latest frame</span><strong id="frame">—</strong></div><div class="metric"><span>Detected points</span><strong id="points">—</strong></div><div class="metric"><span>Receive rate</span><strong id="rate">—</strong></div><div class="metric"><span>View updates</span><strong id="viewrate">—</strong></div><div class="metric"><span>Nominal range separation</span><strong id="resolution">—</strong></div><div class="metric"><span>Live data age</span><strong id="age">—</strong></div></section><p id="timingInfo" class="profile-info"></p>
+<section class="plot" aria-label="Real radar 3D point cloud and room map">
+<div class="plotheading"><h2 id="plotTitle">Room map · front of radar</h2><span id="plotstate">No data yet</span></div>
+<div class="camera-controls" role="group" aria-label="3D camera controls"><label class="view-select">Display mode <select id="viewMode"><option value="map" selected>Room map</option><option value="live">Live points</option></select></label><button id="resetview">Reset view</button><button id="topview">Top</button><button id="frontview">Front</button><button id="zoomin" aria-label="Zoom in">Zoom +</button><button id="zoomout" aria-label="Zoom out">Zoom −</button><output id="cameraState" aria-label="Camera position">Perspective</output></div>
+<div class="map-controls" id="mapControls" role="group" aria-label="Room map controls"><button id="clearMap">Clear map</button><button id="pauseMap">Pause map</button><label title="Changing this filter clears the accumulated map"><input type="checkbox" id="includeMoving"> Include moving reflections</label></div>
+<div class="map-info" id="mapInfo"><span class="map-badge" id="mapState">Waiting for real data</span> · <strong id="mapCount">0</strong> persistent cells · <span id="mapCandidates">0</span> candidate cells · <span id="mapDuration">0.0 s</span> observed<div>30 s observation window · 10 cm display cells · seen in at least 3 frames</div><span class="map-note">Keep radar fixed; clear after moving it. Unseen areas are unknown. Moving people can leave temporary trails.</span></div>
+<canvas id="chart" role="img" tabindex="0" aria-describedby="cameraHelp" aria-label="3D radar room map, axes in meters. No data yet."></canvas><div id="tooltip" class="tooltip"></div><p id="cameraHelp" class="camera-help">Drag to rotate · scroll or pinch to zoom · focus plot for arrow keys / + / − / Home</p>
+<div class="heatlegend" aria-label="Distance color scale"><div class="heatlegend-labels"><span>Near · 0 m · warm</span><span id="heatmax">Far · ≥5 m · cool</span></div><div class="heatlegend-bar"></div></div><div class="caption"><span id="layerLegend">■ Repeated reflections &nbsp; ● Latest frame &nbsp; ▲ Radar</span><span id="visible">Display scale only; radar profile is unchanged.</span></div><p class="heatnote">Color = distance from radar, not temperature. Grid: z = 0 at radar height. Accumulated reflections do not confirm walls, a body surface or empty space.</p>
+</section>
+<p id="message" class="message" aria-live="polite">Waiting for the local radar connection.</p><div class="notice">Processed radar reflections — not raw ADC, body tracking or muscle-fatigue scores. No recording or simulated fallback.</div>
+<footer><span>COM5 115200 · COM6 3125000 · SDK 04.07.02.01</span><span>Local only · 15-minute safety limit · auto-stop on viewer disconnect</span><button id="close">Close viewer</button></footer></main>
+<script>
+'use strict';
+const token='{{TOKEN}}',chart=document.getElementById('chart'),ctx=chart.getContext('2d');
+// ROOM_MAP_BEGIN: pure accumulator, also exercised by test_room_map.js.
+class RoomMap{
+ constructor({windowMs=30000,cellSize=0.1,maxCells=2000,requiredHits=3,velocityLimit=0.15}={}){
+  Object.assign(this,{windowMs,cellSize,maxCells,requiredHits,velocityLimit});
+  this.cells=new Map();this.lastFrame=0;this.paused=false;this.includeMoving=false;this.revision=0;this.clear(0);
+ }
+ clear(now){this.cells.clear();this.clock=now;this.lastPrune=now;this.startedAt=null;this.framesUsed=0;this.evictions=0;this.revision++;}
+ resetSession(now){this.lastFrame=0;this.paused=false;this.clear(now);}
+ setPaused(value,now,live=true){if(!this.paused)this.tick(now,live);this.paused=value;if(!value)this.tick(now,live);this.revision++;}
+ setIncludeMoving(value,now){if(this.includeMoving!==value){this.includeMoving=value;this.clear(now);}}
+ tick(now,live){
+  if(this.paused||!live||!Number.isFinite(now))return;
+  this.clock=Math.max(this.clock,now);if(this.clock-this.lastPrune>=250)this.prune();
+ }
+ prune(){
+  const cutoff=this.clock-this.windowMs;
+  for(const [key,cell] of this.cells){const recent=cell.samples.filter(s=>s.at>=cutoff);if(recent.length!==cell.samples.length)this.revision++;cell.samples=recent;if(!recent.length)this.cells.delete(key);}
+  this.lastPrune=this.clock;
+ }
+ addFrame(frame,points,at){
+  if(!Number.isInteger(frame)||frame<=this.lastFrame||!Number.isFinite(at))return false;
+  this.lastFrame=frame;if(this.paused)return false;
+  this.tick(at,true);if(at<this.clock-this.windowMs)return false;
+  if(this.startedAt===null)this.startedAt=at;
+  const grouped=new Map();
+  for(const p of points){
+   if(![p.x,p.y,p.z,p.velocity].every(Number.isFinite)||p.y<0||(!this.includeMoving&&Math.abs(p.velocity)>this.velocityLimit))continue;
+   const key=[p.x,p.y,p.z].map(v=>Math.floor(v/this.cellSize)).join(',');
+   const g=grouped.get(key)||{x:0,y:0,z:0,velocity:0,n:0};g.x+=p.x;g.y+=p.y;g.z+=p.z;g.velocity+=p.velocity;g.n++;grouped.set(key,g);
+  }
+  for(const [key,g] of grouped){
+   const cell=this.cells.get(key)||{samples:[]};
+   cell.samples=cell.samples.filter(s=>s.at>=this.clock-this.windowMs);
+   cell.samples.push({at,x:g.x/g.n,y:g.y/g.n,z:g.z/g.n,velocity:g.velocity/g.n});
+   cell.samples=cell.samples.slice(-this.requiredHits);cell.lastSeen=at;
+   this.cells.delete(key);this.cells.set(key,cell);
+  }
+  while(this.cells.size>this.maxCells){this.cells.delete(this.cells.keys().next().value);this.evictions++;}
+  this.framesUsed++;this.revision++;return true;
+ }
+ snapshot(){
+  this.prune();const points=[];
+  for(const cell of this.cells.values()){
+   if(cell.samples.length<this.requiredHits)continue;
+   const n=cell.samples.length,p={x:0,y:0,z:0,velocity:0};
+   for(const s of cell.samples)for(const key of ['x','y','z','velocity'])p[key]+=s[key]/n;
+   points.push({...p,range:Math.hypot(p.x,p.y,p.z),kind:'map',hits:n,age_seconds:Math.max(0,(this.clock-cell.lastSeen)/1000)});
+  }
+  return {points,candidates:this.cells.size-points.length,duration_seconds:this.startedAt===null?0:Math.min(this.windowMs,Math.max(0,this.clock-this.startedAt))/1000,evictions:this.evictions};
+ }
+}
+// ROOM_MAP_END
+const roomMap=new RoomMap();
+let mapCache={points:[],candidates:0,duration_seconds:0,evictions:0},mapCacheAt=-Infinity,mapConnectionLost=false;
+function mapSnapshot(force=false){const now=performance.now();if(force||now-mapCacheAt>=100){mapCache=roomMap.snapshot();mapCacheAt=now;}return mapCache;}
+function invalidateMap(){mapCacheAt=-Infinity;}
+let data=null,busy=false,closed=false,marks=[];
+let displayedTimes=[],lastDisplayedFrame=null;
+let latestState=null,pendingFrames=[],lastQueuedFrame=0,lastReceivedTotal=0;
+function acceptState(state){
+ const now=performance.now();
+ if(state.frames_received<lastReceivedTotal||mapConnectionLost){roomMap.resetSession(now);invalidateMap();mapConnectionLost=false;}
+ if(state.frames_received<lastReceivedTotal){pendingFrames=[];lastQueuedFrame=0;displayedTimes=[];lastDisplayedFrame=null;}
+ lastReceivedTotal=state.frames_received;latestState=state;
+ if(!state.live){pendingFrames=[];render(state);return;}
+ const frames=state.recent_frames?.length?state.recent_frames:[state];
+ for(const f of frames){if(f.frame>lastQueuedFrame){const receivedAt=now-(f.age_seconds||0)*1000;roomMap.addFrame(f.frame,f.points,receivedAt);pendingFrames.push({frame:f.frame,points:f.points,receivedAt});lastQueuedFrame=f.frame;}}
+ roomMap.tick(now,true);
+ if(pendingFrames.length>24)pendingFrames=pendingFrames.slice(-24);
+}
+function displayFrame(){
+ if(closed)return;
+ const now=performance.now();
+ while(pendingFrames.length&&now-pendingFrames[0].receivedAt>250)pendingFrames.shift();
+ if(latestState?.live&&pendingFrames.length){const frame=pendingFrames.shift();render({...latestState,frame:frame.frame,points:frame.points,point_count:frame.points.length,age_seconds:(now-frame.receivedAt)/1000});}
+ requestAnimationFrame(displayFrame);
+}
+const byId=id=>document.getElementById(id);
+const camera={yaw:-0.6,pitch:0.48,zoom:1,name:'Perspective'},pointers=new Map();
+let paintPending=false;
+function schedulePaint(){if(!paintPending){paintPending=true;requestAnimationFrame(()=>{paintPending=false;paint();});}}
+function setView(name){Object.assign(camera,{yaw:name==='Perspective'?-0.6:0,pitch:name==='Top'?Math.PI/2-0.001:name==='Front'?0:0.48,zoom:1,name});byId('tooltip').style.display='none';paint();}
+function zoomView(factor){camera.zoom=Math.max(0.5,Math.min(3,camera.zoom*factor));byId('tooltip').style.display='none';schedulePaint();}
+function orbitView(dx,dy){camera.yaw=(camera.yaw+dx*0.008)%(2*Math.PI);camera.pitch=Math.max(-1.35,Math.min(Math.PI/2-0.001,camera.pitch+dy*0.008));camera.name='Orbit';schedulePaint();}
+function makeProjector(width,height,range,view){
+ const sy=Math.sin(view.yaw),cy=Math.cos(view.yaw),sp=Math.sin(view.pitch),cp=Math.cos(view.pitch);
+ const forward=[-sy*cp,cy*cp,-sp],right=[cy,sy,0],up=[-sy*sp,cy*sp,cp];
+ const distance=2.7*range/view.zoom,target=[0,range*0.45,0],eye=target.map((v,i)=>v-forward[i]*distance),focal=Math.min(width,height)*1.15;
+ return point=>{
+  const relative=[point.x-eye[0],point.y-eye[1],point.z-eye[2]],dot=axis=>axis.reduce((sum,v,i)=>sum+v*relative[i],0),depth=dot(forward);
+  if(!Number.isFinite(depth)||depth<=range*0.025)return null;
+  const px=width/2+dot(right)*focal/depth,py=height*0.52-dot(up)*focal/depth;
+  return Number.isFinite(px)&&Number.isFinite(py)?{px,py,depth}:null;
+ };
+}
+function distanceColor(distance,maximum){
+ const stops=[[239,68,68],[249,115,22],[34,197,94],[6,182,212],[37,99,235]];
+ const t=Math.max(0,Math.min(1,distance/maximum))*4,i=Math.min(3,Math.floor(t)),mix=t-i;
+ return stops[i].map((v,c)=>Math.round(v+(stops[i+1][c]-v)*mix)).join(',');
+}
+function updateMapUI(snapshot){
+ const show=byId('viewMode').value==='map',active=Boolean(data?.live)&&!roomMap.paused;
+ byId('mapControls').hidden=byId('mapInfo').hidden=!show;
+ byId('plotTitle').textContent=show?'Room map · front of radar':'3D positions · distance colors';
+ byId('layerLegend').textContent=show?'■ Repeated reflections · ● Latest frame · ▲ Radar':'● Measured reflection · ▲ Radar origin · axes in meters';
+ byId('mapCount').textContent=snapshot.points.length;byId('mapCandidates').textContent=snapshot.candidates;
+ byId('mapDuration').textContent=snapshot.duration_seconds.toFixed(1)+' s';
+ byId('pauseMap').textContent=roomMap.paused?'Resume map':'Pause map';
+ byId('mapState').className='map-badge'+(active?'':' frozen');
+ byId('mapState').textContent=roomMap.paused?'Paused · historical map':data?.live?'Accumulating'+(snapshot.evictions?' · cell limit reached':''):snapshot.points.length?'Frozen · radar not live':'Waiting for real data';
+ if(data)byId('plotstate').textContent=show&&data.live?(roomMap.paused?'RADAR LIVE · MAP PAUSED':'REAL HARDWARE · ACCUMULATING'):data.live?'REAL HARDWARE · LIVE':data.frame==null?'No data yet':'LAST FRAME · NOT LIVE';
+}
+function paint(){
+ const rect=chart.getBoundingClientRect(),w=rect.width,h=rect.height,dpr=window.devicePixelRatio||1;
+ if(w<30||h<30)return;
+ chart.width=Math.round(w*dpr);chart.height=Math.round(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);
+ const dark=matchMedia('(prefers-color-scheme:dark)').matches,ink=dark?'#b9c9df':'#52647b',grid=dark?'#2e4057':'#e7edf4',blue=dark?'#75acff':'#2467d7';
+ const r=Number(byId('range').value),project=makeProjector(w,h,r,camera);
+ const snapshot=mapSnapshot(),showMap=byId('viewMode').value==='map';updateMapUI(snapshot);
+ marks=[];ctx.clearRect(0,0,w,h);ctx.font='12px system-ui';ctx.fillStyle=ink;ctx.strokeStyle=grid;ctx.lineWidth=1;
+ const point=(x,y,z=0)=>({x,y,z}),line=(a,b,color=grid,width=1)=>{const pa=project(a),pb=project(b);if(!pa||!pb)return;ctx.beginPath();ctx.moveTo(pa.px,pa.py);ctx.lineTo(pb.px,pb.py);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.stroke();};
+ ctx.save();ctx.beginPath();ctx.rect(12,12,w-24,h-24);ctx.clip();
+ for(let i=0;i<=6;i++){
+  const yy=r*i/6,xx=-r+2*r*i/6;line(point(-r,yy),point(r,yy));line(point(xx,0),point(xx,r));
+ }
+ const origin=point(0,0),axes=[{p:point(r*0.68,0),label:'x · sideways',color:dark?'#fda4af':'#b83b52'},{p:point(0,r*0.82),label:'y · forward',color:blue},{p:point(0,0,r*0.53),label:'z · height',color:dark?'#c4b5fd':'#7551b8'}];
+ for(const axis of axes){if(camera.name==='Top'&&axis.label.startsWith('z'))continue;line(origin,axis.p,axis.color,1.8);const end=project(axis.p);if(end){ctx.fillStyle=axis.color;ctx.textAlign='left';ctx.fillText(axis.label,end.px+7,end.py-7);}}
+ if(camera.name!=='Top'){line(origin,point(0,0,-r*0.3),grid);const below=project(point(0,0,-r*0.3));if(below){ctx.fillStyle=ink;ctx.textAlign='center';ctx.fillText(`${(-r*0.3).toFixed(1)} m`,below.px,below.py+15);}}
+ ctx.fillStyle=ink;ctx.font='11px system-ui';ctx.textAlign='center';
+ for(let i=1;i<=3;i++){const v=r*i/3,a=project(point(0,v)),b=project(point(0,0,v/2));if(a)ctx.fillText(`${v.toFixed(1)} m`,a.px+21,a.py+15);if(b&&camera.name!=='Top')ctx.fillText(`${(v/2).toFixed(1)} m`,b.px-23,b.py+3);}
+ const radar=project(origin);if(radar){ctx.fillStyle=blue;ctx.beginPath();ctx.moveTo(radar.px,radar.py-8);ctx.lineTo(radar.px-7,radar.py+5);ctx.lineTo(radar.px+7,radar.py+5);ctx.closePath();ctx.fill();ctx.fillStyle=ink;ctx.fillText('Radar',radar.px,radar.py+20);}
+ const visibleMap=[];
+ if(showMap)for(const p of snapshot.points){if(Math.abs(p.x)>r||p.y<0||p.y>r||Math.abs(p.z)>r)continue;const screen=project(p);if(screen&&screen.px>=12&&screen.px<=w-12&&screen.py>=12&&screen.py<=h-12)visibleMap.push({...screen,p});}
+ visibleMap.sort((a,b)=>b.depth-a.depth);
+ for(const {px,py,p} of visibleMap){ctx.globalAlpha=(0.18+0.55*Math.max(0,1-p.age_seconds/30))*(data?.live&&!roomMap.paused?1:0.7);ctx.fillStyle=`rgb(${distanceColor(p.range,r)})`;ctx.fillRect(px-3,py-3,6,6);marks.push({px,py,p});}
+ if(showMap&&!snapshot.points.length){ctx.globalAlpha=1;ctx.fillStyle=ink;ctx.font='12px system-ui';ctx.textAlign='center';ctx.fillText(roomMap.framesUsed?'Collecting reflections seen in at least 3 frames…':'Start radar to accumulate real reflections',w/2,28);}
+ const visiblePoints=[];
+ for(const p of data?.points||[]){if(Math.abs(p.x)>r||p.y<0||p.y>r||Math.abs(p.z)>r)continue;const screen=project(p);if(screen&&screen.px>=12&&screen.px<=w-12&&screen.py>=12&&screen.py<=h-12)visiblePoints.push({...screen,p});}
+ visiblePoints.sort((a,b)=>b.depth-a.depth);
+ ctx.globalAlpha=data?.live?1:0.35;
+ for(const {px,py,depth,p} of visiblePoints){const rgb=distanceColor(p.range,r),halo=ctx.createRadialGradient(px,py,2,px,py,23);halo.addColorStop(0,`rgba(${rgb},0.45)`);halo.addColorStop(1,`rgba(${rgb},0)`);ctx.fillStyle=halo;ctx.fillRect(px-23,py-23,46,46);ctx.fillStyle=`rgb(${rgb})`;ctx.beginPath();ctx.arc(px,py,Math.max(3,Math.min(7,5*r*2.7/depth)),0,Math.PI*2);ctx.fill();ctx.strokeStyle=dark?'#e1e9f4':'#17283d';ctx.lineWidth=1;ctx.stroke();marks.push({px,py,p});}
+ byId('heatmax').textContent=`Far · ≥${r} m · cool`;
+ ctx.restore();byId('visible').textContent=showMap?`${visibleMap.length} / ${snapshot.points.length} map cells · ${visiblePoints.length} / ${data?.point_count??0} live points in view`:`${visiblePoints.length} / ${data?.point_count??0} live points in view · view controls only`;
+ byId('cameraState').textContent=`${camera.name} · ${Math.round(camera.yaw*180/Math.PI)}° / ${Math.round(camera.pitch*180/Math.PI)}° · ${camera.zoom.toFixed(1)}×`;
+ chart.setAttribute('aria-label',`${showMap?`Room map: ${snapshot.points.length} persistent measured cells, ${visibleMap.length} visible, ${roomMap.paused?'paused historical':data?.live?'accumulating':'frozen historical'} map. `:''}${data?.live?'Live':'Last received'} 3D radar points, ${camera.name} view, frame ${data?.frame??'none'}, ${visiblePoints.length} of ${data?.point_count??0} live points visible. Axes x sideways, y forward, z height, in meters. Near is red, far is blue at ${r} meters or more.`);
+}
+function render(state){
+ const changed=!data||state.frame!==data.frame||state.live!==data.live;
+ data=state;const live=state.live,mode=state.mode,label=live?'Live':mode==='starting'?'Starting':mode==='stopping'?'Stopping':mode==='running'?'Waiting for fresh data':mode==='error'?'Connection error':'Stopped';
+ const now=performance.now();
+ if(!live||state.frame<lastDisplayedFrame){displayedTimes=[];lastDisplayedFrame=null;}
+ if(live&&state.frame!==lastDisplayedFrame){displayedTimes.push(now);lastDisplayedFrame=state.frame;}
+ displayedTimes=displayedTimes.filter(t=>now-t<2000);
+ const viewRate=displayedTimes.length>1?(displayedTimes.length-1)*1000/(displayedTimes.at(-1)-displayedTimes[0]):0;
+ byId('status').className='status'+(live?' live':mode==='error'?' error':'');byId('statusText').textContent=label;
+ byId('frame').textContent=state.frame??'—';byId('points').textContent=state.frame==null?'—':state.point_count;
+ byId('rate').textContent=live?`${state.rate_hz.toFixed(1)} Hz`:'—';byId('age').textContent=state.age_seconds==null?'—':`${state.age_seconds.toFixed(1)} s`;
+ byId('viewrate').textContent=live&&viewRate?`${viewRate.toFixed(1)} /s`:'—';
+ const profile=state.profile||{};
+ byId('resolution').textContent=profile.range_resolution_cm?`${profile.range_resolution_cm.toFixed(2)} cm`:'—';
+ byId('profileInfo').textContent=profile.configured_hz?`Target ${profile.configured_hz.toFixed(0)} Hz · sampled bandwidth ${profile.sampled_bandwidth_ghz.toFixed(2)} GHz · nominal velocity separation ${profile.doppler_resolution_m_s.toFixed(3)} m/s`:'';
+ const reserve=state.minimum_remaining_us==null||!profile.period_ms?null:100*state.minimum_remaining_us/(profile.period_ms*1000);
+ byId('timingInfo').textContent=`Temperature ${state.maximum_temperature_c==null?'unavailable':state.maximum_temperature_c+' °C max'} · timing reserve ${reserve==null?'waiting':reserve.toFixed(1)+'% min'} · frame gaps ${state.frame_gaps??0} · invalid packets ${state.invalid_packets??0}`;
+ byId('message').textContent=state.message;byId('plotstate').textContent=live?'REAL HARDWARE · LIVE':state.frame==null?'No data yet':'LAST FRAME · NOT LIVE';
+ byId('start').disabled=busy||['starting','running','stopping'].includes(mode);byId('stop').disabled=busy||!['starting','running','error'].includes(mode);if(changed)paint();
+}
+async function poll(){if(closed)return;try{const response=await fetch('/api/state?after='+lastQueuedFrame,{cache:'no-store'});if(!response.ok)throw Error('Viewer server is unavailable');const state=await response.json();if(!closed)acceptState(state);}catch(error){if(closed)return;mapConnectionLost=true;pendingFrames=[];latestState=null;byId('statusText').textContent='Viewer disconnected';byId('status').className='status error';byId('message').textContent=error.message;byId('viewrate').textContent='—';if(data){data.live=false;paint();}byId('plotstate').textContent='NOT LIVE · DISCONNECTED';}finally{if(!closed)setTimeout(poll,8);}}
+async function action(name){busy=true;byId('start').disabled=true;byId('stop').disabled=true;try{const response=await fetch('/api/'+name,{method:'POST',headers:{'X-Radar-Token':token}});const state=await response.json();if(!response.ok)throw Error(state.error||'Request failed');busy=false;acceptState(state);if(name==='shutdown'){closed=true;byId('statusText').textContent='Viewer closed';byId('start').disabled=byId('stop').disabled=true;}}catch(error){busy=false;byId('message').textContent=error.message;byId('start').disabled=false;}}
+byId('start').addEventListener('click',()=>action('start'));byId('stop').addEventListener('click',()=>action('stop'));byId('close').addEventListener('click',()=>action('shutdown'));byId('range').addEventListener('change',paint);
+byId('viewMode').addEventListener('change',()=>{byId('tooltip').style.display='none';paint();});
+byId('clearMap').addEventListener('click',()=>{roomMap.clear(performance.now());invalidateMap();byId('tooltip').style.display='none';paint();});
+byId('pauseMap').addEventListener('click',()=>{roomMap.setPaused(!roomMap.paused,performance.now(),Boolean(data?.live));invalidateMap();paint();});
+byId('includeMoving').addEventListener('change',()=>{roomMap.setIncludeMoving(byId('includeMoving').checked,performance.now());invalidateMap();byId('tooltip').style.display='none';paint();});
+byId('resetview').addEventListener('click',()=>setView('Perspective'));byId('topview').addEventListener('click',()=>setView('Top'));byId('frontview').addEventListener('click',()=>setView('Front'));byId('zoomin').addEventListener('click',()=>zoomView(1.2));byId('zoomout').addEventListener('click',()=>zoomView(1/1.2));
+chart.addEventListener('wheel',event=>{event.preventDefault();zoomView(Math.exp(-event.deltaY*0.001));},{passive:false});
+chart.addEventListener('keydown',event=>{const movements={ArrowLeft:[-10,0],ArrowRight:[10,0],ArrowUp:[0,10],ArrowDown:[0,-10]};if(movements[event.key]){event.preventDefault();orbitView(...movements[event.key]);}else if(['+','=','-','_','Home'].includes(event.key)){event.preventDefault();if(event.key==='Home')setView('Perspective');else zoomView(['+','='].includes(event.key)?1.2:1/1.2);}});
+chart.addEventListener('pointerdown',event=>{if(event.pointerType==='mouse'&&event.button!==0)return;chart.focus({preventScroll:true});chart.setPointerCapture(event.pointerId);pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});chart.classList.add('dragging');byId('tooltip').style.display='none';});
+function pointerSpan(){const points=[...pointers.values()];return points.length===2?Math.hypot(points[0].x-points[1].x,points[0].y-points[1].y):0;}
+chart.addEventListener('pointermove',event=>{const previous=pointers.get(event.pointerId);if(!previous)return;const oldSpan=pointerSpan();pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});if(pointers.size===2){const span=pointerSpan();if(oldSpan>1&&span>1)zoomView(span/oldSpan);}else if(pointers.size===1)orbitView(event.clientX-previous.x,event.clientY-previous.y);});
+function releasePointer(event){pointers.delete(event.pointerId);if(!pointers.size)chart.classList.remove('dragging');if(chart.hasPointerCapture(event.pointerId))chart.releasePointerCapture(event.pointerId);}
+for(const type of ['pointerup','pointercancel','lostpointercapture'])chart.addEventListener(type,releasePointer);
+function reflectionDescription(p){return(p.kind==='map'?`Accumulated cell · ≥${p.hits} frames\n${roomMap.paused||!data?.live?'Age at snapshot':'Last seen'}: ${p.age_seconds.toFixed(1)} s\n`:'Latest measured reflection\n')+`x ${p.x.toFixed(2)} m · y ${p.y.toFixed(2)} m\nz ${p.z.toFixed(2)} m · range ${p.range.toFixed(2)} m\nradial velocity ${p.velocity.toFixed(2)} m/s`;}
+chart.addEventListener('pointermove',event=>{if(pointers.size)return;const box=chart.getBoundingClientRect(),mx=event.clientX-box.left,my=event.clientY-box.top;const nearest=marks.reduce((best,p)=>Math.hypot(p.px-mx,p.py-my)<=(best?.distance??20)?{...p,distance:Math.hypot(p.px-mx,p.py-my)}:best,null);const tip=byId('tooltip');if(!nearest){tip.style.display='none';return;}const p=nearest.p;tip.textContent=reflectionDescription(p);tip.style.display='block';tip.style.left=Math.max(4,Math.min(chart.offsetLeft+mx+15,chart.parentElement.clientWidth-270))+'px';tip.style.top=Math.max(45,chart.offsetTop+my-20)+'px';});
+chart.addEventListener('pointerleave',()=>byId('tooltip').style.display='none');window.addEventListener('pagehide',()=>{if(!closed)fetch('/api/stop',{method:'POST',headers:{'X-Radar-Token':token},keepalive:true}).catch(()=>{});});
+new ResizeObserver(paint).observe(chart);matchMedia('(prefers-color-scheme:dark)').addEventListener('change',paint);paint();poll();requestAnimationFrame(displayFrame);
+</script></body></html>

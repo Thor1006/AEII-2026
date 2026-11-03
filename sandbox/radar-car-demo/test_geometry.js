@@ -1,0 +1,20 @@
+'use strict';
+// All fixtures remain in this offline test; the demo serves real hardware data only.
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
+const html=fs.readFileSync(path.join(__dirname,'index.html'),'utf8'),script=html.match(/<script>([\s\S]*?)<\/script>/)[1];new vm.Script(script);
+const core=script.split('// CORE_BEGIN')[1].split('// CORE_END')[0],api=vm.runInNewContext(core.slice(core.indexOf('\n'))+'\n({makeProjection,viewReturns,groupReturns,rangeRGB,nearestSectors,MeasuredFrames});');
+const p=(x=0,y=1,z=0,velocity=0)=>({x,y,z,velocity});let count=0;
+function test(name,fn){fn();count++;console.log('PASS',name);}
+test('projection: positive x right, forward y up, positive z up',()=>{const P=api.makeProjection(700,500,5),o=P(p(0,0));assert(P(p(1,0)).x>o.x);assert(P(p(0,1)).y<o.y);assert(P(p(0,0,1)).y<o.y);});
+test('projection guards and top-view equal world units',()=>{const P=api.makeProjection(700,500,5);assert.equal(P(p(NaN)),null);assert.equal(P(p(0,-100,100)),null);const T=api.makeProjection(700,500,5,true),a=T(p(0,0)),b=T(p(1,0)),c=T(p(0,1));assert(Math.abs(b.x-a.x-(a.y-c.y))<1e-9);assert.throws(()=>api.makeProjection(0,500,5));});
+test('finite projection across supported ranges, heights and camera modes',()=>{for(const r of [3,5,10])for(const top of [true,false]){const P=api.makeProjection(360,470,r,top);for(const q of [p(-r,0,-r),p(r,r,r),p(0,0)]){const s=P(q);assert(s===null||Object.values(s).every(Number.isFinite));}}});
+test('display clipping never adds or classifies returns',()=>{const good=p(),points=[good,p(0,-1),p(Infinity),p(0,6),p(0,1,7)];const out=api.viewReturns(points,5);assert.equal(out.length,1);assert.equal(out[0],good);assert.equal(api.viewReturns([],5).length,0);});
+test('display group centroid preserves measured coordinates and velocity',()=>{const out=api.groupReturns([p(0,1,0,-.2),p(.2,1,0,.2)]);assert.equal(out.length,1);assert.equal(out[0].n,2);assert.equal(out[0].x,.1);assert.equal(out[0].velocity,0);assert(Math.abs(out[0].range-Math.hypot(.1,1))<1e-12);assert.equal('classification' in out[0],false);});
+test('group count bounded; separate returns remain separate symbols',()=>{assert.equal(api.groupReturns([p(0),p(1),p(2)],.1,2).length,2);assert.equal(api.groupReturns([],1).length,0);});
+test('range colors clamp and direction sectors use measured distance',()=>{assert.equal(api.rangeRGB(0,5),'239,89,78');assert.equal(api.rangeRGB(10,5),'63,125,226');const sectors=api.nearestSectors([p(-1,1),p(0,2),p(1,1),p(0,.5)]);assert.deepEqual(Array.from(sectors).map(v=>Number(v.toFixed(3))),[1.414,.5,1.414]);assert.deepEqual(Array.from(api.nearestSectors([])),[null,null,null]);});
+const state=(n=3)=>({live:true,mode:'running',frame:n,frames_received:n,recent_frames:Array.from({length:n},(_,i)=>({frame:i+1,points:[p()],age_seconds:.01})),points:[p()]});
+test('measured frames keep order and reject duplicate cursor packets',()=>{const q=new api.MeasuredFrames();q.accept(state(),1000);q.accept(state(),1001);assert.deepEqual([q.next(1002).frame,q.next(1003).frame,q.next(1004).frame],[1,2,3]);assert.equal(q.next(1005),null);});
+test('queue memory bound and stale discard never interpolate frames',()=>{const q=new api.MeasuredFrames();q.accept(state(40),1000);assert.equal(q.pending.length,24);assert.equal(q.next(1400),null);});
+test('stop, disconnect and new session do not masquerade as live',()=>{const q=new api.MeasuredFrames();q.accept(state(),1000);q.accept({...state(),live:false,mode:'stopped'},1001);assert.equal(q.next(1002),null);q.disconnect();assert.equal(q.latest,null);q.accept(state(1),1010);assert.equal(q.cursor,1);assert.equal(q.next(1011).frame,1);});
+test('display rate counts unique frames and waits for a meaningful sample',()=>{const q=new api.MeasuredFrames();q.shown(1,0);q.shown(1,10);q.shown(2,25);assert.equal(q.rate(),0);const steady=new api.MeasuredFrames();for(let n=1;n<=41;n++){steady.shown(n,(n-1)*25);steady.shown(n,(n-1)*25+1);}assert.equal(steady.rate(),40);});
+console.log(`${count} checks passed; final browser script syntax valid.`);

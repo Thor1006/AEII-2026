@@ -1,37 +1,32 @@
 # Context
 
-<!-- Living state. Updated by /wrap-up at the end of every loop. Keep under ~40 lines: replace, don't append forever. -->
-
-**Last updated:** 2026-11-03 (night)
+<!-- Living state. Keep under ~40 lines; reports hold detailed run history. -->
+**Last updated:** 2026-11-03 (repository sync)
 
 ## Current focus
-**First real radar data (Nov 3).** The hardware we have is an **AWR2944PEVM** (not the AWR1843 + DCA1000), on USB. `radar-lab/` (standalone) shows the whole room, still objects included, in 2D and in 3D at **60 radar fps** ([report](output/2026-11-03-2214-radar-lab-fullmap-3d.md)). Board quirks (baud 3 125 000, no `numFrames 0`, command port goes silent if closed while running) are in `radar-lab/README.md`. Nov 15 is 12 days away.
-- CNN frame encoder v0.1 in `sandbox/Encoder_0.1/` (still synthetic input).
-- TypeScript dashboard `frontend/` (protocol 1.2): home, dashboard, kit key, EN/TH/zh-HK, help, session summaries + 5-session history (all committed).
-- **Paused on purpose:** the Python bridge `pi-bridge/` has never run. The user said **do not install its packages (`websockets`, `numpy`) now; ask again when we are really setting up a Pi.**
-- `Phisit/` (teammate): separate FastAPI + React demo. It shows "future compensation risk" and "reps to compensation", which `frontend/` doesn't.
+**Plan B is selected and received: AWR2944PEVM, no DCA1000.** The submitted AWR1843BOOST/DCA1000 poster stays frozen. Two independent USB radar demos now coexist; their profiles, outputs and measured limits differ. Run only one serial collector at a time. No raw ADC or validated fatigue/body model is claimed.
+- Windows browser viewer: `sandbox/radar-live-viewer/`, AWR2X44P TDM / SDK 04.07.02.01, COM5 115200 / COM6 3125000. Selected `tdm-wide-points-40hz.cfg`: 40-Hz target, nominal 3.88-cm radial separation, point/health output. [Measured limits and rollback](output/2026-11-03-radar-rate-resolution.md); extended runs had occasional sequence gaps. Last recorded server PID 36636 is historical, not a current health check.
+- Browser Room map http://127.0.0.1:8766/ and separate Drive view http://127.0.0.1:8766/drive/ share that collector. [Room map](output/2026-11-03-fixed-radar-room-map.md): fixed-board, 30-s RAM window, 10-cm display cells, >=3-frame persistence. [Drive](output/2026-11-03-car-style-radar-demo.md): illustrative car and measured reflection groups; no vehicle/person/lane/path recognition.
+- Teammate's `radar-lab/`: independent macOS 2D/3D viewer with static range-azimuth and range-Doppler heatmaps. Its different profile reportedly measured 60.0 radar fps, 601/601 frames; this is not a new benchmark of the Windows 40-Hz profile. [Report](output/2026-11-03-2214-radar-lab-fullmap-3d.md), `radar-lab/README.md`. Height comes only from sparse measured points; angular orientation and stop-on-close remain unverified on hardware there.
+- Received: radar/power, MyoWare + Wireless Shield + 30 pads, Pi 5 8GB + cooler + 27-W PSU + 64-GB A2 microSD, Micro-HDMI, SSD and USB-C LAN adapter. UART is verified; Ethernet/custom phase, ground-truth synchronization, clinical inference and Pi deployment remain unverified.
+- CNN encoder `sandbox/Encoder_0.1/` and existing AI/dashboard demonstrations still use synthetic input. `frontend/` has home/dashboard, kit key, EN/TH/zh-HK, help, session summaries and five-session history (upstream records these as committed). `Phisit/` is the teammate's separate FastAPI/React demo.
+- **Paused by user:** do not install `pi-bridge/` packages (`websockets`, `numpy`) until actual Pi setup; ask then. The bridge has not run.
 
 ## Recent changes
-- 2026-11-03 — `radar-lab/`: full-room radar map on the real AWR2944PEVM, then 3D viewer at 60 fps ([report](output/2026-11-03-2214-radar-lab-fullmap-3d.md))
-- 2026-10-13–17 — Languages, help guide, transitions, session summaries + 5-session history; Delete feature uncommitted ([report](output/2026-10-17-2101-oct13-17-catchup.md))
-- 2026-10-12 — Kit key (protocol 1.2): challenge/response + signed commands ([plan](plans/2026-10-12-kit-pairing-key.md))
-- 2026-10-12 — Home page "AI slop" pass: demo above the fold, comparison table, DESIGN.md ([report](output/2026-10-12-2243-home-ai-slop-pass.md))
-- 2026-10-12 — Home page + hash routing + new TR logo ([report](output/2026-10-12-2220-home-page.md))
+- 2026-11-03 - User requested pull then push. Pulled MyoWare wireless sketch and `radar-lab/` commits through `cc97005`; reconciled context/decision conflicts while preserving both implementations and evidence. See [sync report](output/2026-11-03-repository-sync.md).
+- 2026-11-03 - Browser Drive and fixed-board map approved and completed; parser, geometry, HTTP boundaries and live/shared controls verified in their reports. Existing Room map HTML preserved by the Drive task. No new firmware/Pi/main-dashboard changes for those tasks.
+- 2026-11-02/03 - Official SBL/TDM flash and normal boot previously verified. Real 151-frame capture independently accepted by TI's parser. Windows tuning chose 40 Hz after extended 45-Hz gaps; 45/48-Hz profiles remain experimental, original 10-Hz full output is rollback.
 
 ## Open questions
-- Which radar is the project's radar now: AWR2944PEVM (what we have, on-chip heatmaps, no raw data) or AWR1843 + DCA1000 (raw ADC, needs the DCA)? It sets the encoder input: today 64 range bins × 64 angles (static map) + 64 × 16 range-Doppler, 30–60 fps.
-- LAN: the AWR2944PEVM's Ethernet needs TI's Ethernet firmware (flashing — ask first), which sends points, not heatmaps. Worth it?
-- Shoulder elevation is invisible to a front radar at chest height (sandbox). Elevation antennas or a different mount height, decided before data collection?
-- One dashboard or two: merge `Phisit/` ideas (compensation risk, reps-to-compensation) into `frontend/`, or keep separate?
-- Does `radar_ml_context.md` replace or adjust the Oct 5 plan? Phase 2 micro-vibration: a 1D phase branch?
-- Team scope and roles; ethics approval for healthy volunteers?
-- `CLAUDE.md` says macOS/zsh; Nov 3 ran on macOS, but some October work ran on Windows (git user KINKIN-007). Keep as is?
-- Home page copy sign-off; SF Rounded logo licence before any public poster. Poster says "oral health" (typo?).
+- What representation/profile and labeled recording/synchronization protocol should feed the encoder and dashboard? Upstream heatmap candidate is 64 range bins x 64 angles plus 64 x 16 Doppler; browser fast output is points. These inputs are not interchangeable.
+- Can phase/micro-vibration output be exposed within schedule? Ethernet is not verified; changing firmware still requires approval.
+- Validate radar-lab left/right, antenna ordering and stop-on-close with the actual board. Investigate Windows long-run sequence gaps without hiding them.
+- Shoulder visibility/mounting, merging the two dashboards, team roles and healthy-volunteer ethics remain open. No patient trials yet.
+- Repo instructions describe macOS/zsh, but Windows work also exists. Home copy/font license and the poster's "oral health" wording remain open; submitted sources stay unchanged.
 
 ## Next steps
-1. radar-lab: test stop-on-close in `view3d.py` (no reset needed afterwards?); check left/right and antenna order with a person standing to one side.
-2. Decide the radar (open question 1), then record a first labelled capture (e.g. elbow flexion) with `radar-lab` and save frames to disk.
-3. Set the real `InputContract` from that capture, then rerun `check_encoder.py`; try radar height or elevation for shoulder elevation.
-4. Small fixes: the Reps panel keeps counting after a session stops (`sessionEvents` ignores `endedAt`); the Python bridge's `session_end` lacks `reps`; `sandbox/ml_Try-1.py` doesn't run.
-5. When we really set up a Pi (**ask the user first** before installing packages): venv, all pi-bridge tests, `check_bridge.py --commands` and `--key … --auth-selftest`.
-6. Write the real radar provider in `pi-bridge/providers/radar.py` from `radar-lab/radarlab/` (parser + maps already work); later a temporal block on `[B, T, E]` embeddings.
+1. Before switching demos, stop the current collector and release serial ports. Browser Start/Stop affects both pages; original Close viewer shuts their shared service. Never run radar-lab alongside it on the same board.
+2. Browser safety stops: 15 min/session, 15 s without polling, valid temperature >=85 C, or reserve <5% for three frames. Start resumes a new session; do not reflash merely to reopen.
+3. Validate radar-lab stop-on-close and known-target angular orientation, then agree recording scope, preserve frame/config/timestamp/loss metadata, and freeze a real versioned `InputContract` before training or bridge integration.
+4. Upstream follow-ups: Reps panel continues after session end; Python bridge `session_end` lacks `reps`; `sandbox/ml_Try-1.py` does not run. These are outside this sync.
+5. Ask before Pi package setup; later run its tests and bridge checks. Reuse verified acquisition/parser components only after matching their actual output contract.

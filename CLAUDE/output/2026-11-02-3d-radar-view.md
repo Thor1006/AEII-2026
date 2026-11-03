@@ -1,0 +1,9 @@
+# Interactive real radar 3D view — 2026-11-02
+
+Completed the specifically approved 3D view. Existing measured x/y/z coordinates are projected with guarded perspective, equal world units, depth ordering and a z=0 reference grid through the radar. The grid is not a measured floor. Near-red/far-blue colors depend on measured radar range and stay independent of camera movement. Sparse dots/illustrative halos do not reconstruct a body surface.
+
+Controls: mouse/one-finger drag to orbit; wheel/two-finger pinch or Zoom buttons; Top, Front and Reset presets; focused canvas supports arrows, +/− and Home. Display range controls view bounds and distance legend only. Camera control code contains no radar requests.
+
+Verification: JavaScript syntax, x/z orientation, equal-unit front projection, top forward direction, non-finite/behind-camera guards and a grid of camera pitch/yaw/zoom bounds passed. Actual browser drag changed angles while live frame numbers advanced; Front/Top/Zoom/Reset/keyboard controls and stopped/restarted status passed. No browser console errors. Sampled health: 117 frames, 10.0 Hz, 0.015-s data age, zero gaps/invalid packets. A later full-page screenshot shows fresh frame 518. Touch pinch is implemented but was not physically tested on a touch device. Current narrow ~626-pixel browser layout was inspected; camera angle chosen through live user interaction was preserved.
+
+Preview: `C:\Users\chap_\.codex\.chatgpt-projects\g-p-69f1b1cfff0c81919aa91c82a1c098a6\tmp\radar-flash-2026-11-02\live-radar-3d.png`. Local tab remains at http://127.0.0.1:8766/ with existing watchdogs. No firmware/profile/server changes were made for this 3D step. No commit/push. The user's subsequent "apply all those changes please" separately approves the existing rate/resolution optimization plan; testing continues under that plan.

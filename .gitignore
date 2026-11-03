@@ -3,3 +3,7 @@
 
 # Python virtual environments
 .venv/
+
+# Generated Python bytecode
+__pycache__/
+*.py[cod]

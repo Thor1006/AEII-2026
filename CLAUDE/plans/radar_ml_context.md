@@ -14,15 +14,16 @@ An experiment of interest is whether a larger, deliberately overparameterized mo
 
 | Component | Role |
 |---|---|
-| TI mmWave radar EVM | Texas Instruments millimeter-wave radar evaluation module; transmits radar signals and samples reflected signals. Exact board, antenna layout, firmware, and chirp configuration remain unspecified. |
-| DCA1000EVM | Capture adapter receiving compatible TI radar LVDS data and streaming it over Ethernet to the host. It is not the ML model or the radar sensor itself. |
-| MacBook Pro | Intended host for recording, preprocessing, visualization, and PyTorch development. Chip and memory capacity are not specified; confirm MPS availability on the actual machine. |
+| AWR1843BOOST + DCA1000EVM | Frozen submitted design. DCA1000 receives compatible radar LVDS data and streams raw capture data over Ethernet. The submitted poster/proposal must not be rewritten. |
+| XE125 | Plan A budget candidate, not yet ordered. The EVK includes XM125 with an A121 60-GHz Pulsed Coherent Radar sensor, MCU and antenna, and connects to a PC over USB-C. Use Acconeer-supported outputs; it is not a DCA/raw-ADC path. |
+| AWR2944PEVM | Plan B candidate, not yet ordered. It is a 76–81-GHz radar EVM with onboard R5F, C66x, HWA/EDMA and Ethernet resources. Without DCA1000, initial processing must occur on the radar SoC. |
+| Notebook/PC | Host for configuration, Ethernet reception, recording, preprocessing, visualization and model development. Do not assume the earlier Mac-only capture plan or TI-tool compatibility until the actual host is chosen and tested. |
 
-The LVDS-to-Ethernet capture path is documented in [TI's DCA1000 guide](https://www.ti.com/lit/ug/spruij4a/spruij4a.pdf); its UDP transport is described in [TI's CLI developer guide](https://e2e.ti.com/cfs-file/__key/communityserver-discussions-components-files/1023/TI_5F00_DCA1000EVM_5F00_CLI_5F00_Software_5F00_DeveloperGuide.pdf). Radar configuration/control is a separate path from receiving samples. Mac capture/control software still needs to be implemented or verified; do not assume TI tooling runs natively on macOS.
+The LVDS-to-Ethernet DCA path remains documented in [TI's DCA1000 guide](https://www.ti.com/lit/ug/spruij4a/spruij4a.pdf), but it is not available in either current purchase option. DCA1000 is dedicated capture hardware, not a Python library: normal PC code cannot replace its FPGA, high-speed LVDS/Aurora reception and buffering. Read [the procurement options](2026-10-18-hardware-procurement-options.md); follow [the no-DCA plan](2026-10-18-awr2944-no-dca.md) only if Plan B is selected.
 
 ## 3. Two separate pipelines
 
-### Data collection: preserve measurements for later reprocessing
+### Submitted raw-data workflow: preserve measurements for later reprocessing
 
 ```text
 TI radar EVM → LVDS → DCA1000EVM → Gigabit Ethernet → Mac UDP receiver
@@ -35,6 +36,23 @@ Keep the raw ADC data so preprocessing can change without recollecting everythin
 
 A live range/range-Doppler preview can consume a separate queue; visualization must not block the receiver or disk writer. Preserve and flag gaps explicitly rather than silently treating missing samples as valid zeros. Split training/validation/test data by independent sessions or subjects as appropriate; overlapping windows from one recording must not leak across splits.
 
+This remains the preferred research workflow if AWR1843BOOST + DCA1000EVM becomes available. It is not the assumed initial implementation now.
+
+### Plan B AWR2944PEVM/no-DCA contingency
+
+```text
+AWR2944P ADC buffer → EDMA/HWA/C66x Range and Doppler processing
+  → reduced representation selected on the EVM
+  → numbered/chunked Ethernet packets
+  → notebook receiver checks ordering/loss and records data + configuration
+  → preprocessing matched to the recorded representation
+  → labeled examples → model training and dashboard
+```
+
+Output priority is: (1) OOB detected objects/point cloud for bring-up, (2) range profile or reduced Range-Doppler for movement modelling, and (3) selected complex Range-FFT bins for exploratory phase/micro-motion work. Do not label any of these as raw ADC. Do not freeze the CNN input shape until a real output has been captured and documented.
+
+The EVM firmware should use HWA/C66x for radar processing, EDMA for data movement and R5F for control and networking. Keep acquisition callbacks non-blocking; use preallocated ping-pong buffers and a network queue. Each transmitted frame needs a protocol version, frame number, sensor timestamp, payload type, dimensions, chunk numbering and an integrity check. The notebook must preserve missing-data information instead of silently filling gaps.
+
 ### Real prototype: process and respond with low latency
 
 ```text
@@ -44,7 +62,7 @@ Radar acquisition → same preprocessing used for training → frame tensors
   → calibrated scores or uncertainty information → decision logic → application
 ```
 
-The final acquisition path is undecided: it might retain DCA1000 during development or use supported processed radar output. A model trained on one representation cannot automatically accept the other.
+The final acquisition path remains undecided between Plan A XE125 supported USB output and Plan B AWR2944PEVM processed/reduced Ethernet output; DCA1000 raw capture may return later if hardware becomes available. A model trained on Acconeer Sparse IQ, raw-derived Range-Doppler, OOB point cloud or selected complex bins cannot automatically accept the others. Treat each as a separate versioned `InputContract`.
 
 Keep a bounded rolling buffer in RAM; discard old data during normal operation. In hybrid development mode, save selected raw windows around errors or interesting events for debugging and retraining. A “past 5 s + future 2 s” capture is only an example; collecting future data requires waiting after the trigger.
 
@@ -108,4 +126,4 @@ later, a sequence: [B, T, C, R, D] → shared frame encoder → [B, T, E]
 4. When labeled recordings exist, attach one temporary simple head and check learning on a tiny subset, then evaluate on independent held-out recordings. Shape checks alone do not establish useful radar features.
 5. Save the encoder weights together with architecture and preprocessing configuration. Compare larger versions only after establishing a measurable baseline.
 
-For Claude: begin with this encoder module and its input/output contract. Do not invent sensor specifications, label sets, achieved accuracy, or deployment constraints. Keep later temporal and task modules compatible with its embeddings.
+For Claude: the encoder interface exists, but the Plan A/Plan B purchase decision and real radar bring-up now precede further model assumptions. Read `CLAUDE/CONTEXT.md` and `CLAUDE/plans/2026-10-18-hardware-procurement-options.md`; read the AWR2944 no-DCA plan only for Plan B. Do not invent raw ADC availability, sensor specifications, label sets, achieved accuracy or deployment constraints. Keep later temporal and task modules compatible with versioned embeddings and do not claim synthetic-data checks prove radar performance.
