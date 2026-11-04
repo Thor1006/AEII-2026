@@ -43,8 +43,25 @@
 #define OLED_RESET     -1         // no dedicated reset pin on most modules
 #define OLED_ADDR      0x3C
 
-// ---- Timing -------------------------------------------------------------
-#define SAMPLE_HZ      50         // IMU read + complementary-filter rate
+// ---- Mode ---------------------------------------------------------------
+// 0 = standalone: human-readable CSV + OLED (pair with log_imu.py).
+// 1 = record:     emits the recorder's raw line
+//                   I,<micros>,ax,ay,az,gx,gy,gz
+//                 int16 register counts (16384/g @ +-2 g, 131/(deg/s) @
+//                 +-250 deg/s) at 200 Hz on 921600 baud. Plugs into
+//                 recorder/record.py as  --imu <port>  (a SerialLineSource;
+//                 read back with session.record_mode("imu", "I")). Matches
+//                 firmware/myoware_record's IMU format. OLED still shows
+//                 pitch/roll as a live check.
+#define RECORD_MODE    0
+
+#if RECORD_MODE
+  #define SERIAL_BAUD  921600UL   // matches record.py --imu-baud default
+  #define SAMPLE_HZ    200        // recorder's documented IMU rate
+#else
+  #define SERIAL_BAUD  115200UL
+  #define SAMPLE_HZ    50         // plenty for the live display + log_imu.py
+#endif
 #define DISPLAY_HZ     10         // OLED refresh rate (OLED I2C is slow)
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
@@ -85,7 +102,7 @@ void haltWithMessage(const char *msg) {
 }
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(SERIAL_BAUD);
   delay(200);
 
   Wire.begin(I2C_SDA, I2C_SCL, I2C_FREQ_HZ);
@@ -107,8 +124,15 @@ void setup() {
   if (!mpu.begin(0x68, &Wire)) {
     haltWithMessage("MPU6050 0x68?");
   }
+#if RECORD_MODE
+  // +-2 g / +-250 deg/s so the raw counts match the recorder's assumed
+  // scale (16384 LSB/g, 131 LSB/(deg/s)) - same as firmware/myoware_record.
+  mpu.setAccelerometerRange(MPU6050_RANGE_2_G);
+  mpu.setGyroRange(MPU6050_RANGE_250_DEG);
+#else
   mpu.setAccelerometerRange(MPU6050_RANGE_4_G);     // +/-4 g: rehab motion
   mpu.setGyroRange(MPU6050_RANGE_500_DEG);          // +/-500 deg/s
+#endif
   mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);       // smooth out tremor noise
 
   // Measure the gyro's resting offset. The board MUST be still for this.
@@ -122,8 +146,13 @@ void setup() {
                  sqrtf(accel.acceleration.y * accel.acceleration.y +
                        accel.acceleration.z * accel.acceleration.z)) * 57.2957795f;
 
+#if RECORD_MODE
+  Serial.println(F("# truerehab-imu-record v1 imu=mpu6050_200hz scale=2g_250dps"));
+  Serial.println(F("# I,micros,ax,ay,az,gx,gy,gz  (raw int16; 16384/g, 131/(deg/s))"));
+#else
   Serial.println(F("# TrueRehab-RF IMU ground truth"));
   Serial.println(F("# t_ms,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,temp_c,pitch_deg,roll_deg"));
+#endif
 
   lastSampleUs  = micros();
   lastDisplayMs = millis();
@@ -139,7 +168,13 @@ void loop() {
 
   mpu.getEvent(&accel, &gyro, &temp);
 
-  // Remove the resting bias measured at startup (rad/s).
+#if RECORD_MODE
+  // Emit the recorder's raw line from the UNCORRECTED reading - offline
+  // tools handle the bias. Must come before the display bias subtraction.
+  emitRecordLine(nowUs);
+#endif
+
+  // Remove the resting bias measured at startup (rad/s). Display only.
   gyro.gyro.x -= gyroBiasX;
   gyro.gyro.y -= gyroBiasY;
   gyro.gyro.z -= gyroBiasZ;
@@ -158,6 +193,7 @@ void loop() {
   roll  = ALPHA * (roll  + gyroRollRate  * dt) + (1.0f - ALPHA) * accRoll;
   pitch = ALPHA * (pitch + gyroPitchRate * dt) + (1.0f - ALPHA) * accPitch;
 
+#if !RECORD_MODE
   // --- Serial CSV (every sample) for notebook logging ---
   Serial.print(millis());                      Serial.print(',');
   Serial.print(accel.acceleration.x / 9.80665f, 3); Serial.print(',');  // g
@@ -169,6 +205,7 @@ void loop() {
   Serial.print(temp.temperature, 1);           Serial.print(',');       // deg C
   Serial.print(pitch, 1);                      Serial.print(',');
   Serial.println(roll, 1);
+#endif
 
   // --- OLED (rate-limited) ---
   const uint32_t nowMs = millis();
@@ -207,6 +244,28 @@ void calibrateGyro() {
   Serial.print(gyroBiasY, 5); Serial.print(' ');
   Serial.println(gyroBiasZ, 5);
 }
+
+#if RECORD_MODE
+// Print the recorder's raw line: I,<micros>,ax,ay,az,gx,gy,gz
+// Converts the library's SI values back to int16 register counts at the
+// +-2 g / +-250 deg/s scale. Call with the UNCORRECTED reading (no bias
+// removal) so offline processing matches firmware/myoware_record.
+void emitRecordLine(uint32_t tDevUs) {
+  const float COUNTS_PER_G   = 16384.0f;   // +-2 g full scale
+  const float COUNTS_PER_DPS = 131.0f;     // +-250 deg/s full scale
+  const float RAD2DEG        = 57.2957795f;
+  const int16_t ax = (int16_t)lroundf(accel.acceleration.x / 9.80665f * COUNTS_PER_G);
+  const int16_t ay = (int16_t)lroundf(accel.acceleration.y / 9.80665f * COUNTS_PER_G);
+  const int16_t az = (int16_t)lroundf(accel.acceleration.z / 9.80665f * COUNTS_PER_G);
+  const int16_t gx = (int16_t)lroundf(gyro.gyro.x * RAD2DEG * COUNTS_PER_DPS);
+  const int16_t gy = (int16_t)lroundf(gyro.gyro.y * RAD2DEG * COUNTS_PER_DPS);
+  const int16_t gz = (int16_t)lroundf(gyro.gyro.z * RAD2DEG * COUNTS_PER_DPS);
+  char buf[72];
+  snprintf(buf, sizeof(buf), "I,%lu,%d,%d,%d,%d,%d,%d",
+           (unsigned long)tDevUs, ax, ay, az, gx, gy, gz);
+  Serial.println(buf);
+}
+#endif
 
 void updateDisplay() {
   display.clearDisplay();

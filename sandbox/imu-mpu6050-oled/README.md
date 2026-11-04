@@ -82,6 +82,50 @@ Close the Arduino Serial Monitor first — only one program can hold the port.
 Device `#` comment lines (boot banner, gyro bias) are echoed to the console;
 only data rows are written to the file. Ctrl+C stops and reports the count.
 
+> `log_imu.py` is for **standalone** use only. For recordings that line up
+> with the radar, use **record mode** below instead — it's time-aligned to the
+> radar and sEMG; the standalone logger is not.
+
+## Record mode — feed the session recorder (`recorder/`)
+This sketch can instead emit the exact line the project's session recorder
+expects, so a **dedicated IMU+OLED ESP32** plugs straight into
+`recorder/record.py`. Set the switch near the top of the sketch:
+
+```c
+#define RECORD_MODE 1
+```
+
+Then it streams, at 200 Hz on **921600 baud**:
+```
+I,<micros>,ax,ay,az,gx,gy,gz
+```
+raw int16 register counts at **±2 g (16384/g)** and **±250 °/s (131/°·s⁻¹)** —
+the same format and scale as `firmware/myoware_record`. The OLED still shows
+pitch/roll as a live check; the raw line carries **no** bias removal (offline
+tools handle that) and **no** temperature or fusion.
+
+Record a session with it on its own USB port:
+```bash
+cd recorder
+.venv/bin/python record.py --subject S01 --exercise elbow_flexion \
+    --radar-data <radar_data_port> --radar-cli <radar_cmd_port> \
+    --imu <this_esp32_port>
+```
+Read the IMU back on the radar's timeline:
+```python
+from rec import session
+s = session.load("data/sessions/<...>")
+imu = s.record_mode("imu", "I")   # t_s aligned to radar, values[:, 0:6] = ax..gz counts
+```
+
+**Notes**
+- `RECORD_MODE 0` (default) keeps the human CSV + `log_imu.py` behaviour.
+- Counts are converted from the Adafruit library's SI values, so they match
+  the ±2 g/±250 °/s scale to <1 LSB. Don't mix with the standalone ±4 g/±500 °/s
+  data — different scale factors.
+- Start each session with 3 quick shoulder shrugs (press `s` in the recorder)
+  so the IMU, radar and sEMG offsets can be measured and corrected.
+
 ## Quick checks if it doesn't work
 - **Blank OLED / "SSD1306 not found"**: some 128×64 modules are at `0x3D` —
   change `OLED_ADDR`. Run an I2C scanner sketch to confirm addresses.
