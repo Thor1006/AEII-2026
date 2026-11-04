@@ -6,6 +6,7 @@
 
 ## Current focus
 **First real radar data (Nov 3).** The hardware we have is an **AWR2944PEVM** (not the AWR1843 + DCA1000), on USB. `radar-lab/` (standalone) shows the whole room, still objects included, in 2D and in 3D at **60 radar fps** ([report](output/2026-11-03-2214-radar-lab-fullmap-3d.md)). Board quirks (baud 3 125 000, no `numFrames 0`, command port goes silent if closed while running) are in `radar-lab/README.md`. Nov 15 is 12 days away.
+- Ground-truth hardware (Nov 4): **MyoWare 2.0 sEMG tested and working** (`firmware/myoware_demo/`); **MPU6050 IMU on hand, not tested yet**. No video pose yet.
 - CNN frame encoder v0.1 in `sandbox/Encoder_0.1/` (still synthetic input).
 - TypeScript dashboard `frontend/` (protocol 1.2): home, dashboard, kit key, EN/TH/zh-HK, help, session summaries + 5-session history (all committed).
 - **Paused on purpose:** the Python bridge `pi-bridge/` has never run. The user said **do not install its packages (`websockets`, `numpy`) now; ask again when we are really setting up a Pi.**

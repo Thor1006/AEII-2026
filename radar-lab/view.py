@@ -31,9 +31,19 @@ def open_serial(port, baud):
         sys.exit(f"Can't open {port}: {e.strerror or e}\nPlugged in? List ports with:  ls /dev/cu.usbmodem*")
 
 
-def cli_send(cli, line, wait=1.0):
-    """Send one CLI line and return what the radar answered."""
-    cli.write((line + "\n").encode())
+def cli_send(cli, line, wait=1.0, char_delay=0.0):
+    """Send one CLI line and return what the radar answered.
+
+    char_delay: pause between characters. While the radar streams at 60 fps it drops command
+    characters sent at full speed (seen 2026-11-04: "sensorStop" arrived as "s").
+    """
+    if char_delay:
+        for ch in (line + "\n").encode():
+            cli.write(bytes([ch]))
+            cli.flush()
+            time.sleep(char_delay)
+    else:
+        cli.write((line + "\n").encode())
     out, end = b"", time.time() + wait
     while time.time() < end:
         out += cli.read(4096)
@@ -43,6 +53,21 @@ def cli_send(cli, line, wait=1.0):
 
 
 FAILED = ("Error", "not recognized", "Exception")
+
+
+def stop_radar(cli, tries=3):
+    """Stop a running radar: type sensorStop slowly and retry until it says Done.
+
+    Do this before closing the command port: closing it while the radar runs leaves the port
+    silent until the board is reset (the data keeps flowing).
+    """
+    reply = ""
+    for _ in range(tries):
+        reply = cli_send(cli, "sensorStop", wait=3.0, char_delay=0.01)
+        if "Done" in reply and "not recognized" not in reply:
+            return True, reply
+        time.sleep(0.2)
+    return False, reply
 
 
 def send_cfg(cli, lines):

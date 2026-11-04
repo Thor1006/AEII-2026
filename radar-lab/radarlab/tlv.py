@@ -40,6 +40,7 @@ class Frame:
     platform: int
     num_points: int
     tlvs: dict = field(default_factory=dict)  # type -> payload bytes
+    raw: bytes = b""  # the whole packet as received, so a recorder can save it unchanged
 
 
 def encode_frame(number, tlvs, platform=0x2944):
@@ -89,7 +90,7 @@ class FrameReader:
 
     @staticmethod
     def _parse(packet, number, platform, n_obj, n_tlv):
-        frame = Frame(number, platform, n_obj)
+        frame = Frame(number, platform, n_obj, raw=packet)
         pos = HEADER.size
         for _ in range(n_tlv):
             if pos + TLV_HEAD.size > len(packet):
