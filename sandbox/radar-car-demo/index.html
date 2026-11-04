@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RF Drive · Live radar</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f5f7;color:#202735;font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}.shell{max-width:1100px;margin:auto;padding:24px}header{display:flex;align-items:center;justify-content:space-between;gap:14px}.brand{display:flex;gap:11px;align-items:center}.brand svg{width:36px;height:36px;color:#3479e9}.brand small{display:block;font-size:10px;letter-spacing:2px;color:#85909e;font-weight:650}h1{font-size:23px;font-weight:650;letter-spacing:-.7px;margin:0}a{color:#62738d;text-decoration:none}a:hover{text-decoration:underline}.badge{border-radius:30px;padding:7px 12px;background:#e8ecf1;color:#617084;font-size:12px;white-space:nowrap}.badge.live{background:#e4f3eb;color:#247353}.badge.error{background:#fbe7e3;color:#a34435}.badge:before{content:'●';margin-right:6px;font-size:9px}.summary{display:flex;gap:24px;justify-content:space-between;align-items:end;margin:28px 0 17px}.nearest-label{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#7a8493}.nearest{font-size:55px;line-height:1.15;font-weight:400;letter-spacing:-2px;font-variant-numeric:tabular-nums}.nearest small{font-size:17px;letter-spacing:0;margin-left:6px;color:#7a8493}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:22px}.stat small{display:block;color:#7a8493;font-size:11px}.stat strong{display:block;font-size:18px;font-weight:550;font-variant-numeric:tabular-nums}.scene{position:relative;background:radial-gradient(ellipse at 50% 70%,#fafbfc,#f0f2f5);border:1px solid #e5e8ed;border-radius:18px;overflow:hidden}.scene-top{position:absolute;top:17px;left:19px;right:19px;display:flex;justify-content:space-between;align-items:start;gap:12px;pointer-events:none;color:#8a94a1;font-size:11px}.scene-top b{display:block;letter-spacing:1.5px;font-size:10px;font-weight:650;color:#647186}.scene-top span{display:block;margin-top:4px}.scene-top output{text-align:right;font-variant-numeric:tabular-nums}canvas{display:block;width:100%;height:510px;touch-action:pan-y}.scene-bottom{position:absolute;left:18px;right:18px;bottom:14px;display:flex;justify-content:space-between;gap:10px;color:#8a94a1;font-size:10px;pointer-events:none}.tooltip{display:none;position:absolute;pointer-events:none;max-width:240px;padding:10px 12px;background:#263246;color:white;font-size:11px;border-radius:8px;white-space:pre-line;box-shadow:0 4px 18px #0002}.sectors{display:grid;grid-template-columns:repeat(3,1fr);text-align:center;margin:0 16px;border-bottom:1px solid #e0e5eb}.sector{padding:12px 8px}.sector small{display:block;font-size:10px;text-transform:uppercase;letter-spacing:1.3px;color:#8b96a5}.sector strong{font-size:19px;display:block;font-weight:500;margin-top:2px;font-variant-numeric:tabular-nums}.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:16px}button,select{font:inherit;border:1px solid #dce1e8;color:#445268;background:#fff;border-radius:8px;padding:9px 12px}button{cursor:pointer}button.primary{background:#3479e9;border-color:#3479e9;color:#fff}button:disabled{opacity:.45;cursor:default}button:hover:not(:disabled){filter:brightness(.97)}button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid #94b9ff;outline-offset:2px}.toolbar label{display:flex;gap:6px;align-items:center;color:#68778b;font-size:12px}.toolbar .options{display:flex;align-items:center;gap:10px;margin-left:auto;flex-wrap:wrap}.toolbar select{padding:7px 8px;font-size:12px}.message{min-height:21px;margin:10px 0 2px;color:#596b82;font-size:12px}.notes{font-size:11px;color:#8792a1;display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap}.legend{font-size:11px;color:#8592a2;margin-top:8px}.shared{font-size:10px;color:#8c97a6;margin-top:7px}@media(max-width:700px){.shell{padding:17px 12px}.summary{align-items:center;gap:10px;margin-top:23px}.nearest{font-size:43px}.nearest-label{font-size:9px}.stats{grid-template-columns:repeat(2,1fr);gap:8px 19px}.stat strong{font-size:15px}.stat small{font-size:10px}canvas{height:470px}.toolbar .options{margin-left:0}.scene-top{left:14px;right:14px;top:13px}.scene-bottom{font-size:9px}h1{font-size:21px}.brand svg{width:30px}header>a{font-size:11px}.sector strong{font-size:17px}}@media(max-width:380px){.stats{gap:7px 10px}.nearest{font-size:36px}.badge{padding:6px 9px}header{gap:7px}canvas{height:420px}}
+</style></head><body><main class="shell">
+<header><div class="brand"><svg viewBox="0 0 40 40" fill="none" aria-hidden="true"><path d="M8 29a17 17 0 0 1 24 0M12 23a11 11 0 0 1 16 0M17 17a4 4 0 0 1 6 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="20" cy="32" r="2" fill="currentColor"/></svg><div><small>TRUEREHAB / RF</small><h1>Drive view</h1></div></div><a href="/" target="_blank" rel="noopener">Room map ↗</a><span id="status" class="badge" role="status">Connecting</span></header>
+<section class="summary" aria-label="Live radar summary"><div><div class="nearest-label">Nearest measured return</div><div class="nearest"><span id="nearest">—</span><small>m</small></div></div><div class="stats"><div class="stat"><small>Receive rate</small><strong id="rate">—</strong></div><div class="stat"><small>Returns / groups</small><strong id="count">—</strong></div><div class="stat"><small>Displayed frames</small><strong id="viewRate">—</strong></div><div class="stat"><small>Live data age</small><strong id="age">—</strong></div></div></section>
+<section class="scene" aria-label="Car-style measured radar view"><div class="scene-top"><div><b id="sceneState">WAITING FOR SENSOR</b><span>Front returns · reference grid at sensor height</span></div><output id="frame">FRAME —</output></div><canvas id="scene" role="img" aria-label="Waiting for real radar measurements"></canvas><div id="tip" class="tooltip"></div><div class="scene-bottom"><span>Illustrative vehicle = sensor origin</span><span id="visible">No measured frame yet</span></div></section>
+<section class="sectors" aria-label="Nearest measured return by direction"><div class="sector"><small>Left return</small><strong id="left">—</strong></div><div class="sector"><small>Center return</small><strong id="center">—</strong></div><div class="sector"><small>Right return</small><strong id="right">—</strong></div></section>
+<div class="toolbar"><button id="start" class="primary">Start radar</button><button id="stop" disabled>Stop radar</button><div class="options"><label>View <select id="view"><option value="perspective">3D</option><option value="top">Top</option></select></label><label>Range <select id="range"><option value="3">3 m</option><option value="5" selected>5 m</option><option value="10">10 m</option></select></label><label><input id="raw" type="checkbox" checked> Raw returns</label></div></div>
+<p id="message" class="message" aria-live="polite">Connecting to the local radar stream.</p><div class="legend">● Raw reflection &nbsp; ▰ Display group · positions measured, symbol dimensions illustrative · gray arc = no return</div><div class="notes"><span>Range colors: near warm → far cool · groups are unclassified reflections</span><span id="loss">Gaps — · invalid —</span></div><p class="shared">Start/Stop controls the shared radar for all views. Closing this page leaves other viewers running; Room map's Close viewer ends the shared service. Local sensor only · bounded 15-minute acquisition.</p>
+</main><script>
+'use strict';
+// CORE_BEGIN — pure geometry and measured-frame buffering; no DOM or hardware writes.
+function makeProjection(width,height,range,top=false){
+ if(![width,height,range].every(Number.isFinite)||width<=0||height<=0||range<=0)throw new RangeError('Invalid view bounds');
+ if(top){const scale=Math.min(width/(2.2*range),height/(1.4*range));return p=>[p.x,p.y,p.z].every(Number.isFinite)?{x:width/2+p.x*scale,y:height*.76-p.y*scale,depth:1}:null;}
+ const sp=Math.sin(.85),cp=Math.cos(.85),distance=1.7*range,targetY=.7*range,eyeY=targetY-cp*distance,eyeZ=sp*distance,focal=Math.min(width*.95,height*1.25);
+ return p=>{const dy=p.y-eyeY,dz=p.z-eyeZ,depth=cp*dy-sp*dz;if(![p.x,dy,dz,depth].every(Number.isFinite)||depth<range*.03)return null;return{x:width/2+p.x*focal/depth,y:height*.25-(sp*dy+cp*dz)*focal/depth,depth};};
+}
+function viewReturns(points,range){return points.filter(p=>[p.x,p.y,p.z,p.velocity].every(Number.isFinite)&&p.y>=0&&p.y<=range&&Math.abs(p.x)<=range&&Math.abs(p.z)<=range).slice(0,1024);}
+function groupReturns(points,radius=.28,maxGroups=64){
+ const groups=[];
+ for(const p of points){let best=null,distance=radius;for(const g of groups){const d=Math.hypot(g.x-p.x,g.y-p.y,g.z-p.z);if(d<=distance){best=g;distance=d;}}
+  if(best){const n=best.n+1;for(const key of ['x','y','z','velocity'])best[key]+=(p[key]-best[key])/n;best.n=n;}
+  else if(groups.length<maxGroups)groups.push({x:p.x,y:p.y,z:p.z,velocity:p.velocity,n:1});
+ }
+ return groups.map(g=>({...g,range:Math.hypot(g.x,g.y,g.z)}));
+}
+function rangeRGB(distance,range){const stops=[[239,89,78],[238,166,65],[88,179,172],[63,125,226]],t=Math.max(0,Math.min(1,distance/range))*3,i=Math.min(2,Math.floor(t));return stops[i].map((v,c)=>Math.round(v+(stops[i+1][c]-v)*(t-i))).join(',');}
+function nearestSectors(points){const result=[null,null,null];for(const p of points){const bearing=Math.atan2(p.x,p.y)*180/Math.PI,index=bearing< -25?0:bearing>25?2:1,d=Math.hypot(p.x,p.y,p.z);if(result[index]===null||d<result[index])result[index]=d;}return result;}
+class MeasuredFrames{
+ constructor(){this.cursor=0;this.total=0;this.pending=[];this.latest=null;this.times=[];this.lastShown=null;}
+ accept(state,now){
+  if(state.frames_received<this.total){this.cursor=0;this.pending=[];this.times=[];this.lastShown=null;}
+  this.total=state.frames_received;this.latest=state;if(!state.live){this.pending=[];return;}
+  const frames=state.recent_frames?.length?state.recent_frames:[state];
+  for(const f of frames)if(f.frame>this.cursor){this.pending.push({frame:f.frame,points:f.points,receivedAt:now-(f.age_seconds||0)*1000});this.cursor=f.frame;}
+  if(this.pending.length>24)this.pending=this.pending.slice(-24);
+ }
+ next(now){while(this.pending.length&&now-this.pending[0].receivedAt>250)this.pending.shift();if(!this.latest?.live||!this.pending.length)return null;const f=this.pending.shift();return{...this.latest,...f,point_count:f.points.length,age_seconds:(now-f.receivedAt)/1000};}
+ shown(frame,now){if(frame!==this.lastShown){this.times.push(now);this.lastShown=frame;}this.times=this.times.filter(t=>now-t<2000);}
+ rate(){const span=this.times.length>1?this.times.at(-1)-this.times[0]:0;return span>=750?(this.times.length-1)*1000/span:0;}
+ disconnect(){this.pending=[];this.latest=null;}
+}
+// CORE_END
+const token='{{TOKEN}}',el=id=>document.getElementById(id),canvas=el('scene'),ctx=canvas.getContext('2d'),frames=new MeasuredFrames();
+let state=null,busy=false,markers=[],lastMeta=0,commandMessage=null;
+function drawScene(){
+ const box=canvas.getBoundingClientRect(),w=box.width,h=box.height,dpr=devicePixelRatio||1;if(w<30||h<30)return;
+ canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+ const r=Number(el('range').value),top=el('view').value==='top',P=makeProjection(w,h,r,top),pt=(x,y,z=0)=>({x,y,z});markers=[];
+ const polygon=(vertices,fill,stroke)=>{const p=vertices.map(P);if(p.some(q=>!q))return;ctx.beginPath();ctx.moveTo(p[0].x,p[0].y);for(const q of p.slice(1))ctx.lineTo(q.x,q.y);ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.stroke();}};
+ const line=(a,b,color,width=1)=>{const p=P(a),q=P(b);if(!p||!q)return;ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke();};
+ ctx.save();ctx.beginPath();ctx.rect(8,50,w-16,h-82);ctx.clip();
+ polygon([pt(-r,0),pt(r,0),pt(r,r),pt(-r,r)],'#f5f7f9');
+ for(let i=0;i<=5;i++){const y=r*i/5;line(pt(-r,y),pt(r,y),'#e1e6ec');if(i){const p=P(pt(Math.min(r*.55,2.4),y));if(p){ctx.font='10px system-ui';ctx.fillStyle='#a4afbd';ctx.textAlign='left';ctx.fillText(y.toFixed(1)+' m',p.x+7,p.y-5);}}}
+ for(let i=-4;i<=4;i++)line(pt(r*i/4,0),pt(r*i/4,r),'#e7ebf0');
+ const points=viewReturns(state?.points||[],r),groups=groupReturns(points),sectors=nearestSectors(points);
+ ctx.globalAlpha=state?.live?1:.35;
+ for(let index=0;index<3;index++){ctx.beginPath();let first=true;const start=-82+index*55;for(let a=start;a<=start+48;a+=3){const rad=a*Math.PI/180,p=P(pt(Math.sin(rad)*.82,Math.cos(rad)*.82));if(!p)continue;if(first){ctx.moveTo(p.x,p.y);first=false;}else ctx.lineTo(p.x,p.y);}ctx.strokeStyle=sectors[index]===null?'#d9dfe7':`rgba(${rangeRGB(sectors[index],r)},.78)`;ctx.lineWidth=4;ctx.lineCap='round';ctx.stroke();}
+ ctx.lineWidth=1;
+ const sorted=groups.map(g=>({g,s:P(g)})).filter(v=>v.s&&v.s.x>8&&v.s.x<w-8&&v.s.y>50&&v.s.y<h-32).sort((a,b)=>b.s.depth-a.s.depth);
+ for(const {g,s} of sorted){const width=.13,height=.16,color=rangeRGB(g.range,r),z=g.z;
+  const a=pt(g.x-width,g.y-width,z),b=pt(g.x+width,g.y-width,z),c=pt(g.x+width,g.y+width,z),d=pt(g.x-width,g.y+width,z);
+  polygon([a,b,pt(b.x,b.y,z+height),pt(a.x,a.y,z+height)],'#c0c8d2');polygon([b,c,pt(c.x,c.y,z+height),pt(b.x,b.y,z+height)],'#aebac8');polygon([pt(a.x,a.y,z+height),pt(b.x,b.y,z+height),pt(c.x,c.y,z+height),pt(d.x,d.y,z+height)],'#d9dfe6',`rgba(${color},.7)`);
+  markers.push({x:s.x,y:s.y,p:g,kind:'group'});if(sorted.length<=8){ctx.font='10px system-ui';ctx.fillStyle='#8391a3';ctx.textAlign='center';ctx.fillText(g.range.toFixed(2)+' m',s.x,s.y-17);}
+ }
+ let visible=0;
+ for(const p of points){const s=P(p);if(!s||s.x<8||s.x>w-8||s.y<50||s.y>h-32)continue;visible++;if(el('raw').checked){ctx.fillStyle=`rgb(${rangeRGB(Math.hypot(p.x,p.y,p.z),r)})`;ctx.beginPath();ctx.arc(s.x,s.y,3,0,Math.PI*2);ctx.fill();markers.push({x:s.x,y:s.y,p:{...p,range:Math.hypot(p.x,p.y,p.z)},kind:'raw'});}}
+ ctx.globalAlpha=1;
+ // Custom illustrative ego car. Its front center marks x=y=z=0; size is symbolic.
+ {
+ const symbolScale=r/9,pt=(x,y,z=0)=>({x:x*symbolScale,y:y*symbolScale,z:z*symbolScale});
+ polygon([pt(-.47,-1.4),pt(.47,-1.4),pt(.47,.12),pt(-.47,.12)],'#d9dfe655');
+ for(const x of [-.39,.39])for(const y of [-1.03,-.30])polygon([pt(x-.07,y-.13,.03),pt(x+.07,y-.13,.03),pt(x+.07,y+.13,.03),pt(x-.07,y+.13,.03)],'#374250');
+ const body=[[-.25,-1.27],[.25,-1.27],[.34,-1.12],[.34,-.16],[.24,0],[-.24,0],[-.34,-.16],[-.34,-1.12]];
+ polygon(body.map(([x,y])=>pt(x,y,.12)),'#b9c3cf');
+ const metallic=ctx.createLinearGradient(w*.4,0,w*.6,0);metallic.addColorStop(0,'#c9d1dc');metallic.addColorStop(.5,'#fff');metallic.addColorStop(1,'#d8dfe7');
+ polygon(body.map(([x,y])=>pt(x,y,.24)),metallic,'#aab7c7');
+ polygon([pt(-.27,-.98,.28),pt(.27,-.98,.28),pt(.25,-.83,.41),pt(-.25,-.83,.41)],'#6e8197');
+ polygon([pt(-.25,-.83,.41),pt(.25,-.83,.41),pt(.25,-.43,.41),pt(-.25,-.43,.41)],'#33465c','#8b9caf');
+ polygon([pt(-.25,-.43,.41),pt(.25,-.43,.41),pt(.27,-.27,.26),pt(-.27,-.27,.26)],'#7b91aa');
+ line(pt(-.26,-1.265,.25),pt(-.09,-1.265,.25),'#d98582',2);line(pt(.09,-1.265,.25),pt(.26,-1.265,.25),'#d98582',2);
+ const origin=P(pt(0,0,.02));if(origin){ctx.fillStyle='#4385e6';ctx.beginPath();ctx.arc(origin.x,origin.y,3,0,Math.PI*2);ctx.fill();}
+ }
+ ctx.restore();
+ if(state?.frame!=null&&!points.length){ctx.fillStyle='#929eae';ctx.font='12px system-ui';ctx.textAlign='center';ctx.fillText('No measured returns in this display range',w/2,h*.25);}
+ el('visible').textContent=`${visible} / ${state?.point_count??0} received returns in view`;
+ canvas.setAttribute('aria-label',`${state?.live?'Live':'Last received'} car-style radar scene, frame ${state?.frame??'none'}, ${visible} measured returns visible in ${sorted.length} unclassified display groups. Vehicle is an illustrative sensor-origin marker. Grid units are meters.`);
+ updateNumbers(points,groups,sectors);
+}
+function updateNumbers(points,groups,sectors){
+ const ranges=points.map(p=>Math.hypot(p.x,p.y,p.z));el('nearest').textContent=ranges.length?Math.min(...ranges).toFixed(2):'—';
+ el('count').textContent=state?.frame==null?'—':`${state.point_count} / ${groups.length}`;
+ for(const [i,id] of ['left','center','right'].entries()){el(id).textContent=sectors[i]===null?'—':sectors[i].toFixed(2)+' m';el(id).style.color=sectors[i]===null?'#a3adbb':`rgb(${rangeRGB(sectors[i],Number(el('range').value))})`;}
+}
+function updateStatus(now=performance.now()){
+ const current=frames.latest||state,age=state?.receivedAt==null?state?.age_seconds:(now-state.receivedAt)/1000,live=Boolean(current?.live)&&age!=null&&age<2;
+ const mode=current?.mode,label=live?'Live':mode==='starting'?'Starting':mode==='stopping'?'Stopping':mode==='running'?'Stale':mode==='error'?'Connection error':mode==='disconnected'?'Disconnected':'Stopped';
+ el('status').className='badge'+(live?' live':['error','disconnected'].includes(mode)?' error':'');el('status').textContent=label;
+ el('rate').textContent=live?current.rate_hz.toFixed(1)+' Hz':'—';el('viewRate').textContent=live&&frames.rate()?frames.rate().toFixed(1)+' /s':'—';el('age').textContent=age==null?'—':age.toFixed(1)+' s';
+ el('frame').textContent='FRAME '+(state?.frame??'—');el('sceneState').textContent=live?'LIVE MEASURED RETURNS':state?.frame!=null?'LAST FRAME · NOT LIVE':'WAITING FOR SENSOR';
+ el('loss').textContent=`Gaps ${current?.frame_gaps??0} · invalid ${current?.invalid_packets??0}`;
+ el('start').disabled=busy||['starting','running','stopping'].includes(mode);el('stop').disabled=busy||!['starting','running','error'].includes(mode);
+ el('message').textContent=commandMessage||current?.message||'Waiting for real measurements.';
+ if(state&&state.live&&!live){state.live=false;drawScene();}
+}
+function accept(stateIn){frames.accept(stateIn,performance.now());if(!stateIn.live){state=stateIn;drawScene();}updateStatus();}
+function animate(now){const next=frames.next(now);if(next){state=next;frames.shown(next.frame,now);drawScene();updateStatus(now);}else if(now-lastMeta>100){updateStatus(now);lastMeta=now;}requestAnimationFrame(animate);}
+async function poll(){try{const response=await fetch('/api/state?after='+frames.cursor,{cache:'no-store'});if(!response.ok)throw Error('Radar service unavailable');accept(await response.json());}catch(error){frames.disconnect();state={...(state||{}),live:false,mode:'disconnected',message:error.message};drawScene();updateStatus();}finally{setTimeout(poll,8);}}
+async function control(name){busy=true;commandMessage=null;updateStatus();try{const response=await fetch('/api/'+name,{method:'POST',headers:{'X-Radar-Token':token}}),value=await response.json();if(!response.ok)throw Error(value.error||'Radar command failed');accept(value);}catch(error){commandMessage=error.message;}finally{busy=false;updateStatus();}}
+el('start').addEventListener('click',()=>control('start'));el('stop').addEventListener('click',()=>control('stop'));
+for(const id of ['view','range','raw'])el(id).addEventListener('change',()=>{el('tip').style.display='none';drawScene();});
+canvas.addEventListener('pointermove',event=>{const box=canvas.getBoundingClientRect(),x=event.clientX-box.left,y=event.clientY-box.top,best=markers.reduce((b,m)=>Math.hypot(x-m.x,y-m.y)<=(b?.distance??17)?{...m,distance:Math.hypot(x-m.x,y-m.y)}:b,null),tip=el('tip');if(!best){tip.style.display='none';return;}const p=best.p;tip.textContent=(best.kind==='raw'?'Measured reflection':`Display group · ${p.n} measured returns`)+`\nRange ${p.range.toFixed(2)} m · radial velocity ${p.velocity.toFixed(2)} m/s\nx ${p.x.toFixed(2)} · y ${p.y.toFixed(2)} · z ${p.z.toFixed(2)} m`;tip.style.display='block';tip.style.left=Math.max(6,Math.min(x+14,box.width-237))+'px';tip.style.top=Math.max(48,y-70)+'px';});
+canvas.addEventListener('pointerleave',()=>el('tip').style.display='none');
+new ResizeObserver(drawScene).observe(canvas);drawScene();poll();requestAnimationFrame(animate);
+</script></body></html>
