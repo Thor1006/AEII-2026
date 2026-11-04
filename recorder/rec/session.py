@@ -103,22 +103,40 @@ def unwrap_u32(values):
     return v + np.concatenate([[0], np.cumsum(jumps)]) * (1 << 32)
 
 
-def align_device_time(dev_us, host_ns):
+def _window_minima(x, resid, window):
+    """Index of the smallest residual in each window of x (x need not be sorted)."""
+    w = np.floor(x / window).astype(np.int64)
+    order = np.argsort(w, kind="stable")
+    ws = w[order]
+    starts = np.flatnonzero(np.r_[True, ws[1:] != ws[:-1]])
+    ends = np.r_[starts[1:], len(ws)]
+    return np.array([order[s + np.argmin(resid[order[s:e]])] for s, e in zip(starts, ends)])
+
+
+def align_device_time(dev_us, host_ns, window_s=2.0):
     """Put device timestamps on the host clock.
 
     A sample made at device time d reaches the host at k*d + offset + delay, with delay >= 0 and
-    jittery (Bluetooth delivers in bursts). Fit the slope k (clock drift) on all samples, then take
-    the offset from the least-delayed ones (the lower edge), so jitter doesn't shift the result.
-    Returns host-clock nanoseconds for each sample.
+    jittery (Bluetooth delivers in bursts; Wi-Fi sometimes pauses ~1 s and then delivers the backlog).
+    The slope k (clock drift) is fitted through the least-delayed sample of each 2-s window, i.e. the
+    lower edge of the arrivals, and the offset is taken from that edge. A fit through all samples gets
+    tilted by delay bursts: on a real 2-min Wi-Fi recording (2026-11-05) the Wi-Fi-aligned times then
+    wandered by 37 ms against the USB copy of the same samples; with the lower edge, by 0.0 ms (a constant
+    4.1 ms apart). Returns host-clock nanoseconds for each sample.
     """
     d = unwrap_u32(dev_us).astype(np.float64) * 1e3  # -> ns
     h = np.asarray(host_ns, dtype=np.float64)
     if len(d) < 2:
         return h.copy()
-    k, _ = np.polyfit(d - d[0], h, 1)
-    resid = h - k * (d - d[0])
-    offset = np.percentile(resid, 1)  # lower edge, robust to a few early arrivals
-    return k * (d - d[0]) + offset
+    x = d - d[0]
+    k, _ = np.polyfit(x, h, 1)  # first guess, through everything
+    for _ in range(2):          # then through the lower edge (needs >= 3 windows, i.e. >= ~6 s of data)
+        edge = _window_minima(x, h - k * x, window_s * 1e9)
+        if len(edge) < 3:
+            break
+        k, _ = np.polyfit(x[edge], h[edge], 1)
+    offset = np.percentile(h - k * x, 1)  # lower edge, robust to a few early arrivals
+    return k * x + offset
 
 
 @dataclass
@@ -166,6 +184,9 @@ class Session:
             return {"t_s": np.zeros(0), "t_host_s": np.zeros(0), "values": np.zeros((0, 0), int)}
         width = max(len(p) for _, p in keep)
         keep = [(t, p) for t, p in keep if len(p) == width]  # drop rows cut short by a dropout
+        # A row with the same device time as the row before is a repeat (macOS replays stale bytes when
+        # a port opens; the last copy can be spliced onto a new line), never a new sample.
+        keep = [kp for i, kp in enumerate(keep) if i == 0 or kp[1][1] != keep[i - 1][1][1]]
         th = np.array([t for t, _ in keep])
         dev = np.array([int(p[1]) for _, p in keep], dtype=np.int64)
         vals = np.array([[int(x) for x in p[2:]] for _, p in keep], dtype=np.int64)

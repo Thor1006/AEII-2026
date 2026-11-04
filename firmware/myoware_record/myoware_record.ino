@@ -20,7 +20,8 @@
   (programming or charging). For recordings on a person: unplug USB, run on the battery, and
   record over Bluetooth ("TrueRehab-MyoWare"). USB at 921600 baud is for bench tests only.
 
-  NOT YET COMPILED OR RUN (written 2026-11-04 without the board).
+  Compiles (2026-11-04, arduino-cli, esp32:esp32:esp32, USE_IMU 0 and 1: 83% flash, 13% RAM).
+  NOT YET RUN on the board.
 */
 
 #include "BluetoothSerial.h"
@@ -97,11 +98,16 @@ bool imuBegin() {
   Wire.write(0x75);  // WHO_AM_I
   if (Wire.endTransmission(false) != 0) return false;
   Wire.requestFrom(MPU_ADDR, (uint8_t)1);
-  if (!Wire.available() || Wire.read() != 0x68) return false;
+  if (!Wire.available()) return false;
+  // 0x68 = MPU-6050. Many "MPU-6050" boards carry an MPU-6500-family chip instead (0x70, 0x72,
+  // 0x74, ...; the project's IMU board reads 0x74) with the same registers for everything used here.
+  const uint8_t id = Wire.read();
+  if (id == 0x00 || id == 0xFF) return false;
   imuWrite(0x6B, 0x00);  // wake up
   imuWrite(0x1A, 0x03);  // low-pass ~44 Hz
   imuWrite(0x1B, 0x00);  // gyro +-250 deg/s
   imuWrite(0x1C, 0x00);  // accel +-2 g
+  if (id != 0x68) imuWrite(0x1D, 0x03);  // 6500 family: accel low-pass ~45 Hz is in ACCEL_CONFIG2
   return true;
 }
 

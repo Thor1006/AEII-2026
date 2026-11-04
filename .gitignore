@@ -7,3 +7,6 @@
 # Generated Python bytecode
 __pycache__/
 *.py[cod]
+
+# Wi-Fi passwords for ESP32 sketches (copy wifi_secrets.example.h)
+wifi_secrets.h

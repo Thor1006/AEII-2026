@@ -67,8 +67,9 @@ def main():
     g = p.add_argument_group("ground truth")
     g.add_argument("--emg", help="MyoWare port, e.g. /dev/cu.TrueRehab-MyoWare (Bluetooth)")
     g.add_argument("--emg-baud", type=int, default=921600, help="only matters for USB; the record sketch uses 921600")
-    g.add_argument("--imu", help="IMU board port (MPU6050), if not sent through the MyoWare ESP32")
-    g.add_argument("--imu-baud", type=int, default=921600)
+    g.add_argument("--imu", help="IMU board: its serial port (/dev/cu.usbserial-0001) or its Wi-Fi link "
+                                 "(tcp://truerehab-imu.local:3333)")
+    g.add_argument("--imu-baud", type=int, default=921600, help="serial port only")
     g.add_argument("--camera", type=int, help="video pose from this camera (find it with pose_check.py --list)")
     g.add_argument("--save-video", action="store_true", help="also keep the raw video (off by default: privacy)")
     args = p.parse_args()
@@ -100,8 +101,12 @@ def main():
             session.add_source("radar", info)
         for name, port, baud in (("emg", args.emg, args.emg_baud), ("imu", args.imu, args.imu_baud)):
             if port:
-                src = SerialLineSource(session, name, port, baud)
-                session.add_source(name, {"port": port, "baud": baud, "format": "t_ns,line (as received)"})
+                try:
+                    src = SerialLineSource(session, name, port, baud)
+                except OSError as e:
+                    raise SystemExit(f"--{name}: {e}")
+                session.add_source(name, {"port": port, "baud": None if src.tcp else baud,
+                                          "format": "t_ns,line (as received)"})
                 src.start()
                 sources.append(src)
         if args.camera is not None:
@@ -123,8 +128,8 @@ def main():
                     break
                 if key in MARKER_KEYS:
                     last_marker = f" | marked: {session.marker(key)}"
-                elapsed = session.t() / 1e9
-                line = f"{int(elapsed // 60):02d}:{elapsed % 60:04.1f} | " + " | ".join(s.status() for s in sources)
+                minutes, tenths = divmod(round(session.t() / 1e8), 600)  # rounded first: no "01:60.0"
+                line = f"{minutes:02d}:{tenths / 10:04.1f} | " + " | ".join(s.status() for s in sources)
                 sys.stdout.write("\r" + line + f" | markers {session.n_markers}{last_marker}   ")
                 sys.stdout.flush()
     except KeyboardInterrupt:

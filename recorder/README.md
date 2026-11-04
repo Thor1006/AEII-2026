@@ -42,6 +42,28 @@ sends the envelope 50×/s. Set `USE_IMU 1` and the I2C pins to add the MPU6050 a
 
 The demo sketch still records (lines saved as received), just without device timestamps.
 
+## IMU: dedicated ESP32 board
+
+[`sandbox/imu-mpu6050-oled/`](../sandbox/imu-mpu6050-oled/README.md) with `RECORD_MODE 1` sends the same
+`I,<micros>,ax,ay,az,gx,gy,gz` line at 200 Hz / 921600 baud (16384 per g, 131 per °/s, raw), plus `#` header and
+status lines. Add `--imu /dev/cu.usbserial-0001`; read back with `s.record_mode("imu", "I")`. Its chip is an
+MPU-6500-family clone (WHO_AM_I 0x74), which the record sketch's IMU path now accepts too.
+
+**Over Wi-Fi** (firmware built with `WIFI_LINK 1`, see the IMU README): `--imu tcp://truerehab-imu.local:3333`.
+The recorder reads it with a plain TCP socket. If the link closes or is quiet for 6 s, the recorder reconnects
+once a second and writes `# recorder: link lost (...)` / `# recorder: link back` rows into `imu.csv`; the readers
+skip them. While it's down the status line shows `imu RECONNECTING`; the summary counts `link_drops`.
+The name is looked up over IPv4: macOS otherwise waits 5 s for an IPv6 address the board doesn't have.
+
+**Device clock → host clock** (`align_device_time`, used by `record_mode()`):
+- The slope (clock drift) is fitted through the least-delayed sample of every 2-s window: the lower edge of
+  the arrival times.
+- The offset comes from that edge.
+- Fitting through all samples would let delay bursts tilt the result. Wi-Fi pauses for ~1 s now and then and
+  delivers the backlog at once, and Bluetooth arrives in bursts. On a real 2-min Wi-Fi recording, the old fit
+  wandered 37 ms against the USB copy; the edge fit stayed a constant 4.1 ms apart.
+- Recordings shorter than ~6 s fall back to the old fit.
+
 ## Video pose (ground truth only)
 
 A camera + MediaPipe Pose gives 33 body points per frame (image position and 3D metres) → `pose.csv`.
@@ -50,8 +72,10 @@ The product stays camera-free; this only labels training data. Raw video is **no
 One-time setup (done on this Mac): `mediapipe` in `.venv`, and the 9.4 MB model `models/pose_landmarker_full.task`
 from `storage.googleapis.com/mediapipe-models` (git-ignored; sha256 `4eaa5eb7…cdec4ad`).
 
-**Run these from the Terminal app.** macOS asks there for camera permission once (click Allow); it can't ask
-a background process, so the camera stays blocked when started from elsewhere.
+**Camera permission first.** If `--list` prints "not authorized to capture video", the app that started Python has
+no camera permission and macOS can't ask for it. Run the command from the Terminal app and click Allow, or turn
+the app on in System Settings > Privacy & Security > Camera. On this Mac, camera 0 is the MacBook webcam
+(1920×1080, ~32 fps); camera 1 (~11 fps) is probably the iPhone.
 
 ```bash
 .venv/bin/python pose_check.py --list
@@ -94,10 +118,26 @@ s.markers                           # (t_s, key, label)
 
 - Real radar, Nov 4: 15 s (919 frames), 10 s (619) and 4 s (254) sessions at 60 fps, 0 missing; the radar stops
   cleanly and the next session starts without a reset; sessions read back (60.0 fps, all TLVs).
-- Tests: simulated radar + fake MyoWare on a pseudo-terminal (every sample kept, device clock unwrapped and aligned).
+- Tests: simulated radar + fake MyoWare on a pseudo-terminal (every sample kept, device clock unwrapped and aligned);
+  a fake Wi-Fi IMU on localhost. The fake closes the link once and goes silent once: both are reconnected, every
+  whole line is kept exactly once, no half line is glued to the next, and both outages show as gaps on the aligned
+  timeline. An unreachable board fails before recording starts.
+- IMU board with its real sensor, Nov 4 (`--imu`, RECORD_MODE 1, OLED running): 40 s, 8032 samples, 200.00 Hz, steps
+  4999–5001 µs, no gaps, 0 I2C errors. Found and fixed on the way: on this Mac a serial port replays one stale line ~50 times when it opens
+  (the last copy spliced onto a new line). `SerialLineSource` now discards what arrives in the first 50 ms, and
+  `record_mode()` drops rows that repeat the previous device time.
+- IMU board over Wi-Fi, Nov 5 (`--imu tcp://truerehab-imu.local:3333`, the board's USB output recorded alongside):
+  - 2 min at 200.0 Hz. Every sample present in both copies is identical, and the board dropped nothing.
+  - A forced reconnect at 40 s cost one 1.0-s gap.
+  - Aligned times: Wi-Fi vs USB a constant 4.1 ms apart (spread < 0.01 ms).
+  - Details: the IMU README's "Verified".
+- Video pose on the MacBook webcam, Nov 4 (`pose_check.py --camera 0`, 1920×1080 ~32 fps): skeleton tracked; elbow
+  angle, shrug (ear–shoulder gap) and trunk lean responded as expected. This was checked by eye in the live preview,
+  not measured against a goniometer.
 
 ## Not done yet
 
-- Video pose on a real camera: built and tested in code (MediaPipe runs, 6 ms/frame), but no camera picture yet
-  (needs camera permission in Terminal).
-- MPU6050 and the record sketch: untested on hardware.
+- Video pose inside `record.py` alongside the radar: not recorded together yet. iPhone camera: only ~11 fps in the
+  list check; it needs to be on a stand and reach ~30 fps before it is used.
+- MyoWare record sketch: not run on hardware yet.
+- IMU board on a moving arm: not recorded yet. Its wiring dropped out when the board moved on Nov 4 (see the IMU README).

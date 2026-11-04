@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 """TrueRehab-RF (AEII 2026) - IMU serial logger.
 
-Reads the CSV stream from imu_mpu6050_oled.ino and writes it to a file,
-stamping every line with the HOST clock on arrival. That host timestamp is
-the shared reference you can later align against the radar collector's
-timestamps (the full radar/IMU sync protocol is still an open question in
-CLAUDE/CONTEXT.md - this just gives both sides one common clock).
+Reads the LIVE-mode CSV stream (RECORD_MODE 0) from imu_mpu6050_oled/ and
+writes it to a file, stamping every line with the HOST clock on arrival.
+Standalone use only: for data that must line up with the radar, use RECORD
+mode with recorder/record.py --imu (device timestamps, aligned afterwards).
 
 Usage:
-    python log_imu.py --port COM7
-    python log_imu.py --port /dev/ttyUSB0 --out my_session.csv
+    python log_imu.py --port /dev/cu.usbserial-0001      # macOS (CP2102 board)
+    python log_imu.py --port COM7 --out my_session.csv    # Windows
 
 Dependency: pyserial  (pip install pyserial)
 """
@@ -50,6 +49,10 @@ def main() -> None:
         ser = serial.Serial(args.port, args.baud, timeout=1)
     except serial.SerialException as exc:
         sys.exit(f"could not open {args.port}: {exc}")
+    # macOS replays stale bytes for a few ms after a port opens (one old line
+    # ~50 times, the last copy spliced onto a new one): drop them.
+    time.sleep(0.05)
+    ser.reset_input_buffer()
 
     n = 0
     print(f"Logging to {out_path}  (Ctrl+C to stop)")

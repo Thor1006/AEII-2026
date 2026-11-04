@@ -2,6 +2,26 @@
 
 <!-- Newest on top. One short entry per decision that someone might later ask "why did we do it this way?" about. -->
 
+## 2026-11-05 — IMU goes wireless over Wi-Fi (TCP), not Bluetooth; recorder clock fit through the lower edge
+- **Decision:**
+  - The IMU board streams over Wi-Fi with `WIFI_LINK 1`: one TCP client, port 3333, at `truerehab-imu.local`. A 32 KB buffer is sent by a core-0 task; USB output is unchanged.
+  - The recorder reads `tcp://` with a plain socket (IPv4 lookup) and reconnects with marker rows.
+  - `align_device_time` fits the drift through the least-delayed sample of each 2-s window.
+  - See [report](output/2026-11-05-0012-imu-wifi-link.md) and [plan](plans/2026-11-04-imu-wireless.md).
+- **Why:**
+  - The user picked the recommended option. The Mac's Bluetooth serial link to the MyoWare wasn't connecting, TCP keeps every byte in order, and the build is 75 % of flash vs 85 % for Bluetooth.
+  - Measured: Wi-Fi delivers in bursts with ~1-s pauses. The all-sample fit wandered 37 ms against the USB copy; the lower-edge fit stays a constant 4.1 ms apart.
+- **Alternatives:**
+  - Bluetooth Classic SPP: no recorder change, but it relies on the same flaky Mac Bluetooth path.
+  - UDP: no retransmission, and the board would need the host's address.
+  - BLE: GATT plus new host code.
+  - IMU wired into the MyoWare ESP32: one shared clock, but the placement and wiring are limiting.
+
+## 2026-11-04 — IMU firmware: one sketch, OLED on its own core, register driver, wide-range record counts
+- **Decision:** One sketch (`sandbox/imu-mpu6050-oled/imu_mpu6050_oled/`) with LIVE and RECORD modes. IMU sampled in `loop()` on core 1; OLED drawn by its own task on core 0 on its own I2C bus. Registers driven directly; any chip whose settings read back is accepted. RECORD sends counts at the recorder's 16384/g and 131/(°/s) but measures ±4 g/±500 °/s (2 × register value), with `RECORD_WIDE_RANGE 0` for the old ±2 g/±250 °/s int16. Missed slots are skipped and counted, never burst. Accel calibration is stored in flash and applied to LIVE/OLED only; RECORD stays raw with the numbers in `#` lines. See [report](output/2026-11-04-2232-imu-firmware-fix.md).
+- **Why:** Measured on the board: OLED writes stalled sampling ~29 ms (would lose ~25 % at 200 Hz); the chip is a 0x74 clone the Adafruit library rejects; |a| 0.88–1.05 g at rest. Elbow curls can pass 250 °/s, so ±250 °/s could clip, while the count scale stays the documented one. Raw record data keeps offline processing free to choose its own corrections.
+- **Alternatives:** Adafruit MPU6050 library (rejects the chip); OLED split into page writes in the same loop (more fragile); MPU FIFO (clone FIFO sizes differ, harder timestamps); plain ±2 g/±250 °/s in RECORD (clips fast reps); applying calibration to RECORD lines (bakes one estimate into the data).
+
 ## 2026-11-03 - Synchronize local and teammate radar work
 - User explicitly requested pull then push. Preserve a named local safety stash, pull through cc97005, reconcile context/decision conflicts and publish local radar demos/plans/reports with the unchanged poster reference.
 - Keep both independent configurations: upstream radar-lab reports a 60-Hz heatmap benchmark; Windows browser demos use their separately verified 40-Hz point/health profile. Do not replace one benchmark with the other or run both serial collectors together. Plan B/no-DCA remains selected.
