@@ -21,6 +21,7 @@ import numpy as np
 from radarlab import cfg, maps, sim
 from radarlab.tlv import (AZIMUTH_STATIC_HEATMAP, DETECTED_POINTS, RANGE_DOPPLER_HEATMAP,
                           STATS, FrameReader)
+import view
 from view import cli_send, heatmap_shape, open_serial, send_cfg
 
 # SDK 3.x stats TLV layout; assumed the same on the AWR2944 demo
@@ -96,8 +97,8 @@ def stop_radar(cli):
     On the AWR2944PEVM the command port goes silent if it is closed while the radar runs
     (the data keeps coming), so stopping must happen before we let go of the port.
     """
-    reply = cli_send(cli, "sensorStop", wait=3.0)
-    print("Radar stopped." if "Done" in reply else f"sensorStop: {reply or 'no reply'}")
+    ok, reply = view.stop_radar(cli)
+    print("Radar stopped." if ok else f"sensorStop failed: {reply or 'no reply'}")
 
 
 def measure(args, feed, secs, cli=None):

@@ -36,8 +36,9 @@ Start the radar at 60 fps and open the window (one command; closing the window s
 
 **Important: the command port.** If a program closes the command port while the radar is running,
 the port goes silent until you press reset (the data keeps flowing). So `view3d.py` keeps it open and
-sends `sensorStop` when you close the window. *That stop-on-close step is not yet tested on the board.*
-If a run says "the radar's command port isn't answering", press reset and run again.
+stops the radar when you close the window, typing `sensorStop` slowly (at 60 fps the radar drops fast-typed
+characters). Verified on the board with the recorder (same code). If a run still says "the radar's command
+port isn't answering", press **SW1 (RESET)** on the board and run again.
 
 ## 2D viewer (`view.py`, AWR2944PEVM over USB)
 
@@ -70,12 +71,11 @@ Start the radar and open the live window (one command):
 | Heatmap size | 64 range bins × 0.059 m = 3.8 m; static heatmap has **8** antennas (azimuth row only), RD has 16 Doppler bins × 0.137 m/s |
 | Antenna order | evenly spaced looks right; `antGeometryCfg` positions (`--use-geometry`) gave a ring of repeating blobs. Not yet confirmed with a known target |
 | Frame rate | 30 fps and **60 fps** both run with both heatmaps + points + stats, 0 frames lost. At 60 fps: ~4.4 KB/frame, processing 0.66 ms, UART send 14.1 ms, spare 1.7–7.8 ms per frame |
-| Command port | answers while the radar runs only if it stays open; closed + reopened while running → silent until reset (seen 3×) |
+| Command port | closed while the radar runs → silent until reset (seen 3×). While streaming at 60 fps it drops characters typed at full speed (`sensorStop` arrived as `s`). Fix: type commands slowly (`stop_radar()`: 10 ms per character, retry until `Done`), stop before closing. Verified Nov 4: stop → close → reopen answers, next run starts without reset |
 | Point heights | points carry z (one TX sits on a raised row); about 6 points/frame with clutter removal off, mostly still objects |
 
 ## Still open
 
-- **Stop-on-close** in `view3d.py` (keeps the command port open, sends `sensorStop`): untested on the board.
 - **3D is points only:** this firmware's heatmap is flat (range × left/right). Dense 3D would need raw data (DCA1000) or custom firmware.
 - **Left/right and angle check:** stand ~1.5 m away, off to one side, and see where the blob appears. Use `--flip` if mirrored.
 - **Near 0 m** there is a strong echo from the radar itself. `calibDcRangeSig -1 1 …` in the config may remove it (untested).

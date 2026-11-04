@@ -1,0 +1,5 @@
+# recordings of people never go into git
+data/
+.venv/
+__pycache__/
+models/
