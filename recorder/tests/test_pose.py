@@ -1,4 +1,5 @@
 import csv
+import importlib.util
 import sys
 import tempfile
 import unittest
@@ -41,6 +42,8 @@ class AngleTest(unittest.TestCase):
         self.assertAlmostEqual(float(a["ear_shoulder_l"][1]), 0.11, places=6)
 
 
+@unittest.skipUnless(importlib.util.find_spec("mediapipe") and importlib.util.find_spec("cv2"),
+                     "mediapipe/opencv not installed (camera pose is optional, e.g. not on the Pi)")
 class EstimatorTest(unittest.TestCase):
     def test_empty_frame_has_no_person(self):
         est = P.PoseEstimator()
