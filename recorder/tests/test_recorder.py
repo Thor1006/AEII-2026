@@ -84,6 +84,12 @@ class FakeWifiImu(threading.Thread):
             else:
                 self.kept_open.append(conn)
 
+    def close(self):
+        """Close what the board would close when switched off (the test's sockets, so none are left open)."""
+        for conn in self.kept_open:
+            conn.close()
+        self.server.close()
+
 
 class AlignTest(unittest.TestCase):
     def test_unwrap(self):
@@ -145,11 +151,13 @@ class SessionTest(unittest.TestCase):
             sess = S.SessionWriter(d, "TEST", "wifi")
             with self.assertRaisesRegex(OSError, "can't reach"):
                 SerialLineSource(sess, "imu", f"tcp://127.0.0.1:{port}")
+            sess.close({})  # record.py also closes the session when a source can't start
 
     def test_wifi_link_reconnects(self):
         with tempfile.TemporaryDirectory() as d:
             sess = S.SessionWriter(d, "TEST", "wifi")
             imu = FakeWifiImu()
+            self.addCleanup(imu.close)
             src = SerialLineSource(sess, "imu", imu.url)
             src.TCP_IDLE_S, src.TCP_RETRY_S = 0.5, 0.2  # faster than real life, same logic
             imu.start()
