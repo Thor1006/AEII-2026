@@ -40,10 +40,12 @@ rate_hz = 100
   unit = "N"
 
 [providers.radar]
-enabled = false               # TEMPLATE: announces the radar view but sends nothing until capture is written
-view = "range_doppler"
-rows = 64
-cols = 64
-fps = 20
-range_max_m = 3.0
-velocity_max_ms = 2.0
+enabled = false               # the AWR2944PEVM on USB: live maps the way the network sees them (turn synthetic off)
+data_port = "auto"            # finds the board's two TI XDS110 USB ports; or e.g. "/dev/ttyACM1"
+cli_port = "auto"             # its command port; or e.g. "/dev/ttyACM0"
+start_radar = true            # send radar-lab's profile at start, like the recorder (never flashes anything)
+cfg_file = ""                 # "" = ../radar-lab/configs/fullmap_awr2x44p.cfg
+fps = 15                      # maps per second to viewers (the radar itself runs at 60)
+max_range_m = 2.4
+record_dir = "~/truerehab-sessions"   # Start/Stop in the dashboard records here, in the recorder's format
+replay = ""                   # a recorder session folder: play it instead of the live radar (testing)

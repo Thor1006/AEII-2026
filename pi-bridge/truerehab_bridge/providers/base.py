@@ -43,3 +43,6 @@ class Provider(ABC):
 
     def on_session_end(self, session: Session) -> None:
         """A session ended."""
+
+    def on_marker(self, label: str) -> None:
+        """Someone set a marker in the dashboard (e.g. to note a recording)."""

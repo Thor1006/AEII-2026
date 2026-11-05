@@ -202,6 +202,8 @@ class Bridge:
 
         if name == "marker":
             label = _str_or_none(args.get("label")) or "Marker"
+            for r in self.runs:
+                r.provider.on_marker(label[:200])
             self.emit(Event("marker", {"label": label[:200]}, label[:200]))
             return True, None, None
 
