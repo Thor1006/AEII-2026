@@ -1,7 +1,7 @@
 # Context
 
 <!-- Living state. Keep under ~40 lines; reports hold detailed run history. -->
-**Last updated:** 2026-11-05 (IMU Wi-Fi link)
+**Last updated:** 2026-11-05 (radar-only network + pipeline in `model/`)
 
 ## Current focus
 **Plan B is selected and received: AWR2944PEVM, no DCA1000.** The submitted AWR1843BOOST/DCA1000 poster stays frozen. Two independent USB radar demos now coexist; their profiles, outputs and measured limits differ. Run only one serial collector at a time. No raw ADC or validated fatigue/body model is claimed.
@@ -9,7 +9,11 @@
 - Browser Room map http://127.0.0.1:8766/ and separate Drive view http://127.0.0.1:8766/drive/ share that collector. [Room map](output/2026-11-03-fixed-radar-room-map.md): fixed-board, 30-s RAM window, 10-cm display cells, >=3-frame persistence. [Drive](output/2026-11-03-car-style-radar-demo.md): illustrative car and measured reflection groups; no vehicle/person/lane/path recognition.
 - Teammate's `radar-lab/`: independent macOS 2D/3D viewer with static range-azimuth and range-Doppler heatmaps. Its different profile reportedly measured 60.0 radar fps, 601/601 frames; this is not a new benchmark of the Windows 40-Hz profile. [Report](output/2026-11-03-2214-radar-lab-fullmap-3d.md), `radar-lab/README.md`. Height comes only from sparse measured points; angular orientation is unverified there. Stop-on-close verified on the board Nov 4 (type `sensorStop` slowly at 60 fps).
 - Received: radar/power, MyoWare + Wireless Shield + 30 pads, Pi 5 8GB + cooler + 27-W PSU + 64-GB A2 microSD, Micro-HDMI, SSD and USB-C LAN adapter. UART is verified; Ethernet/custom phase, ground-truth synchronization, clinical inference and Pi deployment remain unverified.
-- CNN encoder `sandbox/Encoder_0.1/` and existing AI/dashboard demonstrations still use synthetic input. `frontend/` has home/dashboard, kit key, EN/TH/zh-HK, help, session summaries and five-session history (upstream records these as committed). `Phisit/` is the teammate's separate FastAPI/React demo.
+- **`model/` (new, untrained):** radar-only network and its pipeline, all tested without sensors. [Report](output/2026-11-05-1316-neural-network-pipeline.md), `model/README.md`.
+  - Network: 239,515 parameters. Input `v0-draft`: angle FFT + phase `[2,64,16]`, range-Doppler `[1,64,16]`, 128 frames per rep.
+  - Labels use placeholder thresholds. `check_session.py` runs after each recording. Fake data replays real empty-room radar frames and the real timing.
+  - 57 tests. On fake data it beats the baseline for 5 of 6 heads (plumbing only). No real session with a person exists yet.
+- `sandbox/Encoder_0.1/` and the existing AI/dashboard demos still use synthetic input. `frontend/` (home/dashboard, EN/TH/zh-HK, session history) and `Phisit/` (teammate's FastAPI/React demo) are unchanged.
 - Ground truth, all into `recorder/` ([plan](plans/2026-11-04-recorder.md)):
   - **MyoWare 2.0 sEMG:** tested with `firmware/myoware_demo/`. `firmware/myoware_record/` compiles but has never run. On Nov 4 the Mac listed it "Not Connected" over Bluetooth, and its port gave 0 bytes.
   - **IMU board** (`sandbox/imu-mpu6050-oled/`, chip 0x74 clone, [fix report](output/2026-11-04-2232-imu-firmware-fix.md)): now runs fw 2.1 RECORD + Wi-Fi at `tcp://truerehab-imu.local:3333`. Verified on the board: 200 Hz, byte-identical to USB, reconnects, timing 4.1 ms constant vs USB ([report](output/2026-11-05-0012-imu-wifi-link.md)). Wi-Fi password in the git-ignored `wifi_secrets.h`. 6-face accel calibration not yet run.
@@ -17,14 +21,20 @@
 - **Paused by user:** do not install `pi-bridge/` packages (`websockets`, `numpy`) until actual Pi setup; ask then. The bridge has not run.
 
 ## Recent changes
+- 2026-11-05 - Built `model/`: network, pipeline, session check, calibration, fake data and leave-one-subject-out training; 57 tests pass.
+  - Found: the heatmap's 8 values are antennas, not angles. 2 of the 6 IMU recordings are firmware simulations. The two empty-room radar recordings differ by up to 38 dB.
+  - [Report](output/2026-11-05-1316-neural-network-pipeline.md).
 - 2026-11-05 - IMU Wi-Fi link (fw 2.1) verified on the board. The recorder reads `tcp://` (IPv4 lookup, reconnects with marker rows), and `align_device_time` now fits the lower edge: Wi-Fi vs USB timing changed from 37 ms wander to a constant 4.1 ms. [Report](output/2026-11-05-0012-imu-wifi-link.md).
 - 2026-11-04 - IMU firmware rewritten and verified on the board (OLED on its own core: 200.00 Hz, no gaps; clone chip accepted; reconnects; calibrations). Merged teammate's record mode after fast-forwarding to `660e66d`; recorder now drops macOS port-open replays. [Report](output/2026-11-04-2232-imu-firmware-fix.md).
 - 2026-11-03 - User requested pull then push. Pulled MyoWare wireless sketch and `radar-lab/` commits through `cc97005`; reconciled context/decision conflicts while preserving both implementations and evidence. See [sync report](output/2026-11-03-repository-sync.md).
 - 2026-11-03 - Browser Drive and fixed-board map approved and completed; parser, geometry, HTTP boundaries and live/shared controls verified in their reports. Existing Room map HTML preserved by the Drive task. No new firmware/Pi/main-dashboard changes for those tasks.
-- 2026-11-02/03 - Official SBL/TDM flash and normal boot previously verified. Real 151-frame capture independently accepted by TI's parser. Windows tuning chose 40 Hz after extended 45-Hz gaps; 45/48-Hz profiles remain experimental, original 10-Hz full output is rollback.
 
 ## Open questions
-- What representation/profile and labeled recording/synchronization protocol should feed the encoder and dashboard? Upstream heatmap candidate is 64 range bins x 64 angles plus 64 x 16 Doppler; browser fast output is points. These inputs are not interchangeable.
+- Freeze the input contract (v0-draft: radar-lab profile, angle FFT + phase `[2,64,16]`, range-Doppler `[1,64,16]`)?
+  - Open: frames per rep. T = 128 crops 58 % of the fake 2.0–2.9-s reps.
+  - Open: whether the phase channel carries muscle signal.
+  - The recording protocol is in `model/README.md`. The browser's fast point output is a different input.
+- Label thresholds and recommendation numbers are placeholders: they need a physiotherapist.
 - Can phase/micro-vibration output be exposed within schedule? Ethernet is not verified; changing firmware still requires approval.
 - Validate radar-lab left/right and antenna ordering with the actual board (stop-on-close verified Nov 4). Investigate Windows long-run sequence gaps without hiding them.
 - IMU on the body: solid wiring/strain relief and mounting position. Record default is ±4 g/±500 °/s at the 16384/131 count scale (values can pass int16); confirm or switch to `RECORD_WIDE_RANGE 0`. Wi-Fi pauses ~1 s now and then (Mac or router?); harmless for recordings, would delay a live display.
@@ -33,7 +43,11 @@
 - Repo instructions describe macOS/zsh, but Windows work also exists. Home copy/font license and the poster's "oral health" wording remain open; submitted sources stay unchanged.
 
 ## Next steps
-0. First full test session: radar (power first, then USB), MyoWare (re-pair Bluetooth, upload `myoware_record`), IMU over Wi-Fi from a power bank with wire strain relief, webcam pose started from the user's terminal. Record with shrug markers and check that the sensors line up in time; run the IMU's 6-face accel calibration once.
+0. **First full test session:**
+   - Hardware: radar (power first, then USB); MyoWare (re-pair Bluetooth, upload `myoware_record`, battery only on a person); IMU over Wi-Fi from a power bank with wire strain relief; webcam pose started from the user's terminal.
+   - Protocol from `model/README.md`: 5 s still, `s` + 3 shrugs, sets with space per rep.
+   - Then run `model/check_session.py` and `python -m trnet.calibrate`. Run the IMU's 6-face accel calibration once.
+   - After that: choose T, freeze contract v1, and train with `train.py --sessions` once there are ≥ 3 people.
 1. Before switching demos, stop the current collector and release serial ports. Browser Start/Stop affects both pages; original Close viewer shuts their shared service. Never run radar-lab alongside it on the same board.
 2. Browser safety stops: 15 min/session, 15 s without polling, valid temperature >=85 C, or reserve <5% for three frames. Start resumes a new session; do not reflash merely to reopen.
 3. Validate radar-lab known-target angular orientation, then agree recording scope, preserve frame/config/timestamp/loss metadata, and freeze a real versioned `InputContract` before training or bridge integration.

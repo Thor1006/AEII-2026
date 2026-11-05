@@ -2,6 +2,38 @@
 
 <!-- Newest on top. One short entry per decision that someone might later ask "why did we do it this way?" about. -->
 
+## 2026-11-05 — Radar-only network in `model/`: angle-FFT + phase input, session baseline, radar-time sync, fake data from real recordings
+- **Decision:**
+  - The network lives in a new `model/` (package `trnet`), untrained, with ~239.5k parameters. Its input
+    (`v0-draft` contract):
+    - `H [2,64,16]`: host angle FFT of the 8 azimuth antennas at their real columns (16 bins), as magnitude dB
+      plus the frame-to-frame phase change (only in cells within 30 dB);
+    - `D [1,64,16]`: range-Doppler (log2 Q8 → dB);
+    - 128 frames per rep.
+  - One sample = one set plus the **session's** first 3 reps as the baseline. Labels compare every rep with
+    those reps; the MDF is smoothed over 3 reps.
+  - The radar is the time reference. Pose and IMU offsets come from the 3 shrugs, using speed-like signals;
+    sEMG is reported only.
+  - Fake data replays real empty-room radar frames and the real jitter and Wi-Fi delay sequences.
+  - Training: heads start at the training average, smooth-L1 for scores, positive weight ≤ 5×, Apple GPU.
+  - See [report](output/2026-11-05-1316-neural-network-pipeline.md) and [plan](plans/2026-11-05-neural-network.md).
+- **Why:**
+  - Measured: the static heatmap's 8 values per range bin are antennas, not angles (a 13-wide aperture), so
+    their raw magnitude holds almost no left/right information. The values are complex, so phase is available
+    at 60 fps.
+  - Fatigue builds across sets, and a per-set baseline would reset it.
+  - Webcam delay (~60 ms) is the largest unknown offset, and labels must line up with the frames the network
+    sees.
+  - Real radar noise is coherent across antennas and slow, which independent noise doesn't reproduce.
+  - The first fake run with plain Huber and 0.5 starting points didn't beat the mean baseline.
+- **Alternatives:**
+  - Raw 8-antenna magnitudes as the input (discards angle information).
+  - Zero-padding to 64 angle bins (only interpolates).
+  - A per-set baseline (resets fatigue).
+  - Pose or IMU as the time reference.
+  - Independent Gaussian noise for the fake radar (off by up to 6 dB).
+  - Time-normalised reps (would break the phase/tremor timing).
+
 ## 2026-11-05 — IMU goes wireless over Wi-Fi (TCP), not Bluetooth; recorder clock fit through the lower edge
 - **Decision:**
   - The IMU board streams over Wi-Fi with `WIFI_LINK 1`: one TCP client, port 3333, at `truerehab-imu.local`. A 32 KB buffer is sent by a core-0 task; USB output is unchanged.
