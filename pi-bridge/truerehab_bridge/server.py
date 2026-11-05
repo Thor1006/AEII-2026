@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import signal
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -43,7 +44,7 @@ AUTH_TIMEOUT_S = 10.0
 SESSION_EVENTS = ["session_start", "session_end", "marker"]
 
 
-@dataclass
+@dataclass(eq=False)  # compared by identity: viewers live in a set (a value-compared dataclass isn't hashable)
 class Viewer:
     ws: ServerConnection
     queue: asyncio.Queue[str | bytes]
@@ -330,17 +331,26 @@ class Bridge:
                 run.error = None
 
     async def serve_forever(self) -> None:
+        # systemd stops the service with SIGTERM: shut down like Ctrl+C, so providers clean up (the radar is told to
+        # stop and an open recording is finished) instead of the process dying mid-frame.
+        main = asyncio.current_task()
+        try:
+            asyncio.get_running_loop().add_signal_handler(signal.SIGTERM, main.cancel)
+        except (NotImplementedError, RuntimeError, AttributeError):
+            pass  # not available (Windows, or not the main thread)
         for r in self.runs:
             r.task = asyncio.create_task(self._supervise(r), name=f"provider:{r.provider.name}")
         heartbeat = asyncio.create_task(self._heartbeat())
         try:
             async with serve(self.handler, self.cfg.host, self.cfg.ws_port, max_size=2**16, ping_interval=20, ping_timeout=20) as server:
                 await server.serve_forever()
+        except asyncio.CancelledError:
+            log.info("stopping: letting providers finish")
         finally:
-            heartbeat.cancel()
-            for r in self.runs:
-                if r.task:
-                    r.task.cancel()
+            tasks = [heartbeat] + [r.task for r in self.runs if r.task]
+            for t in tasks:
+                t.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)  # wait for their cleanup (radar stop, recording close)
 
 
 def build_providers(cfg: BridgeConfig) -> list[Provider]:
