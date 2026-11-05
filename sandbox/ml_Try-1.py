@@ -45,7 +45,7 @@ def make_model(
 
     return nn.Sequential(*layers).to(device)
 
-make_model(
+model = make_model(  # keep the network that make_model builds (it was thrown away)
     1,
     Model_size,
     Model_layer,
@@ -53,21 +53,22 @@ make_model(
     device
 )
 
-total_params = sum(p.numel() for p in make_model.paramerters)
+total_params = sum(p.numel() for p in model.parameters())  # was make_model.paramerters (typo, and the function)
 print(f"Total parameters: {total_params:,}")
 print(f"Memory allocated to model: {memory_usage():.2f}")
 
 shoe_layer = False
 
 loss_fn = nn.MSELoss()
-optimizer = torch.optim.Adam(make_model.parameters(), lr=0.00001)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)  # 0.00001 barely moved in 3000 steps
 
 for epoch in range(3000):
     show_progress = epoch % 100 == 0
     if show_progress:
         print(f"Epoch: {epoch}")
     optimizer.zero_grad()
-    loss = loss_fn(make_model(X), Y)
+    loss = loss_fn(model(X), Y)
+    loss.backward()  # without this the optimizer has no gradients and nothing is learned
     optimizer.step()
     if show_progress:
         print(f"epoch {epoch}, loss {loss.item():.4f}, memory {memory_usage():.2f} GB")
@@ -76,6 +77,6 @@ print(f"final loss: {loss.item():.4f}")
 print(f"memory at end of training: {memory_usage():.2f} GB")
 with torch.no_grad():
     for value in [-2.5, -1.0, 0.0, 1.5, 2.0]:
-            pred = make_model(torch.tensor([[value]], device=device)).item()
-            print(f"x = {value:5.2f}, predicted = {pred:6.3f}, actual = {value ** 2 + 5:6.3f}")
+            pred = model(torch.tensor([[value]], device=device)).item()
+            print(f"x = {value:5.2f}, predicted = {pred:6.3f}, actual = {value ** 3 + 5:6.3f}")  # trained on x**3 + 5
     
