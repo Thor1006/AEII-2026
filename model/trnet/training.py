@@ -147,7 +147,7 @@ def train_fold(train_ds, val_ds, contract, device, epochs=40, patience=8, lr=1e-
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
             opt.step()
-            tl.append(float(loss))
+            tl.append(float(loss.detach()))   # a number for the log; the graph is not needed
         vl = evaluate_loss(model, val_ds, device, pw)
         history.append({"epoch": ep + 1, "train_loss": float(np.mean(tl)), "val_loss": vl,
                         "seconds": round(time.time() - t0, 1)})
