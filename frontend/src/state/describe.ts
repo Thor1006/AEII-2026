@@ -136,7 +136,8 @@ export function linkQuality(store: SensorStore, now = Date.now()): { quality: Qu
   const reasons: string[] = [];
   const total = stats.received + stats.dropped;
   const dropPct = total ? (stats.dropped / total) * 100 : 0;
-  const expectedFps = store.hello?.manifest.frames[0]?.fps ?? store.status?.fps;
+  const frames = store.hello?.manifest.frames ?? [];
+  const expectedFps = frames.length ? frames.reduce((s, f) => s + f.fps, 0) : store.status?.fps;   // all views together
   const silentMs = stats.lastRecvT === null ? Infinity : now - stats.lastRecvT;
 
   if (silentMs > 3000) reasons.push(`No data for ${Math.round(silentMs / 1000)} s`);
