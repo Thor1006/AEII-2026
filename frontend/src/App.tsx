@@ -5,8 +5,9 @@ import { Logo } from './components/Logo.tsx';
 import { Panel } from './components/Panel.tsx';
 import type { Layout, PanelConfig } from './dashboard.config.ts';
 import { layouts as defaultLayouts } from './dashboard.config.ts';
-import { detectAutoConnect, rememberAddress } from './lib/address.ts';
+import { detectAutoConnect, fetchReplayFile, rememberAddress, replayLinkPath } from './lib/address.ts';
 import { getKey } from './lib/keystore.ts';
+import { ReplaySource } from './sensor/sources/ReplaySource.ts';
 import { WebSocketSource } from './sensor/sources/WebSocketSource.ts';
 import { useSensor } from './state/SensorContext.tsx';
 import { Banners } from './shell/Banners.tsx';
@@ -45,10 +46,21 @@ export function App({ layouts = defaultLayouts, title = 'TrueRehab-RF', autoConn
   });
   const layout = layouts.find((l) => l.key === view) ?? layouts[0];
 
-  // Opened from the Pi (or with ?pi=): connect without asking.
+  // Opened from the Pi (or with ?pi=, or ?replay=): connect without asking.
   useEffect(() => {
     if (!autoConnect) return;
     let cancelled = false;
+    const replay = replayLinkPath();
+    if (replay) {
+      fetchReplayFile(replay)
+        .then((file) => {
+          if (!cancelled) void connect(new ReplaySource({ file }));
+        })
+        .catch((err: unknown) => console.warn('[replay link]', err));
+      return () => {
+        cancelled = true;
+      };
+    }
     void detectAutoConnect().then((found) => {
       if (found && !cancelled) void connect(new WebSocketSource({ url: found.url, key: getKey(found.url) }));
     });

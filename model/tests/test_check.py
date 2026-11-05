@@ -87,7 +87,7 @@ class FakeSessionsTest(unittest.TestCase):
     def test_every_planted_problem_is_reported(self):
         r = self.rb
         for fragment in ("18 missing", "does not look like a code", "raw video was saved", "SparkFun",
-                         "stuck at the int16 limit", "Wi-Fi link dropped 1 time", "no 's' (sync shrugs) marker",
+                         "at the sensor's limit", "Wi-Fi link dropped 1 time", "no 's' (sync shrugs) marker",
                          "get cropped around their peak", "1 gap (200 samples = 1.00 s lost)"):
             self.assertTrue(has(r, fragment, "warn"), fragment)
 

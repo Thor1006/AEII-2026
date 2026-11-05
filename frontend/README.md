@@ -31,6 +31,24 @@ Pis that connected before appear under "Recent". Two views: **Session** (what to
 
 To test over Wi-Fi from a phone or tablet, run `npm run dev` and `npm run mock` on the Mac. Open `http://<mac-ip>:5173/?pi=<mac-ip>` on the other device. The page must be **http**. Browsers block `ws://` from https pages.
 
+## Model replays (`?replay=`)
+
+`model/export_dashboard.py` runs the radar network over a recorded (or fake) session and writes a protocol-1.2
+recording. It contains:
+- 3 radar views: "Where things are" (range × angle), "Tiny motion" (phase change) and "Movement speed"
+  (range × Doppler);
+- the network's 6 scores;
+- rep and compensation events;
+- the recommendation after each rep.
+
+It also copies the file into `public/replays/`, so a link opens it straight in the dashboard:
+`http://localhost:5173/?replay=/replays/<session>.ndjson`. Only same-origin `.ndjson` paths are accepted. Fake
+sessions are marked synthetic, so the "Demo data" banner shows.
+
+When a source sends several radar views, the radar panel shows buttons to switch between them. Maps with negative
+values (phase change) get a two-sided blue–orange scale centred on zero. `public/replays/` is git-ignored and is
+removed from `dist/` after `npm run build`, so local replays never reach the Pi.
+
 ## Completed-session reports
 
 Stopping a session opens a localized summary with repetitions, duration, score statistics and a full-session trend. Reopen it with **View session summary**, or expand **Saved sessions** to view an older report. The latest 5 completed summaries are saved, newest first, in this browser's localStorage (`trf-session-history`, versioned JSON). A sixth removes the oldest saved summary. Each entry opens its own frozen session data; CSV and printing use that selected report. History survives reloads, view changes and source changes. Duplicate session ID/start/device combinations are ignored. No report is sent to a server or shared between devices.

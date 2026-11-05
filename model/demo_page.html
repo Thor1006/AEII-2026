@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Network demo</title>
+<style>
+:root{--bg:#f7f6f2;--card:#fff;--ink:#1f1e1b;--mute:#6b6a64;--line:#dedcd3;--accent:#534ab7;--true:#0f6e56;--warn:#a32d2d;--amber:#854f0b}
+@media (prefers-color-scheme:dark){:root{--bg:#1c1b19;--card:#262522;--ink:#ecebe6;--mute:#a3a29b;--line:#3a3935;--accent:#a9a2f0;--true:#5dcaa5;--warn:#f09595;--amber:#ef9f27}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,system-ui,sans-serif}
+main{max-width:1080px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:20px;font-weight:600;margin:0 0 4px}.sub{color:var(--mute);font-size:13px}
+.fake{display:inline-block;margin:10px 0 16px;padding:6px 10px;border-radius:8px;background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--warn);font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+.maps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.maps figure{margin:0}.maps canvas{width:100%;image-rendering:pixelated;border-radius:6px;background:#000;aspect-ratio:16/20}
+figcaption{font-size:13px;margin-top:6px}figcaption b{display:block;font-weight:600}figcaption span{color:var(--mute)}
+.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+button{font:inherit;padding:6px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+#clock{font-variant-numeric:tabular-nums;color:var(--mute)}
+#timeline{width:100%;height:110px;cursor:pointer;display:block}
+.cols{display:grid;grid-template-columns:1.1fr 1fr;gap:14px}
+.bar{display:grid;grid-template-columns:150px 1fr 54px;gap:8px;align-items:center;font-size:13px;margin:7px 0}
+.track{position:relative;height:14px;border-radius:7px;background:color-mix(in srgb,var(--mute) 18%,transparent)}
+.fill{position:absolute;left:0;top:0;bottom:0;border-radius:7px;background:var(--accent)}
+.tick{position:absolute;top:-3px;bottom:-3px;width:3px;border-radius:2px;background:var(--true)}
+.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--mute)}
+.advice{font-size:20px;font-weight:600;margin:4px 0}.why{color:var(--mute);font-size:13px}
+.legend{font-size:12px;color:var(--mute);display:flex;gap:14px;margin-top:6px}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+#trend{width:100%;height:170px;display:block}
+@media (max-width:760px){.maps{grid-template-columns:1fr 1fr 1fr;gap:6px}.cols{grid-template-columns:1fr}.bar{grid-template-columns:110px 1fr 46px}}
+</style>
+</head>
+<body>
+<main>
+<h1>The network at work</h1>
+<div class="sub" id="who"></div>
+<div class="fake">FAKE DATA: an invented person the model never saw in training. This shows the machinery, not how well it works on real radar.</div>
+
+<div class="card">
+  <div class="controls">
+    <button id="play" class="on">Pause</button>
+    <button data-speed="1" class="spd on">1×</button><button data-speed="2" class="spd">2×</button><button data-speed="4" class="spd">4×</button>
+    <span id="clock"></span>
+  </div>
+  <div class="maps">
+    <figure><canvas id="cmag" width="16" height="40"></canvas><figcaption><b>Where things are</b><span>range (up = farther) × angle</span></figcaption></figure>
+    <figure><canvas id="cph" width="16" height="40"></canvas><figcaption><b>Tiny motion</b><span>phase change since the last frame</span></figcaption></figure>
+    <figure><canvas id="crd" width="16" height="40"></canvas><figcaption><b>Speed</b><span>range × Doppler (middle = still)</span></figcaption></figure>
+  </div>
+</div>
+
+<div class="card">
+  <canvas id="timeline"></canvas>
+  <div class="legend"><span><i style="background:var(--ink)"></i>elbow angle (camera, ground truth)</span><span><i style="background:color-mix(in srgb,var(--accent) 30%,transparent)"></i>reps the network scores</span><span>click to jump</span></div>
+</div>
+
+<div class="cols">
+  <div class="card">
+    <div class="sub" id="repname">Waiting for the first rep to finish…</div>
+    <div id="bars"></div>
+    <div class="legend"><span><i style="background:var(--accent)"></i>network</span><span><i style="background:var(--true)"></i>true label (from sEMG, pose)</span></div>
+  </div>
+  <div class="card">
+    <div class="sub">Recommendation after this rep</div>
+    <div class="advice" id="advice">–</div>
+    <div class="why" id="why"></div>
+    <canvas id="trend"></canvas>
+    <div class="legend"><span><i style="background:var(--accent)"></i>network fatigue</span><span><i style="background:var(--true)"></i>true fatigue</span></div>
+  </div>
+</div>
+</main>
+<script>
+const D = __DATA__;
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const dec = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const MAG = dec(D.mag), PH = dec(D.phase), RD = dec(D.rd), NR = D.range_bins, FR = NR * 16;
+document.getElementById('who').textContent = `Person ${D.person} · ${D.reps.length} reps · model trained without ${D.person} (run ${D.run}) · ${D.params.toLocaleString()} parameters`;
+const HEADS = [["fatigue","Fatigue"],["quality","Movement quality"],["comp_shrug","Shoulder shrug"],["comp_lean","Trunk lean"],["comp_rom","Reduced range"],["risk","Risk in next reps"]];
+document.getElementById('bars').innerHTML = HEADS.map(([k,l]) => `<div class="bar"><span>${l}</span><div class="track"><div class="fill" id="f_${k}"></div><div class="tick" id="t_${k}"></div></div><span class="num" id="n_${k}"></span></div>`).join('');
+
+function viridis(x){const s=[[68,1,84],[59,82,139],[33,145,140],[94,201,98],[253,231,37]];x=Math.min(.9999,Math.max(0,x))*4;const i=Math.floor(x),f=x-i;return s[i].map((v,k)=>v+(s[i+1][k]-v)*f)}
+function diverge(v){const x=v/127.5-1,a=Math.min(1,Math.abs(x)*3),b=[28,28,32],t=x<0?[70,140,230]:[240,150,50];return b.map((c,i)=>c+(t[i]-c)*a)}
+function draw(id, buf, k, cmap){
+  const cv = document.getElementById(id), ctx = cv.getContext('2d'), img = ctx.createImageData(16, NR);
+  for (let r = 0; r < NR; r++) for (let a = 0; a < 16; a++) {
+    const v = buf[k*FR + r*16 + a], c = cmap === 'div' ? diverge(v) : viridis(v/255), o = ((NR-1-r)*16 + a)*4;
+    img.data[o]=c[0]; img.data[o+1]=c[1]; img.data[o+2]=c[2]; img.data[o+3]=255;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+const T0 = D.t[0], T1 = D.t[D.t.length-1];
+let now = T0, playing = true, speed = 1, last = performance.now();
+const tl = document.getElementById('timeline'), tr = document.getElementById('trend');
+function sizeCanvas(c){const r=c.getBoundingClientRect(),d=devicePixelRatio||1;c.width=r.width*d;c.height=r.height*d;const x=c.getContext('2d');x.setTransform(d,0,0,d,0,0);return [r.width,r.height]}
+function drawTimeline(){
+  const [w,h] = sizeCanvas(tl), x = tl.getContext('2d'), X = t => (t-T0)/(T1-T0)*w;
+  x.fillStyle = css('--accent'); x.globalAlpha = .18;
+  D.reps.forEach(r => x.fillRect(X(r.start), 0, X(r.end)-X(r.start), h-14)); x.globalAlpha = 1;
+  x.strokeStyle = css('--ink'); x.lineWidth = 1.2; x.beginPath();
+  D.angle_t.forEach((t,i) => { const y = (h-16) - D.angle[i]/150*(h-22); i ? x.lineTo(X(t), y) : x.moveTo(X(t), y); }); x.stroke();
+  x.fillStyle = css('--mute'); x.font = '11px system-ui';
+  for (let s = Math.ceil(T0/10)*10; s < T1; s += 10) x.fillText(s+' s', X(s)+2, h-2);
+  x.strokeStyle = css('--warn'); x.lineWidth = 2; x.beginPath(); x.moveTo(X(now),0); x.lineTo(X(now),h-14); x.stroke();
+}
+function drawTrend(done){
+  const [w,h] = sizeCanvas(tr), x = tr.getContext('2d'), n = D.reps.length, X = i => 14 + i/(Math.max(1,n-1))*(w-28), Y = v => h-12 - v*(h-24);
+  x.strokeStyle = css('--line'); x.lineWidth = 1; [0,.5,1].forEach(v => {x.beginPath(); x.moveTo(10,Y(v)); x.lineTo(w-6,Y(v)); x.stroke();});
+  x.fillStyle = css('--mute'); x.font = '11px system-ui'; x.fillText('1', 0, Y(1)+4); x.fillText('0', 0, Y(0)+4);
+  for (const [key, col] of [['truth', css('--true')], ['scores', css('--accent')]]) {
+    x.strokeStyle = col; x.fillStyle = col; x.lineWidth = 1.5; x.beginPath(); let started = false;
+    for (let i = 0; i < done; i++) { const v = key === 'truth' ? D.truth.fatigue[i] : D.scores[i].fatigue; if (v == null) continue;
+      started ? x.lineTo(X(i), Y(v)) : x.moveTo(X(i), Y(v)); started = true; }
+    x.stroke();
+    for (let i = 0; i < done; i++) { const v = key === 'truth' ? D.truth.fatigue[i] : D.scores[i].fatigue; if (v == null) continue; x.beginPath(); x.arc(X(i), Y(v), 2.6, 0, 7); x.fill(); }
+  }
+}
+let shownRep = -2;
+function update(){
+  let k = 0; while (k < D.t.length-1 && D.t[k+1] <= now) k++;
+  draw('cmag', MAG, k, 'seq'); draw('cph', PH, k, 'div'); draw('crd', RD, k, 'seq');
+  document.getElementById('clock').textContent = `${(now-T0).toFixed(1)} s / ${(T1-T0).toFixed(0)} s`;
+  drawTimeline();
+  const done = D.reps.filter(r => r.end <= now).length, i = done - 1;
+  if (i !== shownRep) {
+    shownRep = i;
+    if (i >= 0) {
+      const r = D.reps[i];
+      document.getElementById('repname').textContent = `Rep ${i+1} of ${D.reps.length} (set ${r.set+1}), range of motion ${r.rom}°`;
+      for (const [k2] of HEADS) {
+        const p = D.scores[i][k2], t = D.truth[k2][i];
+        document.getElementById('f_'+k2).style.width = (p*100).toFixed(0)+'%';
+        const tk = document.getElementById('t_'+k2); tk.style.display = t == null ? 'none' : 'block'; tk.style.left = `calc(${(t??0)*100}% - 1px)`;
+        document.getElementById('n_'+k2).textContent = p.toFixed(2);
+      }
+      const [act, why] = D.actions[i], el = document.getElementById('advice');
+      el.textContent = act[0].toUpperCase()+act.slice(1); el.style.color = act === 'continue' ? css('--true') : act === 'rest' ? css('--warn') : css('--amber');
+      document.getElementById('why').textContent = why;
+    }
+    drawTrend(done);
+  }
+}
+function loop(ts){ const dt = (ts-last)/1000; last = ts; if (playing) { now += dt*speed; if (now > T1) now = T0, shownRep = -2; update(); } requestAnimationFrame(loop); }
+document.getElementById('play').onclick = e => { playing = !playing; e.target.textContent = playing ? 'Pause' : 'Play'; e.target.classList.toggle('on', playing); };
+document.querySelectorAll('.spd').forEach(b => b.onclick = () => { speed = +b.dataset.speed; document.querySelectorAll('.spd').forEach(o => o.classList.toggle('on', o === b)); });
+tl.onclick = e => { const r = tl.getBoundingClientRect(); now = T0 + (e.clientX-r.left)/r.width*(T1-T0); shownRep = -2; update(); };
+addEventListener('resize', () => { shownRep = -2; update(); });
+update(); requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -173,9 +173,13 @@ def check_and_process(path, contract=None):
         rep.add("imu", "warn" if bad else "ok", "board counters: " + (", ".join(f"{k}={v}" for k, v in status.items())
                                                                      if status else "no status lines"))
         raw = np.round(np.hstack([imu.acc_g * TR.ACC_PER_G, imu.gyro_dps * TR.GYRO_PER_DPS]))
-        stuck = int((np.abs(raw) >= 32767).any(1).sum())
+        # The IMU sketch's wide range (default) sends 2x the register value, so counts reach +-65534 (4 g, 500 deg/s);
+        # the narrow range stops at the int16 limit. Values past 32768 mean the wide range is in use.
+        limit = 65534 if np.abs(raw).max() > 32768 else 32767
+        stuck = int((np.abs(raw) >= limit).any(1).sum())
         if stuck:
-            rep.add("imu", "warn", f"{stuck} samples stuck at the int16 limit (saturated)")
+            rng = "+-4 g / +-500 deg/s" if limit == 65534 else "+-2 g / +-250 deg/s"
+            rep.add("imu", "warn", f"{stuck} samples at the sensor's limit ({rng}): the movement was faster than it can measure")
         drops = (meta.get("summary", {}).get("imu") or {}).get("link_drops")
         if drops:
             rep.add("imu", "warn", f"Wi-Fi link dropped {drops} time(s); the recorder reconnected")

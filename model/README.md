@@ -20,7 +20,7 @@ Run the commands below from inside `model/`.
 
 ## Commands
 
-Run all tests (57, about 1 minute, no sensors needed):
+Run all tests (60, about 1 minute, no sensors needed):
 
 ```bash
 .venv/bin/python -m unittest discover -s tests
@@ -55,6 +55,25 @@ Measure the real recordings again (after new real sessions, so the fake data cop
 ```bash
 .venv/bin/python -m trnet.calibrate
 ```
+
+### Watch it work
+
+Show the trained network on a fake person it never saw, as a stand-alone page
+(`runs/demo/index.html`):
+
+```bash
+.venv/bin/python demo.py --person F06
+```
+
+Make a recording that the dashboard (`frontend/`) plays with the network's radar maps, scores, reps and advice:
+
+```bash
+.venv/bin/python export_dashboard.py --person F06
+```
+
+Then run `npm run dev` in `frontend/` and open the link it prints
+(`http://localhost:5173/?replay=/replays/<session>.ndjson`). `--session <folder>` exports a real recording instead;
+it has to pass the session check.
 
 Reports go to `runs/<date>_<time>/report.md`; check reports to `runs/checks/`. `data/` and `runs/` are
 git-ignored. The fake sessions take ~270 MB and the cache ~60 MB. Delete them any time with

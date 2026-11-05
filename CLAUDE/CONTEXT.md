@@ -1,7 +1,7 @@
 # Context
 
 <!-- Living state. Keep under ~40 lines; reports hold detailed run history. -->
-**Last updated:** 2026-11-05 (radar-only network + pipeline in `model/`)
+**Last updated:** 2026-11-05 19:21 (first radar recording with a person: speed limit OK at ~1 m; IMU wiring fails on the arm)
 
 ## Current focus
 **Plan B is selected and received: AWR2944PEVM, no DCA1000.** The submitted AWR1843BOOST/DCA1000 poster stays frozen. Two independent USB radar demos now coexist; their profiles, outputs and measured limits differ. Run only one serial collector at a time. No raw ADC or validated fatigue/body model is claimed.
@@ -12,7 +12,8 @@
 - **`model/` (new, untrained):** radar-only network and its pipeline, all tested without sensors. [Report](output/2026-11-05-1316-neural-network-pipeline.md), `model/README.md`.
   - Network: 239,515 parameters. Input `v0-draft`: angle FFT + phase `[2,64,16]`, range-Doppler `[1,64,16]`, 128 frames per rep.
   - Labels use placeholder thresholds. `check_session.py` runs after each recording. Fake data replays real empty-room radar frames and the real timing.
-  - 57 tests. On fake data it beats the baseline for 5 of 6 heads (plumbing only). No real session with a person exists yet.
+  - 60 tests. On fake data it beats the baseline for 5 of 6 heads (plumbing only). No real session with a person exists yet.
+  - Dashboard: `model/export_dashboard.py` writes a replay that `frontend/` opens with `?replay=/replays/<file>.ndjson`. The radar panel switches between 3 views. Live mode waits for the Pi. [Report](output/2026-11-05-1844-dashboard-replay-radar-check.md).
 - `sandbox/Encoder_0.1/` and the existing AI/dashboard demos still use synthetic input. `frontend/` (home/dashboard, EN/TH/zh-HK, session history) and `Phisit/` (teammate's FastAPI/React demo) are unchanged.
 - Ground truth, all into `recorder/` ([plan](plans/2026-11-04-recorder.md)):
   - **MyoWare 2.0 sEMG:** tested with `firmware/myoware_demo/`. `firmware/myoware_record/` compiles but has never run. On Nov 4 the Mac listed it "Not Connected" over Bluetooth, and its port gave 0 bytes.
@@ -21,13 +22,19 @@
 - **Paused by user:** do not install `pi-bridge/` packages (`websockets`, `numpy`) until actual Pi setup; ask then. The bridge has not run.
 
 ## Recent changes
+- 2026-11-05 - First radar recording with a person (current settings, IMU on the forearm, spoken cues).
+  - At ~1 m, 95 % of the arm's moving echo stayed under 0.7 m/s, with ≤ 0.2 % at the ±1.09 m/s edges and no wrap-around: fast enough.
+  - The IMU lost half its data on the moving arm (I²C errors). Left/right still undetermined.
+  - [Report](output/2026-11-05-1921-radar-curls-measurement.md).
+- 2026-11-05 - The model is shown in the dashboard (replay link, radar view buttons, translations); typecheck, i18n and report checks pass; verified in the browser.
+  - Radar smoke test with the current settings: 60 fps, 0 missing; IMU 200/s over Wi-Fi.
+  - The user chose to keep the radar settings (measure only). The person runs are still to do.
+  - [Report](output/2026-11-05-1844-dashboard-replay-radar-check.md).
 - 2026-11-05 - Built `model/`: network, pipeline, session check, calibration, fake data and leave-one-subject-out training; 57 tests pass.
   - Found: the heatmap's 8 values are antennas, not angles. 2 of the 6 IMU recordings are firmware simulations. The two empty-room radar recordings differ by up to 38 dB.
   - [Report](output/2026-11-05-1316-neural-network-pipeline.md).
 - 2026-11-05 - IMU Wi-Fi link (fw 2.1) verified on the board. The recorder reads `tcp://` (IPv4 lookup, reconnects with marker rows), and `align_device_time` now fits the lower edge: Wi-Fi vs USB timing changed from 37 ms wander to a constant 4.1 ms. [Report](output/2026-11-05-0012-imu-wifi-link.md).
-- 2026-11-04 - IMU firmware rewritten and verified on the board (OLED on its own core: 200.00 Hz, no gaps; clone chip accepted; reconnects; calibrations). Merged teammate's record mode after fast-forwarding to `660e66d`; recorder now drops macOS port-open replays. [Report](output/2026-11-04-2232-imu-firmware-fix.md).
 - 2026-11-03 - User requested pull then push. Pulled MyoWare wireless sketch and `radar-lab/` commits through `cc97005`; reconciled context/decision conflicts while preserving both implementations and evidence. See [sync report](output/2026-11-03-repository-sync.md).
-- 2026-11-03 - Browser Drive and fixed-board map approved and completed; parser, geometry, HTTP boundaries and live/shared controls verified in their reports. Existing Room map HTML preserved by the Drive task. No new firmware/Pi/main-dashboard changes for those tasks.
 
 ## Open questions
 - Freeze the input contract (v0-draft: radar-lab profile, angle FFT + phase `[2,64,16]`, range-Doppler `[1,64,16]`)?
@@ -43,7 +50,9 @@
 - Repo instructions describe macOS/zsh, but Windows work also exists. Home copy/font license and the poster's "oral health" wording remain open; submitted sources stay unchanged.
 
 ## Next steps
-0. **First full test session:**
+0. **Fix the IMU wiring for the arm** (solder or a locking connector, cable taped down). On the arm it had 179 I²C errors and lost 36 of 72 s. Then redo the curls run with it.
+   - Left/right test with a still metal object (tray or laptop lid) at radar height, ~1 m in front, then to the left, then to the right.
+1. **First full test session:**
    - Hardware: radar (power first, then USB); MyoWare (re-pair Bluetooth, upload `myoware_record`, battery only on a person); IMU over Wi-Fi from a power bank with wire strain relief; webcam pose started from the user's terminal.
    - Protocol from `model/README.md`: 5 s still, `s` + 3 shrugs, sets with space per rep.
    - Then run `model/check_session.py` and `python -m trnet.calibrate`. Run the IMU's 6-face accel calibration once.

@@ -2,6 +2,23 @@
 
 <!-- Newest on top. One short entry per decision that someone might later ask "why did we do it this way?" about. -->
 
+## 2026-11-05 — Show the model through dashboard replays (`?replay=`) first; keep the radar's current settings for now
+- **Decision:**
+  - `model/export_dashboard.py` writes protocol-1.2 `.ndjson` replays. The dashboard opens them with a same-origin
+    `?replay=` link, and the radar panel gets buttons for multiple views.
+  - Replays live in the git-ignored `frontend/public/replays/` and are removed from `dist/` after a build.
+  - The radar keeps `fullmap_awr2x44p.cfg` (P0). It gets measured with a person, not retuned.
+  - See [report](output/2026-11-05-1844-dashboard-replay-radar-check.md).
+- **Why:**
+  - The user chose both: "Replay file" and "Only measure current".
+  - A replay needs no installs (the bridge's packages wait for the Pi setup), and it already uses the dashboard's
+    protocol, so the same messages can come live later.
+  - P0's ±1.09 m/s limit may be too low for brisk curls, but that has to be measured before changing anything.
+- **Alternatives:**
+  - The bridge running live on the Mac (needs `websockets`/`numpy`).
+  - Profiles P1–P4 (shorter idle or 2 TX, ±1.6–4.1 m/s at coarser speed bins).
+  - Separate radar panels per view (empty panels for sources without them).
+
 ## 2026-11-05 — Radar-only network in `model/`: angle-FFT + phase input, session baseline, radar-time sync, fake data from real recordings
 - **Decision:**
   - The network lives in a new `model/` (package `trnet`), untrained, with ~239.5k parameters. Its input
