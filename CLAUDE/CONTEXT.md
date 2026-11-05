@@ -22,6 +22,9 @@
 - **Paused by user:** do not install `pi-bridge/` packages (`websockets`, `numpy`) until actual Pi setup; ask then. The bridge has not run.
 
 ## Recent changes
+- 2026-11-05 - Project-wide check: every runnable suite passes with 0 warnings; all 4 firmware builds compile.
+  - Bug fixes pushed as 4 small commits: the training warning, radar-lab's open config file, recorder test leaks, and 7 bugs in `ml_Try-1.py`.
+  - [Report](output/2026-11-05-2040-project-audit.md).
 - 2026-11-05 - First radar recording with a person (current settings, IMU on the forearm, spoken cues).
   - At ~1 m, 95 % of the arm's moving echo stayed under 0.7 m/s, with ≤ 0.2 % at the ±1.09 m/s edges and no wrap-around: fast enough.
   - The IMU lost half its data on the moving arm (I²C errors). Left/right still undetermined.
@@ -33,7 +36,6 @@
 - 2026-11-05 - Built `model/`: network, pipeline, session check, calibration, fake data and leave-one-subject-out training; 57 tests pass.
   - Found: the heatmap's 8 values are antennas, not angles. 2 of the 6 IMU recordings are firmware simulations. The two empty-room radar recordings differ by up to 38 dB.
   - [Report](output/2026-11-05-1316-neural-network-pipeline.md).
-- 2026-11-05 - IMU Wi-Fi link (fw 2.1) verified on the board. The recorder reads `tcp://` (IPv4 lookup, reconnects with marker rows), and `align_device_time` now fits the lower edge: Wi-Fi vs USB timing changed from 37 ms wander to a constant 4.1 ms. [Report](output/2026-11-05-0012-imu-wifi-link.md).
 - 2026-11-03 - User requested pull then push. Pulled MyoWare wireless sketch and `radar-lab/` commits through `cc97005`; reconciled context/decision conflicts while preserving both implementations and evidence. See [sync report](output/2026-11-03-repository-sync.md).
 
 ## Open questions
@@ -60,5 +62,5 @@
 1. Before switching demos, stop the current collector and release serial ports. Browser Start/Stop affects both pages; original Close viewer shuts their shared service. Never run radar-lab alongside it on the same board.
 2. Browser safety stops: 15 min/session, 15 s without polling, valid temperature >=85 C, or reserve <5% for three frames. Start resumes a new session; do not reflash merely to reopen.
 3. Validate radar-lab known-target angular orientation, then agree recording scope, preserve frame/config/timestamp/loss metadata, and freeze a real versioned `InputContract` before training or bridge integration.
-4. Upstream follow-ups: Reps panel continues after session end; Python bridge `session_end` lacks `reps`; `sandbox/ml_Try-1.py` does not run. These are outside this sync.
+4. Upstream follow-ups: Reps panel continues after session end; Python bridge `session_end` lacks `reps`. (`sandbox/ml_Try-1.py` fixed on 2026-11-05: it trains and runs to the end.)
 5. Ask before Pi package setup; later run its tests and bridge checks. Reuse verified acquisition/parser components only after matching their actual output contract.
