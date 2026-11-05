@@ -38,7 +38,10 @@ def process(path, contract=None, apply_sync=True):
     out = Processed(s)
     src = s.meta.get("sources", {})
     if "radar" in src and (s.dir / "radar.bin").exists():
-        out.radar = R.load_radar(s, contract)
+        try:
+            out.radar = R.load_radar(s, contract)
+        except ValueError as exc:                 # e.g. no frames saved: the check reports it, it doesn't crash
+            out.notes.append(str(exc))
     out.emg, out.imu, out.pose = TR.load_emg(s), TR.load_imu(s), TR.load_pose(s)
     if out.radar is not None:
         out.sync = SY.sync_offsets(out.radar, s.markers, out.emg, out.imu, out.pose)

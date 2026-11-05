@@ -100,6 +100,17 @@ class FakeSessionsTest(unittest.TestCase):
         self.assertTrue(r["can_train"]["quality"]["ok"])      # reps from the IMU
         self.assertTrue(has(r, "from the imu elbow angle"))
 
+    def test_radar_without_frames_is_reported_not_a_crash(self):
+        from rec import session as S
+        w = S.SessionWriter(self.tmp / "empty", "TEST", "no_frames")
+        w.add_source("radar", {"kind": "AWR2944PEVM mmWave demo (UART)"})
+        (w.dir / "radar.bin").write_bytes(b"")
+        (w.dir / "radar_index.csv").write_text("frame_no,t_ns,offset,length\n")
+        w.close({})
+        r = check_session(w.dir)
+        self.assertFalse(r["usable"])
+        self.assertTrue(has(r, "no frames could be read", "fail"))
+
     def test_command_line_exit_codes(self):
         cmd = [sys.executable, str(MODEL_DIR / "check_session.py"), "--no-save"]
         ok = subprocess.run(cmd + [str(self.good)], capture_output=True, text=True)

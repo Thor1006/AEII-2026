@@ -152,7 +152,9 @@ class Session:
     markers: list = field(default_factory=list)  # (t_s, key, label)
 
     def radar_index(self):
-        a = np.loadtxt(self.dir / "radar_index.csv", delimiter=",", skiprows=1, dtype=np.int64, ndmin=2)
+        """Empty arrays when no frame was saved (e.g. Start/Stop with the radar unplugged)."""
+        lines = (self.dir / "radar_index.csv").read_text().splitlines()[1:]
+        a = np.array([[int(x) for x in ln.split(",")] for ln in lines if ln.strip()], dtype=np.int64).reshape(-1, 4)
         return {"frame_no": a[:, 0], "t_s": a[:, 1] / 1e9, "offset": a[:, 2], "length": a[:, 3]}
 
     def radar_frames(self):
