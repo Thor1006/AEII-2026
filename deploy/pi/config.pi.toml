@@ -1,0 +1,31 @@
+# TrueRehab-RF Pi set: settings for a real kit (the live radar, no demo data).
+# install.sh copies this to pi-bridge/config.toml once; edit that copy (an update never overwrites it).
+
+[bridge]
+name = "TrueRehab kit 01"     # shown at the top of the dashboard
+kit_id = "KIT-01"             # matches the kit sticker
+ws_port = 8765                # live data (WebSocket)
+http_port = 8080              # serves the dashboard: open http://<kit>.local:8080 on the same Wi-Fi
+web_root = "../frontend/dist" # the built dashboard, relative to this file
+status_interval_ms = 1000
+frame_dtype = "f32"           # "u16" or "u8" cut Wi-Fi traffic 2-4x with a little precision loss
+client_queue = 120
+
+# Kit key (who may connect). Empty = open kit: anyone on the Wi-Fi can watch and press Start/Stop.
+# Make one:  .venv/bin/python -m truerehab_bridge --new-key --write /boot/firmware/trh-key.txt
+key_file = ""
+key = ""
+
+[providers.synthetic]
+enabled = false               # demo data; leave off on a real kit
+
+[providers.radar]
+enabled = true                # the AWR2944PEVM on USB (power the radar first, then plug in USB)
+data_port = "auto"            # finds the board's two TI XDS110 ports (/dev/ttyACM0 and /dev/ttyACM1)
+cli_port = "auto"
+start_radar = true            # sends radar-lab's profile at start, like the recorder; never flashes anything
+cfg_file = ""                 # "" = ../radar-lab/configs/fullmap_awr2x44p.cfg (60 fps, 64 range bins, 16 Doppler)
+fps = 15                      # maps per second to viewers (the radar runs at 60; recordings keep all 60)
+max_range_m = 2.4
+record_dir = "~/truerehab-sessions"   # Start/Stop in the dashboard records here, in the recorder's format
+replay = ""                   # a recorder session folder: play it instead of the live radar (testing)
