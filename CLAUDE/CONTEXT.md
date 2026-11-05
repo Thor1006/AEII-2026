@@ -1,7 +1,7 @@
 # Context
 
 <!-- Living state. Keep under ~40 lines; reports hold detailed run history. -->
-**Last updated:** 2026-11-05 19:21 (first radar recording with a person: speed limit OK at ~1 m; IMU wiring fails on the arm)
+**Last updated:** 2026-11-05 21:19 (Raspberry Pi set v0.1)
 
 ## Current focus
 **Plan B is selected and received: AWR2944PEVM, no DCA1000.** The submitted AWR1843BOOST/DCA1000 poster stays frozen. Two independent USB radar demos now coexist; their profiles, outputs and measured limits differ. Run only one serial collector at a time. No raw ADC or validated fatigue/body model is claimed.
@@ -19,16 +19,16 @@
   - **MyoWare 2.0 sEMG:** tested with `firmware/myoware_demo/`. `firmware/myoware_record/` compiles but has never run. On Nov 4 the Mac listed it "Not Connected" over Bluetooth, and its port gave 0 bytes.
   - **IMU board** (`sandbox/imu-mpu6050-oled/`, chip 0x74 clone, [fix report](output/2026-11-04-2232-imu-firmware-fix.md)): now runs fw 2.1 RECORD + Wi-Fi at `tcp://truerehab-imu.local:3333`. Verified on the board: 200 Hz, byte-identical to USB, reconnects, timing 4.1 ms constant vs USB ([report](output/2026-11-05-0012-imu-wifi-link.md)). Wi-Fi password in the git-ignored `wifi_secrets.h`. 6-face accel calibration not yet run.
   - **Video pose** (MediaPipe): verified live on the MacBook webcam, camera 0. The camera only opens from the user's terminal, not from Claude's shell. Not yet recorded with the radar.
-- **Paused by user:** do not install `pi-bridge/` packages (`websockets`, `numpy`) until actual Pi setup; ask then. The bridge has not run.
+- **Pi set v0.1** (`deploy/pi/`, [report](output/2026-11-05-2119-pi-software-set.md)): the bridge now has a real radar provider and runs (tested from the PortableSSD install, where the user had `websockets`/`pyserial` installed). Not yet run on a real Pi or with the live radar. Live model scores need radar-only rep detection.
 
 ## Recent changes
+- 2026-11-05 - Raspberry Pi set v0.1 (`deploy/pi/`): live radar in the dashboard, Start/Stop recording in the recorder's format, installer, self-test.
+  - Bundle `truerehab-pi-0.1.0-20261105-de84695.tar.gz` on the PortableSSD; installed and verified there with a replayed real recording (`check_bridge` 16/16).
+  - Fixed on the way: bridge viewers couldn't connect (since Oct 12), SIGTERM shutdown, same-second sessions, empty recordings, the frames/s display.
+  - [Report](output/2026-11-05-2119-pi-software-set.md).
 - 2026-11-05 - Project-wide check: every runnable suite passes with 0 warnings; all 4 firmware builds compile.
   - Bug fixes pushed as 4 small commits: the training warning, radar-lab's open config file, recorder test leaks, and 7 bugs in `ml_Try-1.py`.
   - [Report](output/2026-11-05-2040-project-audit.md).
-- 2026-11-05 - First radar recording with a person (current settings, IMU on the forearm, spoken cues).
-  - At ~1 m, 95 % of the arm's moving echo stayed under 0.7 m/s, with ≤ 0.2 % at the ±1.09 m/s edges and no wrap-around: fast enough.
-  - The IMU lost half its data on the moving arm (I²C errors). Left/right still undetermined.
-  - [Report](output/2026-11-05-1921-radar-curls-measurement.md).
 - 2026-11-05 - The model is shown in the dashboard (replay link, radar view buttons, translations); typecheck, i18n and report checks pass; verified in the browser.
   - Radar smoke test with the current settings: 60 fps, 0 missing; IMU 200/s over Wi-Fi.
   - The user chose to keep the radar settings (measure only). The person runs are still to do.
@@ -52,7 +52,8 @@
 - Repo instructions describe macOS/zsh, but Windows work also exists. Home copy/font license and the poster's "oral health" wording remain open; submitted sources stay unchanged.
 
 ## Next steps
-0. **Fix the IMU wiring for the arm** (solder or a locking connector, cable taped down). On the arm it had 179 I²C errors and lost 36 of 72 s. Then redo the curls run with it.
+0. **Pi set:** live-radar check (power first, then USB; installed bridge + `check_bridge`), then on the real Pi: flash the SD card, copy from the SSD, `bash install.sh`, then `selftest.py` (see `deploy/pi/README.md`).
+1. **Fix the IMU wiring for the arm** (solder or a locking connector, cable taped down). On the arm it had 179 I²C errors and lost 36 of 72 s. Then redo the curls run with it.
    - Left/right test with a still metal object (tray or laptop lid) at radar height, ~1 m in front, then to the left, then to the right.
 1. **First full test session:**
    - Hardware: radar (power first, then USB); MyoWare (re-pair Bluetooth, upload `myoware_record`, battery only on a person); IMU over Wi-Fi from a power bank with wire strain relief; webcam pose started from the user's terminal.

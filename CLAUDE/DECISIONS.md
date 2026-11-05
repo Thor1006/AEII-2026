@@ -2,6 +2,26 @@
 
 <!-- Newest on top. One short entry per decision that someone might later ask "why did we do it this way?" about. -->
 
+## 2026-11-05 — Raspberry Pi set: one tarball + installer; the bridge gets the real radar and records in the recorder's format
+- **Decision:**
+  - `deploy/pi/build_bundle.py` packs a versioned tarball with file hashes: git-tracked sources, the built dashboard,
+    and every .py checked against Python 3.11 syntax.
+  - `install.sh` makes a venv, installs `websockets`/`numpy`/`pyserial` (`--with-model` adds PyTorch), sets up
+    `dialout` and a systemd service.
+  - The bridge's radar provider reuses the model's preprocessing for its 3 maps and starts the radar with the
+    existing profile. Dashboard Start/Stop writes recorder-format sessions.
+  - Live model scores are left out of v0.1.
+  - See [report](output/2026-11-05-2119-pi-software-set.md).
+- **Why:**
+  - One file to copy (SSD or `scp`) and one script to run suits a Pi with no screen.
+  - The recorder format means `check_session.py`/`export_dashboard.py` work on Pi recordings unchanged.
+  - Live scores would need a radar-only rep finder that doesn't exist, and a real-trained network.
+- **Alternatives:**
+  - A Debian package (more work, little gain now).
+  - Docker (heavy on a Pi, serial-port passthrough).
+  - Cloning the git repo on the Pi (needs git, a network and credentials; brings development files).
+  - The bridge writing its own format (two formats to maintain).
+
 ## 2026-11-05 — Show the model through dashboard replays (`?replay=`) first; keep the radar's current settings for now
 - **Decision:**
   - `model/export_dashboard.py` writes protocol-1.2 `.ndjson` replays. The dashboard opens them with a same-origin
