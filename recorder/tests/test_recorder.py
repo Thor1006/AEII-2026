@@ -137,6 +137,15 @@ class SessionTest(unittest.TestCase):
             self.assertEqual(len(imu["t_s"]), 3)
             self.assertEqual(imu["values"][:, 3].tolist(), [0, 1, 2])
 
+    def test_two_sessions_in_the_same_second(self):
+        with tempfile.TemporaryDirectory() as d:
+            a = S.SessionWriter(d, "TEST", "same")
+            b = S.SessionWriter(d, "TEST", "same")
+            a.close({})
+            b.close({})
+            self.assertNotEqual(a.dir, b.dir)
+            self.assertTrue(b.dir.name.startswith(a.dir.name[:17]))
+
     def test_tcp_address(self):
         self.assertEqual(tcp_address("tcp://truerehab-imu.local:3333"), ("truerehab-imu.local", 3333))
         self.assertIsNone(tcp_address("/dev/cu.usbserial-0001"))

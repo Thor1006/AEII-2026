@@ -44,8 +44,14 @@ class SessionWriter:
         if not EXERCISE_RE.match(exercise):
             raise ValueError("exercise must be a short label like elbow_flexion")
         stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
-        self.dir = Path(root) / f"{stamp}_{subject}_{exercise}"
-        self.dir.mkdir(parents=True, exist_ok=False)
+        base = Path(root) / f"{stamp}_{subject}_{exercise}"
+        self.dir, k = base, 2
+        while True:  # two sessions in the same second (e.g. Stop then Start in the dashboard) get _2, _3, ...
+            try:
+                self.dir.mkdir(parents=True, exist_ok=False)
+                break
+            except FileExistsError:
+                self.dir, k = base.with_name(f"{base.name}_{k}"), k + 1
         self.t0_ns = now_ns()
         self.meta = {
             "format": FORMAT,
