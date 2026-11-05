@@ -18,7 +18,9 @@ class Layout:
 def read_lines(path, period_ms=None, num_frames=None):
     """The config's command lines (comments dropped), optionally with a new frame period / count."""
     out = []
-    for raw in open(path).read().splitlines():
+    with open(path) as f:  # closed right away (a bare open().read() left it to the garbage collector)
+        text = f.read()
+    for raw in text.splitlines():
         parts = raw.split("%")[0].split()
         if not parts:
             continue
