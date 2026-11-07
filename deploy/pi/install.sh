@@ -80,6 +80,8 @@ fi
 step "Settings"
 if [ -f pi-bridge/config.toml ]; then
   note "keeping your pi-bridge/config.toml"
+  grep -q '^\[providers\.emg\]' pi-bridge/config.toml ||
+    note "it has no [providers.emg] (sEMG, new in v0.2): copy that section from config.pi.toml to use the MyoWare"
 else
   run cp config.pi.toml pi-bridge/config.toml
   note "made pi-bridge/config.toml from config.pi.toml (edit the kit name and key there)"

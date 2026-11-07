@@ -4,7 +4,7 @@
     .venv/bin/python selftest.py --quick      skip the unit tests
 
 Checks the Python version, the packages, the settings, the unit tests that need no hardware, the radar's USB ports,
-free space for recordings, and (if the bridge is running) the bridge checker against it.
+the MyoWare (sEMG) link, free space for recordings, and (if the bridge is running) the bridge checker against it.
 Exit code 0 = no failures (warnings are fine).
 """
 import argparse
@@ -15,6 +15,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -50,7 +51,8 @@ def check_packages():
         report("ok", "package torch (model tools)", torch.__version__)
     except ImportError:
         report("warn", "package torch (model tools)", "not installed: session check and replays need bash install.sh --with-model")
-    for mod in ("truerehab_bridge", "truerehab_bridge.providers.radar", "trnet.radar", "radarlab.tlv", "rec.session"):
+    for mod in ("truerehab_bridge", "truerehab_bridge.providers.radar", "truerehab_bridge.providers.emg", "trnet.radar",
+                "radarlab.tlv", "rec.session"):
         try:
             importlib.import_module(mod)
             report("ok", f"code {mod}")
@@ -110,9 +112,51 @@ def check_radar_ports():
                "in dialout" if "dialout" in groups else "not in dialout yet (log out and in, or reboot, after install.sh)")
 
 
+def bridge_running(cfg):
+    with socket.socket() as s:
+        s.settimeout(1)
+        return s.connect_ex(("127.0.0.1", cfg.ws_port if cfg else 8765)) == 0
+
+
+def check_myoware(cfg, bridge_up):
+    """The MyoWare serves one connection at a time: with the bridge running, ask the bridge (its checker reports the
+    'emg' device) instead of taking the board away from it mid-recording."""
+    emg = (cfg.providers.get("emg") or {}) if cfg else {}
+    if not emg.get("enabled"):
+        report("info", "MyoWare (sEMG)", "off in the settings: turn on [providers.emg] once the board runs firmware/myoware_record")
+        return
+    port = str(emg.get("port", "tcp://truerehab-myoware.local:3334"))
+    if bridge_up:
+        report("info", "MyoWare (sEMG)", f"{port}: checked through the running bridge below (it holds the board's one link)")
+        return
+    from truerehab_bridge.providers.emg import tcp_address
+    tcp = tcp_address(port)
+    if not tcp:
+        report("ok" if Path(port).exists() else "warn", "MyoWare (sEMG) USB port",
+               port + ("" if Path(port).exists() else ": not plugged in (bench only: never worn on USB)"))
+        return
+    try:
+        with socket.create_connection(tcp, timeout=3) as s:
+            s.settimeout(1.5)
+            data = b""
+            end = time.monotonic() + 1.0
+            while time.monotonic() < end:
+                chunk = s.recv(65536)
+                if not chunk:
+                    break
+                data += chunk
+        n = data.count(b"\nE,")
+        report("ok" if n > 500 else "warn", "MyoWare (sEMG)", f"{port}: {n} samples in 1 s" + ("" if n > 500 else " (expected ~1000)"))
+    except OSError as exc:
+        report("warn", "MyoWare (sEMG)", f"{port}: not reachable ({type(exc).__name__}). Is it on (battery), running the "
+                                         "Wi-Fi sketch, on the same Wi-Fi as this Pi?")
+
+
 def check_space(cfg):
-    target = Path("~/truerehab-sessions").expanduser()
-    probe = target if target.exists() else target.parent
+    target = Path(cfg.record_dir if cfg and cfg.record_dir else "~/truerehab-sessions").expanduser()
+    probe = target
+    while not probe.exists() and probe != probe.parent:      # the folder is made at the first recording
+        probe = probe.parent
     free_gb = shutil.disk_usage(probe).free / 1e9
     report("ok" if free_gb > 2 else "warn", "space for recordings", f"{free_gb:.1f} GB free ({probe}); 1 minute of radar ~ 15 MB")
     temp = Path("/sys/class/thermal/thermal_zone0/temp")
@@ -121,11 +165,8 @@ def check_space(cfg):
         report("ok" if c < 75 else "warn", "Pi temperature", f"{c:.0f} °C")
 
 
-def check_running_bridge(cfg):
+def check_running_bridge(cfg, up):
     port = cfg.ws_port if cfg else 8765
-    with socket.socket() as s:
-        s.settimeout(1)
-        up = s.connect_ex(("127.0.0.1", port)) == 0
     if not up:
         report("warn", "running bridge", f"nothing on port {port} (sudo systemctl status truerehab-bridge)")
         return
@@ -154,8 +195,10 @@ def main():
     if not a.quick:
         run_tests()
     check_radar_ports()
+    up = bridge_running(cfg)
+    check_myoware(cfg, up)
     check_space(cfg)
-    check_running_bridge(cfg)
+    check_running_bridge(cfg, up)
     fails, warns = RESULTS.count("fail"), RESULTS.count("warn")
     print(f"\n{'PASS' if not fails else 'FAIL'}: {fails} failed, {warns} warnings")
     return 1 if fails else 0

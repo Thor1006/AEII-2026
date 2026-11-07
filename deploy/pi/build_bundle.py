@@ -23,7 +23,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 TOP = "truerehab-pi"
 
 # (folder, keep) : git-tracked files under folder, filtered by keep(relative path)
@@ -35,6 +35,7 @@ SOURCES = {
     "radar-lab": lambda p: p.startswith(("radar-lab/radarlab/", "radar-lab/configs/", "radar-lab/tests/")) or p in {
         "radar-lab/view.py", "radar-lab/README.md"},
     "recorder": lambda p: not p.startswith("recorder/models/"),
+    "firmware": lambda p: p.startswith("firmware/myoware_record/"),   # the MyoWare's sketch (git never has wifi_secrets.h)
 }
 ROOT_FILES = ["install.sh", "selftest.py", "config.pi.toml", "requirements-pi.txt", "requirements-model.txt",
               "truerehab-bridge.service.in", "README.md"]
