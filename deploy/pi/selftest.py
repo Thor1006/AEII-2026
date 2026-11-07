@@ -2,6 +2,7 @@
 
     .venv/bin/python selftest.py              everything below
     .venv/bin/python selftest.py --quick      skip the unit tests
+    .venv/bin/python selftest.py --config pi-bridge/other.toml   check other settings (default pi-bridge/config.toml)
 
 Checks the Python version, the packages, the settings, the unit tests that need no hardware, the radar's USB ports,
 the MyoWare (sEMG) link, free space for recordings, and (if the bridge is running) the bridge checker against it.
@@ -60,10 +61,10 @@ def check_packages():
             report("fail", f"code {mod}", f"{type(exc).__name__}: {exc}")
 
 
-def check_config():
+def check_config(path=None):
     from truerehab_bridge.config import load_config
     from truerehab_bridge.server import build_providers
-    path = HERE / "pi-bridge" / "config.toml"
+    path = Path(path).resolve() if path else HERE / "pi-bridge" / "config.toml"
     if not path.exists():
         path = HERE / "config.pi.toml"
         report("warn", "settings", "pi-bridge/config.toml missing (install.sh makes it); testing config.pi.toml")
@@ -184,6 +185,7 @@ def check_running_bridge(cfg, up):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--quick", action="store_true", help="skip the unit tests")
+    ap.add_argument("--config", help="settings file to check (default pi-bridge/config.toml)")
     a = ap.parse_args()
     version = (HERE / "VERSION.json").read_text() if (HERE / "VERSION.json").exists() else "{}"
     import json
@@ -191,7 +193,7 @@ def main():
     print(f"TrueRehab-RF Pi set {v.get('version', '?')} ({v.get('git_commit', '?')}{', modified' if v.get('git_dirty') else ''}), built {v.get('built', '?')}")
     check_python()
     check_packages()
-    cfg, _ = check_config()
+    cfg, _ = check_config(a.config)
     if not a.quick:
         run_tests()
     check_radar_ports()
