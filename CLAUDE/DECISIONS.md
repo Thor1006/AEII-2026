@@ -2,6 +2,27 @@
 
 <!-- Newest on top. One short entry per decision that someone might later ask "why did we do it this way?" about. -->
 
+## 2026-11-07 — sEMG: MyoWare over Wi-Fi, one bridge recording for all sensors, sEMG-envelope reps as a fallback
+- **Decision:**
+  - The MyoWare record sketch sends over Wi-Fi (TCP 3334), the IMU fw 2.1 design; Bluetooth stays as `WIFI_LINK 0`.
+  - The Pi bridge owns one session folder per Start/Stop; each provider (radar, `emg`) adds its files on the shared
+    clock. `record_dir` moves to `[bridge]`.
+  - Live sEMG: envelope 50/s and median frequency 4/s with the model's own `window_mdf`; the median frequency only
+    during movement, announced with a new optional manifest flag `intermittent`.
+  - Without pose or IMU, the model cuts reps from the sEMG envelope's bursts (fatigue labels only).
+  - See [report](output/2026-11-07-1535-semg-support.md).
+- **Why:**
+  - The user chose "Wi-Fi like the IMU" and "All 5 parts". The IMU loses data on the arm, Bluetooth didn't connect to
+    the Mac, and Wi-Fi needs no pairing on a Pi.
+  - One folder and one clock are what `check_session.py` needs to line the sensors up.
+  - At rest the median frequency measures noise, so it is only sent during movement; the flag stops the dashboard
+    and `check_bridge` from calling that silence a fault.
+- **Alternatives:**
+  - Bluetooth (no connection on Nov 4; extra Linux setup).
+  - Each provider recording its own folder (two clocks to align).
+  - Sending the median frequency at rest (meaningless values) or guessing from other signals (hides real faults).
+  - Rep timing from the space markers (depends on someone pressing space for every rep).
+
 ## 2026-11-05 — Raspberry Pi set: one tarball + installer; the bridge gets the real radar and records in the recorder's format
 - **Decision:**
   - `deploy/pi/build_bundle.py` packs a versioned tarball with file hashes: git-tracked sources, the built dashboard,
