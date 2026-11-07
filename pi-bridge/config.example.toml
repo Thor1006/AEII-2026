@@ -10,6 +10,7 @@ web_root = "../frontend/dist" # built dashboard (npm run build), relative to thi
 status_interval_ms = 1000
 frame_dtype = "f32"           # "u16" or "u8" cut Wi-Fi traffic 2–4× with a little precision loss
 client_queue = 120            # per-viewer buffer; a slow phone drops messages instead of slowing the Pi
+record_dir = "~/truerehab-sessions"   # Start/Stop in the dashboard records every sensor here (recorder format). "" = off
 
 # ---- Kit key: who may connect (protocol 1.2). Leave both empty for an OPEN kit (anyone on the Wi-Fi). ----
 # Make one:  python -m truerehab_bridge --new-key --write /boot/firmware/trh-key.txt
@@ -47,5 +48,11 @@ start_radar = true            # send radar-lab's profile at start, like the reco
 cfg_file = ""                 # "" = ../radar-lab/configs/fullmap_awr2x44p.cfg
 fps = 15                      # maps per second to viewers (the radar itself runs at 60)
 max_range_m = 2.4
-record_dir = "~/truerehab-sessions"   # Start/Stop in the dashboard records here, in the recorder's format
 replay = ""                   # a recorder session folder: play it instead of the live radar (testing)
+
+[providers.emg]
+enabled = false               # MyoWare 2.0 sEMG running firmware/myoware_record: envelope + median frequency
+port = "tcp://truerehab-myoware.local:3334"   # its Wi-Fi link; or a USB port like "/dev/ttyUSB0" (bench only, never worn)
+baud = 921600                 # USB only
+env_hz = 50                   # envelope values per second to viewers
+active_ratio = 9              # median frequency only while the muscle works (power >= 9x rest); 0 = always

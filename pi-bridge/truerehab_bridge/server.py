@@ -11,7 +11,8 @@ import logging
 import signal
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from websockets.asyncio.server import ServerConnection, serve
@@ -34,6 +35,7 @@ from .protocol import (
     now_ms,
 )
 from .providers import REGISTRY, Provider
+from .recording import Recording
 from .system import cpu_temp_c
 
 log = logging.getLogger("truerehab.bridge")
@@ -64,6 +66,8 @@ class Bridge:
         self.runs = [ProviderRun(p) for p in providers]
         self.viewers: set[Viewer] = set()
         self.session: Session | None = None
+        #: The open recording (Start/Stop in the dashboard), shared by every provider that saves data.
+        self.recording: Recording | None = None
         self._seq = 0
         self._frame_times: list[float] = []
         self._parts = [p.manifest() for p in providers]
@@ -183,10 +187,11 @@ class Bridge:
             )
             for r in self.runs:
                 r.provider.on_session_start(self.session)
+            recording = self._start_recording(self.session)
             self.emit(Event("session_start", {"session": self.session.wire()}, "Session started"))
             self._broadcast(dumps(self.status()))
             log.info("session %s started (%s)", self.session.id, self.session.exercise)
-            return True, None, {"session": self.session.wire()}
+            return True, None, {"session": self.session.wire(), **recording}
 
         if name == "session.stop":
             if not self.session or self.session.state != "running":
@@ -194,6 +199,7 @@ class Bridge:
             ended = self.session
             ended.state = "stopped"
             ended.ended_at = now_ms()
+            self._end_recording()
             for r in self.runs:
                 r.provider.on_session_end(ended)
             self.emit(Event("session_end", {"session": ended.wire()}, "Session ended"))
@@ -203,12 +209,58 @@ class Bridge:
 
         if name == "marker":
             label = _str_or_none(args.get("label")) or "Marker"
+            if self.recording:
+                try:
+                    self.recording.marker(label[:200])
+                except OSError as exc:              # disk full or unplugged: the live view goes on
+                    log.error("could not save the marker: %s", exc)
             for r in self.runs:
                 r.provider.on_marker(label[:200])
             self.emit(Event("marker", {"label": label[:200]}, label[:200]))
             return True, None, None
 
         return False, f'Unknown command "{name}". This bridge accepts: {", ".join(COMMANDS)}', None
+
+    # ---------- recording ----------
+
+    def _start_recording(self, session: Session) -> dict[str, Any]:
+        """Open one session folder for the providers that save data. Returns what the start command's ack adds."""
+        self._end_recording()                       # never two at once
+        recorders = [r.provider for r in self.runs if r.provider.records]
+        if not recorders or not self.cfg.record_dir:
+            return {}
+        try:
+            rec = Recording(Path(self.cfg.record_dir), session)
+        except (OSError, ValueError, ImportError) as exc:
+            log.error("not recording: %s", exc)
+            return {"recordingError": f"Not recording: {exc}"}
+        self.recording = rec
+        for p in recorders:
+            try:
+                p.on_recording_start(rec)
+            except Exception:  # one sensor failing to open its file must not stop the others
+                log.exception("provider %s could not start recording", p.name)
+        log.info("recording to %s", rec.dir)
+        return {"recording": rec.dir.name}
+
+    def _end_recording(self) -> None:
+        """Close the open recording: every provider closes its files, then meta.json gets their summaries."""
+        rec, self.recording = self.recording, None
+        if rec is None:
+            return
+        summary: dict[str, Any] = {}
+        for r in self.runs:
+            if r.provider.records:
+                try:
+                    summary.update(r.provider.on_recording_end() or {})
+                except Exception:
+                    log.exception("provider %s could not finish its recording", r.provider.name)
+        try:
+            rec.close(summary)
+        except OSError as exc:                      # disk full or unplugged: report it, keep the bridge running
+            log.error("could not finish the recording in %s: %s", rec.dir, exc)
+            return
+        log.info("recording saved in %s", rec.dir)
 
     # ---------- connections ----------
 
@@ -350,7 +402,8 @@ class Bridge:
             tasks = [heartbeat] + [r.task for r in self.runs if r.task]
             for t in tasks:
                 t.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)  # wait for their cleanup (radar stop, recording close)
+            await asyncio.gather(*tasks, return_exceptions=True)  # wait for their cleanup (radar stop, threads)
+            self._end_recording()                                 # then finish an open recording, not half-written
 
 
 def build_providers(cfg: BridgeConfig) -> list[Provider]:

@@ -12,9 +12,9 @@ static heatmap with the antennas at their real columns, the phase change since t
 range-Doppler map. One frame in four (15 fps) is sent to viewers as three maps: "Where things are",
 "Tiny motion" and "Movement speed", cropped to the first 2.4 m.
 
-Recording: Start/Stop in the dashboard writes every raw frame into a recorder session folder (radar.bin,
-radar_index.csv, meta.json, markers.csv) under record_dir, so model/check_session.py and export_dashboard.py
-read it unchanged.
+Recording: Start/Stop in the dashboard writes every raw frame into the bridge's shared session folder (radar.bin,
+radar_index.csv; the bridge writes meta.json and markers.csv, under [bridge] record_dir), so
+model/check_session.py and export_dashboard.py read it unchanged.
 
 Never flash firmware or change the radar configuration without asking the team.
 """
@@ -22,21 +22,21 @@ from __future__ import annotations
 
 import asyncio
 import csv
-import sys
 import threading
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from ..protocol import Axis, DeviceHealth, Frame, FrameStream, ManifestPart, Session
+from ..protocol import Axis, DeviceHealth, Frame, FrameStream, ManifestPart
+from ..repo import REPO, use_repo_code
 from .base import Emit, Provider
 
-REPO = Path(__file__).resolve().parents[3]          # the project (or unpacked Pi set) root
-for _sub in ("model", "radar-lab", "recorder"):
-    if str(REPO / _sub) not in sys.path:
-        sys.path.insert(0, str(REPO / _sub))
+if TYPE_CHECKING:
+    from ..recording import Recording
+
+use_repo_code()
 
 DEFAULT_CFG = REPO / "radar-lab" / "configs" / "fullmap_awr2x44p.cfg"
 XDS110 = (0x0451, 0xBEF3)                            # TI's on-board debugger: one command port, one data port
@@ -88,11 +88,11 @@ def find_xds110_ports(ports) -> tuple[str | None, str | None]:
 
 class RadarProvider(Provider):
     name = "radar"
+    records = True
 
     def __init__(self, data_port: str = "auto", cli_port: str = "auto", data_baud: int = 3_125_000,
                  cfg_file: str = "", start_radar: bool = True, fps: float = 15, max_range_m: float = 2.4,
-                 replay: str = "", replay_speed: float = 1.0, replay_loop: bool = True,
-                 record_dir: str = "~/truerehab-sessions", **options: Any) -> None:
+                 replay: str = "", replay_speed: float = 1.0, replay_loop: bool = True, **options: Any) -> None:
         super().__init__(**options)
         from trnet.contract import InputContract                     # numpy only (no PyTorch)
         from radarlab import cfg as radar_cfg
@@ -106,7 +106,6 @@ class RadarProvider(Provider):
         self.replay = Path(replay).expanduser() if replay else None
         self.replay_speed = max(0.1, float(replay_speed))
         self.replay_loop = bool(replay_loop)
-        self.record_dir = Path(record_dir).expanduser()
         c = self.contract
         span = round(self.rows * c.range_res_m, 2)
         self.y = Axis("Range", 0, span, "m")
@@ -241,7 +240,8 @@ class RadarProvider(Provider):
         raise RuntimeError("radar refused its settings")
 
     def _shutdown_radar(self) -> None:
-        self._finish_recording()
+        # An open recording stays open: after a crash the restarted reader goes on writing into it, and when the
+        # bridge stops it closes the recording itself, once this reader thread has finished.
         if self._cli is None:
             return
         try:
@@ -321,29 +321,24 @@ class RadarProvider(Provider):
             loop.call_soon_threadsafe(emit, msg)
 
     # ------------------------------------------------------------------ recording (recorder format)
-    def on_session_start(self, session: Session) -> None:
-        from rec import session as S
-        subject = session.user_id if session.user_id and S.SUBJECT_RE.match(session.user_id) else "KIT"
-        exercise = session.exercise if session.exercise and S.EXERCISE_RE.match(session.exercise.replace(" ", "_")) else "session"
-        self.record_dir.mkdir(parents=True, exist_ok=True)
-        w = S.SessionWriter(self.record_dir, subject, exercise, notes=f"recorded by the Pi bridge, session {session.id}")
+    def on_recording_start(self, rec: Recording) -> None:
         c = self.contract
-        w.add_source("radar", {"kind": "AWR2944PEVM mmWave demo (UART)" if not self.replay else f"replay of {self.replay.name}",
-                               "port": self.data_port, "baud": self.data_baud, "range_res_m": c.range_res_m,
-                               "vel_res_ms": c.vel_res_ms, "doppler_bins": c.doppler_bins, "virtual_antennas": 12,
-                               "started_by_recorder": self.start_radar and not self.replay, "cfg_file": str(self.cfg_path),
-                               "cfg_lines": list(self.cfg_lines)})
-        rec = {"writer": w, "bin": open(w.dir / "radar.bin", "wb"), "idx": open(w.dir / "radar_index.csv", "w", newline=""),
-               "offset": 0, "frames": 0, "first": None, "last": None, "missing": 0, "session": session.id}
-        rec["csv"] = csv.writer(rec["idx"])
-        rec["csv"].writerow(["frame_no", "t_ns", "offset", "length"])
+        rec.add_source("radar", {"kind": "AWR2944PEVM mmWave demo (UART)" if not self.replay else f"replay of {self.replay.name}",
+                                 "port": self.data_port, "baud": self.data_baud, "range_res_m": c.range_res_m,
+                                 "vel_res_ms": c.vel_res_ms, "doppler_bins": c.doppler_bins, "virtual_antennas": 12,
+                                 "started_by_recorder": self.start_radar and not self.replay, "cfg_file": str(self.cfg_path),
+                                 "cfg_lines": list(self.cfg_lines)})
+        files = {"rec": rec, "bin": open(rec.dir / "radar.bin", "wb"), "idx": open(rec.dir / "radar_index.csv", "w", newline=""),
+                 "offset": 0, "frames": 0, "first": None, "last": None, "missing": 0}
+        files["csv"] = csv.writer(files["idx"])
+        files["csv"].writerow(["frame_no", "t_ns", "offset", "length"])
         with self._lock:
-            old, self._rec = self._rec, rec
-            if old:
-                self._close_rec(old)
+            old, self._rec = self._rec, files
+        if old:
+            self._close_files(old)
 
     def _record(self, rec: dict[str, Any], raw: bytes, number: int) -> None:
-        t = rec["writer"].t()
+        t = rec["rec"].t()
         rec["bin"].write(raw)
         rec["csv"].writerow([number, t, rec["offset"], len(raw)])
         rec["offset"] += len(raw)
@@ -353,27 +348,19 @@ class RadarProvider(Provider):
         rec["last"] = number
         rec["frames"] += 1
 
-    def on_marker(self, label: str) -> None:
-        with self._lock:
-            if self._rec:
-                self._rec["writer"].marker("x", label)
-
-    def on_session_end(self, session: Session) -> None:
-        self._finish_recording()
-
-    def _finish_recording(self) -> None:
-        with self._lock:
-            rec, self._rec = self._rec, None
-            if rec:
-                self._close_rec(rec)
+    def on_recording_end(self) -> dict[str, Any]:
+        with self._lock:                            # after this the reader thread no longer touches the files
+            files, self._rec = self._rec, None
+        if not files:
+            return {}
+        self._close_files(files)
+        return {"radar": {"frames": files["frames"], "first_frame": files["first"], "last_frame": files["last"],
+                          "missing_frames": files["missing"], "bytes_skipped": 0, "error": None}}
 
     @staticmethod
-    def _close_rec(rec: dict[str, Any]) -> None:
-        rec["bin"].close()
-        rec["idx"].close()
-        rec["writer"].close({"radar": {"frames": rec["frames"], "first_frame": rec["first"], "last_frame": rec["last"],
-                                       "missing_frames": rec["missing"], "bytes_skipped": 0, "error": None},
-                             "bridge_session": rec["session"]})
+    def _close_files(files: dict[str, Any]) -> None:
+        files["bin"].close()
+        files["idx"].close()
 
 
 __all__ = ["RadarProvider", "find_xds110_ports"]

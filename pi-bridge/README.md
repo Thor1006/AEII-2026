@@ -1,13 +1,23 @@
 # TrueRehab-RF — Pi bridge
 
-Runs on the Raspberry Pi 5 in each kit. It collects data from the radar, Arduino and AI model ("providers"), sends it live to the web dashboard over WebSocket, and serves the dashboard itself. People just open `http://<pi>.local:8080`, and the page connects without typing anything.
+Runs on the Raspberry Pi 5 in each kit. It collects data from the radar, the MyoWare sEMG sensor, an Arduino and the AI model ("providers"), sends it live to the web dashboard over WebSocket, and serves the dashboard itself. People just open `http://<pi>.local:8080`, and the page connects without typing anything.
 
 ```
-providers (radar · Arduino · model) ──► bridge ──WebSocket :8765──► dashboards on the same Wi-Fi
+providers (radar · sEMG · Arduino · model) ──► bridge ──WebSocket :8765──► dashboards on the same Wi-Fi
                                           └──── HTTP :8080 serves the dashboard page
 ```
 
-> **Status:** the radar provider is only a template (`providers/radar.py`); no capture code exists yet. The **synthetic** provider sends made-up demo data so everything else can be tested now. The dashboard labels it "Demo data".
+> **Providers:** `radar` (the AWR2944PEVM on USB, or a replayed recording), `emg` (the MyoWare 2.0 sEMG sensor over Wi-Fi), `serial_aux` (an Arduino on USB) and `synthetic` (made-up demo data, labelled "Demo data" in the dashboard). Turn them on in `config.toml`. The Raspberry Pi set (`deploy/pi/`) installs all of this.
+
+## Recording: Start/Stop in the dashboard
+
+Start records one session folder under `[bridge] record_dir` (default `~/truerehab-sessions`) for every provider that saves data, all on one clock, in the recorder's format: `radar.bin` + `radar_index.csv` (radar), `emg.csv` (sEMG), `markers.csv`, `meta.json`. Stop closes it, and so does stopping the bridge. Check a recording with `model/check_session.py <folder>`. `record_dir = ""` turns recording off.
+
+## sEMG: the MyoWare 2.0 over Wi-Fi
+
+The board runs `firmware/myoware_record` (Wi-Fi link, port 3334). In `config.toml`: `[providers.emg]  enabled = true`. The dashboard's "Reference signals" panel then shows the **sEMG envelope** (50/s) and the **median frequency** (4/s, only while the muscle works; it falls as the muscle tires). Wear it only on battery, never with USB plugged in.
+
+No board? `python fake_myoware.py` serves FAKE sEMG the way the board does on `tcp://127.0.0.1:3334`; set `port = "tcp://127.0.0.1:3334"`.
 
 ## Setup on the Pi (5 steps)
 
@@ -78,9 +88,9 @@ The full byte-level spec is in `frontend/README.md`. In short:
 
 All of this is handled by the bridge. A provider only creates `Frame`, `Scores`, `Aux` and `Event` objects and lists them in `manifest()`.
 
-## Adding the real radar
+## Adding a provider
 
-Edit `truerehab_bridge/providers/radar.py`; the docstring lists the steps. Rules:
+Subclass `Provider` (`truerehab_bridge/providers/base.py`) and register it in `providers/__init__.py`. A provider that saves data sets `records = True` and writes its files in `on_recording_start`. Rules:
 
 - Everything you emit must also be listed in `manifest()`. Otherwise the dashboard labels it generically and `check_bridge.py` warns.
 - Everything listed in `manifest()` must actually arrive. Otherwise the dashboard shows "Never arrived" and the checker fails.
@@ -94,7 +104,9 @@ Edit `truerehab_bridge/providers/radar.py`; the docstring lists the steps. Rules
 |---|---|
 | `truerehab_bridge/server.py` | Envelope, broadcast, hello/status, commands, per-viewer buffers |
 | `truerehab_bridge/protocol.py` | Message types and encoders (Python twin of `frontend/src/sensor/protocol.ts`) |
-| `truerehab_bridge/providers/` | `synthetic.py` (demo), `serial_aux.py` (Arduino on the Pi), `radar.py` (template) |
+| `truerehab_bridge/providers/` | `radar.py` (AWR2944PEVM), `emg.py` (MyoWare sEMG), `serial_aux.py` (Arduino on the Pi), `synthetic.py` (demo) |
+| `truerehab_bridge/recording.py` | The shared session folder for Start/Stop |
+| `fake_myoware.py` | Fake MyoWare Wi-Fi link (FAKE sEMG) for tests without the board |
 | `truerehab_bridge/web.py` | Serves `frontend/dist` and `/truerehab-bridge.json` |
 | `check_bridge.py` | Conformance checker |
 | `truerehab_bridge/auth.py` | Kit key: handshake, signed commands, rate limit |
@@ -104,5 +116,4 @@ Edit `truerehab_bridge/providers/radar.py`; the docstring lists the steps. Rules
 
 - Without a kit key, anyone on the same Wi-Fi can view the kit and start or stop sessions. Set a key (see "Pairing a kit"). Real accounts and owner binding come later (multi-kit plan).
 - The key proves who connects, but the data isn't encrypted.
-- The bridge doesn't record to disk yet. Use the dashboard's Record button.
 - Plain `http`/`ws` only. Open the dashboard over http, not https.
