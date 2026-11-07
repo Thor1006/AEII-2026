@@ -127,6 +127,20 @@ class ReplayTest(unittest.TestCase):
         self.assertEqual(int(rec.valid.sum()), self.n_frames)
         self.assertEqual(rec.contract.az_cols, (0, 2, 7, 9, 3, 5, 10, 12))
 
+    def test_a_looping_replay_keeps_counting(self):
+        """Frame numbers go on across the replay's loops, in the packet header too: a recording of a replay longer than
+        its source then has no backwards jump (the model read one as a broken clock and 1667 missing frames)."""
+        from radarlab.tlv import FrameReader
+        p = RadarProvider(replay=str(self.session), replay_speed=1000, replay_loop=True)
+        nos, in_header = [], []
+        for raw, f in p._replay_frames():
+            nos.append(f.number)
+            in_header.append(FrameReader().feed(raw)[0].number)
+            if len(nos) == self.n_frames + 50:
+                break
+        self.assertEqual(nos, list(range(nos[0], nos[0] + len(nos))))
+        self.assertEqual(in_header, nos)
+
     def test_a_recording_without_frames_and_a_second_end(self):
         from rec import session as S
         p = self.provider()

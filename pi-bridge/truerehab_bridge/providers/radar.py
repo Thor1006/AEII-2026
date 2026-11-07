@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import csv
+import struct
 import threading
 import time
 from pathlib import Path
@@ -84,6 +85,14 @@ def find_xds110_ports(ports) -> tuple[str | None, str | None]:
 
     board.sort(key=order)
     return board[0].device, board[-1].device
+
+
+def renumber(frame, number: int) -> tuple[bytes, Any]:
+    """(raw, frame) with a new frame number, in the packet's header as well (radar-lab's HEADER: <8sIIII...)."""
+    import dataclasses
+    at = struct.calcsize("<8sIII")                   # magic, version, total length, platform, then the frame number
+    raw = frame.raw[:at] + struct.pack("<I", number & 0xFFFFFFFF) + frame.raw[at + 4:]
+    return raw, dataclasses.replace(frame, number=number, raw=raw)
 
 
 class RadarProvider(Provider):
@@ -258,6 +267,7 @@ class RadarProvider(Provider):
         idx = s.radar_index()
         raw = (s.dir / "radar.bin").read_bytes()
         self._set("ok", "replay")
+        shift = 0
         while not self._stop.is_set():
             t0, f0 = time.monotonic(), idx["t_s"][0]
             for t, off, n in zip(idx["t_s"], idx["offset"], idx["length"]):
@@ -266,10 +276,14 @@ class RadarProvider(Provider):
                     return
                 frames = FrameReader().feed(raw[off:off + n])
                 if frames:
-                    yield raw[off:off + n], frames[0]
+                    yield renumber(frames[0], frames[0].number + shift) if shift else (frames[0].raw, frames[0])
             if not self.replay_loop:
                 return
-            self._prev_z = self._prev_no = None     # the loop jumps back in time: no phase across it
+            # Each loop goes on counting where the last one stopped (in the frame's own header too), so a recording
+            # of a replay longer than its source has no backwards jump: the model would read that as a broken clock
+            # and "missing" frames (2026-11-07). There is no phase across the seam: it jumps back in the scene.
+            shift += int(idx["frame_no"][-1] - idx["frame_no"][0] + 1)
+            self._prev_z = self._prev_no = None
 
     # ------------------------------------------------------------------ per frame
     def _handle(self, raw: bytes, frame, loop: asyncio.AbstractEventLoop, emit: Emit) -> None:
