@@ -1,7 +1,7 @@
 # Context
 
 <!-- Living state. Keep under ~40 lines; reports hold detailed run history. -->
-**Last updated:** 2026-11-07 15:35 (sEMG support, Pi set v0.2)
+**Last updated:** 2026-11-07 16:01 (MyoWare record sketch uploaded, Wi-Fi link checked)
 
 ## Current focus
 **Plan B is selected and received: AWR2944PEVM, no DCA1000.** The submitted AWR1843BOOST/DCA1000 poster stays frozen. Two independent USB radar demos now coexist; their profiles, outputs and measured limits differ. Run only one serial collector at a time. No raw ADC or validated fatigue/body model is claimed.
@@ -17,12 +17,13 @@
   - Dashboard: `model/export_dashboard.py` writes a replay that `frontend/` opens with `?replay=/replays/<file>.ndjson`. The radar panel switches between 3 views. Live mode waits for the Pi. [Report](output/2026-11-05-1844-dashboard-replay-radar-check.md).
 - `sandbox/Encoder_0.1/` and the existing AI/dashboard demos still use synthetic input. `frontend/` (home/dashboard, EN/TH/zh-HK, session history) and `Phisit/` (teammate's FastAPI/React demo) are unchanged.
 - Ground truth, all into `recorder/` ([plan](plans/2026-11-04-recorder.md)):
-  - **MyoWare 2.0 sEMG:** tested with `firmware/myoware_demo/`. `firmware/myoware_record/` now sends over Wi-Fi like the IMU (`tcp://truerehab-myoware.local:3334`; Bluetooth kept as `WIFI_LINK 0`, which didn't connect on Nov 4). It compiles but has never been uploaded or run.
+  - **MyoWare 2.0 sEMG:** runs `firmware/myoware_record` with the Wi-Fi link since 2026-11-07 ([report](output/2026-11-07-1601-myoware-upload.md)): `tcp://truerehab-myoware.local:3334`, 1000.1 samples/s, 0 gaps, RSSI ~-45 dBm, and the Pi bridge's check passes with the real board. Not yet worn. Power switch must be ON (it cuts the ESP32 even on USB). On this Mac its CH340 USB port (`/dev/cu.usbserial-*`) can't do 921600 baud: upload with `UploadSpeed=115200`, read the data over Wi-Fi.
   - **IMU board** (`sandbox/imu-mpu6050-oled/`, chip 0x74 clone, [fix report](output/2026-11-04-2232-imu-firmware-fix.md)): now runs fw 2.1 RECORD + Wi-Fi at `tcp://truerehab-imu.local:3333`. Verified on the board: 200 Hz, byte-identical to USB, reconnects, timing 4.1 ms constant vs USB ([report](output/2026-11-05-0012-imu-wifi-link.md)). Wi-Fi password in the git-ignored `wifi_secrets.h`. 6-face accel calibration not yet run.
   - **Video pose** (MediaPipe): verified live on the MacBook webcam, camera 0. The camera only opens from the user's terminal, not from Claude's shell. Not yet recorded with the radar.
-- **Pi set v0.2** (`deploy/pi/`, [report](output/2026-11-07-1535-semg-support.md)): live radar + MyoWare sEMG (envelope, median frequency) in the dashboard; Start/Stop records both into one folder on one clock. Verified from the PortableSSD install with replayed radar + `fake_myoware.py`. Not yet run on a real Pi, the live radar or the real MyoWare. Live model scores need radar-only rep detection.
+- **Pi set v0.2** (`deploy/pi/`, [report](output/2026-11-07-1535-semg-support.md)): live radar + MyoWare sEMG (envelope, median frequency) in the dashboard; Start/Stop records both into one folder on one clock. Verified from the PortableSSD install with replayed radar + `fake_myoware.py`, and with the real MyoWare over Wi-Fi (`check_bridge` passes; not worn yet). Not yet run on a real Pi or the live radar. Live model scores need radar-only rep detection.
 
 ## Recent changes
+- 2026-11-07 - MyoWare: the Wi-Fi record sketch uploaded (Wi-Fi file copied from the IMU's, unopened); real board at 1000/s with 0 gaps over Wi-Fi; Pi bridge check passes. [Report](output/2026-11-07-1601-myoware-upload.md).
 - 2026-11-07 - sEMG support end to end (the IMU is unreliable): MyoWare Wi-Fi firmware, bridge `emg` provider and one shared recording, sEMG-envelope reps, dashboard EN/TH/zh-HK, Pi set v0.2 on the PortableSSD.
   - Verified without the board: `check_bridge` 18/18, a radar + sEMG recording is USABLE with "fatigue ✓"; fixed a replay-loop frame-number bug on the way.
   - [Report](output/2026-11-07-1535-semg-support.md).
@@ -55,7 +56,7 @@
 - Repo instructions describe macOS/zsh, but Windows work also exists. Home copy/font license and the poster's "oral health" wording remain open; submitted sources stay unchanged.
 
 ## Next steps
-0. **MyoWare:** upload `firmware/myoware_record` (board on USB, nobody wearing it, `wifi_secrets.h` next to it, the user's "upload it"), then wear it on battery and record curls with the radar; `check_session.py`, `python -m trnet.calibrate`.
+0. **MyoWare:** wear it on battery (switch ON, USB out, fresh pads on the biceps) and record curls with the radar over Wi-Fi; then `check_session.py`, `python -m trnet.calibrate`, and check the sEMG thresholds on the real signal.
 0. **Pi set v0.2:** live-radar check (power first, then USB; installed bridge + `check_bridge`), then on the real Pi: flash the SD card, copy from the SSD, `bash install.sh`, then `selftest.py` (see `deploy/pi/README.md`).
 1. **Fix the IMU wiring for the arm** (solder or a locking connector, cable taped down). On the arm it had 179 I²C errors and lost 36 of 72 s. Then redo the curls run with it.
    - Left/right test with a still metal object (tray or laptop lid) at radar height, ~1 m in front, then to the left, then to the right.

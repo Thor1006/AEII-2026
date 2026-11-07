@@ -1,6 +1,6 @@
 # Plan: sEMG (MyoWare) support across the kit, while the IMU is unreliable
 
-**Status:** done (2026-11-07): all 5 parts built, tested and pushed; see [report](../output/2026-11-07-1535-semg-support.md). Still needs the user: the MyoWare upload and a worn test.
+**Status:** done (2026-11-07): all 5 parts built, tested and pushed; see [report](../output/2026-11-07-1535-semg-support.md). MyoWare uploaded and its Wi-Fi link checked the same day ([report](../output/2026-11-07-1601-myoware-upload.md)); a worn test is still to do.
 **Date:** 2026-11-07
 
 ## Why
