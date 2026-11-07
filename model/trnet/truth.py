@@ -93,29 +93,44 @@ def load_emg(session, name="emg"):
                d["dev_us"])
 
 
-def emg_mdf(emg: Emg, win_s=0.5, hop_s=0.25, band=(20.0, 450.0)):
-    """-> (t_center_s, mdf_hz, band_power) per window; windows across a dropout are skipped."""
-    n, hop = int(win_s * emg.fs), int(hop_s * emg.fs)
-    freqs = np.fft.rfftfreq(n, 1 / emg.fs)
+def mdf_setup(n, fs=1000.0, band=(20.0, 450.0)):
+    """What every median-frequency window of n samples shares: (frequencies, kept bins, Hann window).
+    Kept: the band without the mains frequency and its harmonics (+-2.5 Hz)."""
+    freqs = np.fft.rfftfreq(n, 1 / fs)
     keep = (freqs >= band[0]) & (freqs <= band[1])
     for h in np.arange(MAINS_HZ, band[1] + 1, MAINS_HZ):
         keep &= np.abs(freqs - h) > 2.5
-    win = np.hanning(n)
-    gap_at = set(_gaps(emg.t_s, emg.fs))
-    gap_idx = np.array(sorted(gap_at))
+    return freqs, keep, np.hanning(n)
+
+
+def window_mdf(seg, setup):
+    """(median frequency Hz, band power) of one window of raw sEMG, or None without power in the band.
+    The Pi bridge's live sEMG uses this too, so the dashboard shows what the fatigue labels are made from."""
+    freqs, keep, win = setup
+    seg = np.asarray(seg, dtype=float)
+    P = np.abs(np.fft.rfft((seg - seg.mean()) * win)) ** 2
+    P[~keep] = 0
+    c = np.cumsum(P)
+    if c[-1] <= 0:
+        return None
+    return float(freqs[np.searchsorted(c, c[-1] / 2)]), float(c[-1])
+
+
+def emg_mdf(emg: Emg, win_s=0.5, hop_s=0.25, band=(20.0, 450.0)):
+    """-> (t_center_s, mdf_hz, band_power) per window; windows across a dropout are skipped."""
+    n, hop = int(win_s * emg.fs), int(hop_s * emg.fs)
+    setup = mdf_setup(n, emg.fs, band)
+    gap_idx = _gaps(emg.t_s, emg.fs)
     ts, mdf, power = [], [], []
     for s in range(0, len(emg.raw) - n + 1, hop):
         if gap_idx.size and np.any((gap_idx >= s) & (gap_idx < s + n - 1)):
             continue
-        seg = emg.raw[s:s + n] - emg.raw[s:s + n].mean()
-        P = np.abs(np.fft.rfft(seg * win)) ** 2
-        P[~keep] = 0
-        c = np.cumsum(P)
-        if c[-1] <= 0:
+        r = window_mdf(emg.raw[s:s + n], setup)
+        if r is None:
             continue
         ts.append(emg.t_s[s + n // 2])
-        mdf.append(freqs[np.searchsorted(c, c[-1] / 2)])
-        power.append(c[-1])
+        mdf.append(r[0])
+        power.append(r[1])
     return np.array(ts), np.array(mdf), np.array(power)
 
 
