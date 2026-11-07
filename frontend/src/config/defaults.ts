@@ -43,6 +43,8 @@ export const eventTones: Record<string, 'good' | 'warn' | 'bad' | 'info'> = {
 export const auxChannelLabels: Record<string, string> = {
   elbow_angle_deg: 'Elbow angle (°)',
   emg_rms: 'sEMG RMS',
+  emg_env: 'sEMG envelope (ADC)',
+  emg_mdf: 'sEMG median frequency (Hz)',
   force_n: 'Force (N)',
 };
 

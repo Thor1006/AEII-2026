@@ -31,6 +31,9 @@ export function createTranslator(language: Language) {
     let result: string | undefined = lookup(text);
     if (result === undefined) {
       for (const pattern of patterns) {
+        // " · " joins separate parts (e.g. a device's health): only a pattern written with " · " may span it, so
+        // '{rate} samples/s' can't swallow 'Flat signal: … · 1000 samples/s'; the parts translate one by one below.
+        if (text.includes(' · ') && !pattern.key.includes(' · ')) continue;
         const match = pattern.regex.exec(text);
         if (!match) continue;
         result = interpolate(dictionary[pattern.key], Object.fromEntries(pattern.names.map((name,i) => [name, ['action','pattern','reason','exercise','label','side'].includes(name) ? translate(match[i+1], {}, depth+1) : match[i+1]])));

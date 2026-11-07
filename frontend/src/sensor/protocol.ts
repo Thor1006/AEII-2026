@@ -191,6 +191,8 @@ export interface AuxChannelInfo {
   rateHz?: number;
   /** Which device produces it (matches a key in status.devices). */
   device?: string;
+  /** Sent only at times (e.g. the sEMG median frequency only during movement): silence is not a fault. */
+  intermittent?: boolean;
 }
 
 export interface ActionInfo {

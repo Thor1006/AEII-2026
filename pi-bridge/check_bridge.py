@@ -459,16 +459,14 @@ async def _check(ws: Any, rep: Report, seconds: float, test_commands: bool, sign
     for a in manifest.get("aux", []):
         n = counts.get(f"aux:{a['key']}", 0)
         dev = device_states.get(a.get("device") or "", {})
-        siblings = [b for b in manifest.get("aux", []) if b is not a and a.get("device") and b.get("device") == a.get("device")
-                    and counts.get(f"aux:{b['key']}", 0)]
         if n:
             rep.ok(f'Signal "{a["label"]}": {n} samples')
         elif dev and dev.get("state") != "ok":
             rep.warn(f'Signal "{a["label"]}": not arriving, and the bridge says why: {dev.get("label", a.get("device"))} — {dev.get("message", dev.get("state"))}')
-        elif siblings:
-            # Some signals come only at times: the sEMG median frequency only while the muscle works.
-            rep.warn(f'Signal "{a["label"]}": none in {seconds:.0f} s, though "{siblings[0]["label"]}" from the same sensor '
-                     "arrived. Fine if it is sent only at times (the sEMG median frequency only while the muscle works).")
+        elif a.get("intermittent"):
+            # Announced as sent only at times (e.g. the sEMG median frequency only during movement).
+            rep.warn(f'Signal "{a["label"]}": none in {seconds:.0f} s. It is sent only at times (e.g. during movement): '
+                     "move, or check for longer with --seconds.")
         else:
             rep.fail(f'Signal "{a["label"]}" ({a["key"]}): announced but never arrived')
     announced = {f"score:{x['key']}" for x in manifest.get("scores", [])} | {f"aux:{x['key']}" for x in manifest.get("aux", [])}

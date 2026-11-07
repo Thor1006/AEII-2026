@@ -93,7 +93,7 @@ All of this is handled by the bridge. A provider only creates `Frame`, `Scores`,
 Subclass `Provider` (`truerehab_bridge/providers/base.py`) and register it in `providers/__init__.py`. A provider that saves data sets `records = True` and writes its files in `on_recording_start`. Rules:
 
 - Everything you emit must also be listed in `manifest()`. Otherwise the dashboard labels it generically and `check_bridge.py` warns.
-- Everything listed in `manifest()` must actually arrive. Otherwise the dashboard shows "Never arrived" and the checker fails.
+- Everything listed in `manifest()` must actually arrive. Otherwise the dashboard shows "Never arrived" and the checker fails. A signal sent only at times (the sEMG median frequency, only during movement) is announced with `intermittent=True`: the dashboard then shows "Waiting for movement" instead of a fault.
 - Put blocking work (UDP capture, FFT) in a thread. Hand messages back with `loop.call_soon_threadsafe(emit, msg)`.
 - Report problems in `health()` in plain words. Users see them.
 - Never flash firmware or change the radar configuration without asking the team.

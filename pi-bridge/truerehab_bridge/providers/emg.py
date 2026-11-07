@@ -169,7 +169,7 @@ class EmgProvider(Provider):
     def manifest(self) -> ManifestPart:
         return ManifestPart(aux=[
             AuxChannel("emg_env", "sEMG envelope", "ADC", FS / self.env_block, DEVICE),
-            AuxChannel("emg_mdf", "sEMG median frequency", "Hz", FS / MDF_HOP, DEVICE),
+            AuxChannel("emg_mdf", "sEMG median frequency", "Hz", FS / MDF_HOP, DEVICE, intermittent=True),  # only during movement
         ])
 
     def _where(self) -> str:
@@ -206,7 +206,7 @@ class EmgProvider(Provider):
             parts.append(f"the board dropped {dropped} lines (Wi-Fi too slow)")
         if rec_s is not None:
             parts.append(f"recording {rec_s:.0f} s")
-        return {DEVICE: DeviceHealth(state, LABEL, ", ".join(parts))}
+        return {DEVICE: DeviceHealth(state, LABEL, " · ".join(parts))}     # " · " parts translate one by one
 
     def _set_link(self, state: str, message: str) -> None:
         with self._lock:

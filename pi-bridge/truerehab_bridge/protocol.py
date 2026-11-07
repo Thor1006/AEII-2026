@@ -106,9 +106,12 @@ class AuxChannel:
     rate_hz: float | None = None
     #: Key in status.devices that produces it, so the UI can say "Arduino not plugged in".
     device: str | None = None
+    #: Sent only at times (e.g. the sEMG median frequency only during movement): silence is not a fault.
+    intermittent: bool = False
 
     def wire(self) -> dict[str, Any]:
-        return _clean({"key": self.key, "label": self.label, "unit": self.unit, "rateHz": self.rate_hz, "device": self.device})
+        return _clean({"key": self.key, "label": self.label, "unit": self.unit, "rateHz": self.rate_hz, "device": self.device,
+                       "intermittent": True if self.intermittent else None})
 
 
 @dataclass

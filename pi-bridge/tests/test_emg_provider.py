@@ -118,6 +118,12 @@ class Signal(unittest.TestCase):
         self.assertEqual(h.state, "ok", h.message)
         self.assertIn("clipping in 10% of samples", h.message)
 
+    def test_median_frequency_is_announced_as_intermittent(self):
+        aux = {a.key: a.wire() for a in EmgProvider(port="tcp://127.0.0.1:9").manifest().aux}
+        self.assertEqual(aux["emg_mdf"]["intermittent"], True)          # only during movement: silence isn't a fault
+        self.assertNotIn("intermittent", aux["emg_env"])
+        self.assertEqual((aux["emg_env"]["rateHz"], aux["emg_mdf"]["rateHz"]), (50.0, 4.0))
+
     def test_addresses(self):
         self.assertEqual(tcp_address("tcp://truerehab-myoware.local:3334"), ("truerehab-myoware.local", 3334))
         self.assertIsNone(tcp_address("/dev/ttyUSB0"))
@@ -154,7 +160,7 @@ class Live(unittest.TestCase):
         self.wait_for(lambda: len(values(self.out, "emg_env")) >= 200, what="the envelope")
         h = self.p.health()["emg"]
         self.assertEqual(h.state, "ok", h.message)
-        self.assertRegex(h.message, r"^\d+ samples/s, Wi-Fi -52 dBm$")
+        self.assertRegex(h.message, r"^\d+ samples/s · Wi-Fi -52 dBm$")
 
     def test_records_like_the_recorder_and_reconnects(self):
         from rec import session as S
