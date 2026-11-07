@@ -18,7 +18,7 @@ class Processed:
     imu: object = None
     pose: object = None
     sync: dict = field(default_factory=dict)
-    flexion_source: str = None        # "pose" or "imu"
+    rep_source: str = None            # reps found from: "pose" or "imu" (elbow angle), or "emg" (envelope, fallback)
     reps: list = field(default_factory=list)
     measures: list = field(default_factory=list)
     targets: dict = field(default_factory=dict)
@@ -51,16 +51,17 @@ def process(path, contract=None, apply_sync=True):
                 if info and info["applied"]:
                     setattr(out, name, TR.shift(getattr(out, name), info["offset_ms"] / 1000))
     if out.pose is not None:
-        t, flex = out.pose.t_s, out.pose.flexion_deg
-        out.flexion_source = "pose"
+        out.rep_source, out.reps = "pose", RP.find_reps(out.pose.t_s, out.pose.flexion_deg)
     elif out.imu is not None:
         flex, _ = TR.forearm_flexion(out.imu)
-        t = out.imu.t_s
-        out.flexion_source = "imu"
-    else:
-        out.notes.append("no pose or IMU: reps can't be found")
+        out.rep_source, out.reps = "imu", RP.find_reps(out.imu.t_s, flex)
+    if not out.reps and out.emg is not None:      # no angle, or no reps in it: the sEMG bursts instead
+        if out.rep_source:
+            out.notes.append(f"no reps in the {out.rep_source} elbow angle: reps from the sEMG envelope instead")
+        out.rep_source, out.reps = "emg", RP.find_reps_emg(out.emg.t_s, out.emg.env)
+    if out.rep_source is None:
+        out.notes.append("no pose, IMU or sEMG: reps can't be found")
         return out
-    out.reps = RP.find_reps(t, flex)
     mdf = TR.emg_mdf(out.emg) if out.emg is not None else None
     out.measures = L.rep_measures(out.reps, mdf, out.pose)
     if out.reps:

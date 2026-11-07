@@ -70,7 +70,9 @@ class FakeSessionsTest(unittest.TestCase):
                             "name_subject", "raw_video")), stats=STATS)
         cls.no_emg = synth.make_session(cls.tmp, synth.make_person("F03", 3), dataclasses.replace(
             plan, problems=("emg_as_imu", "no_pose")), stats=STATS)
-        cls.rg, cls.rb, cls.rn = (check_session(d) for d in (cls.good, cls.bad, cls.no_emg))
+        cls.emg_only = synth.make_session(cls.tmp, synth.make_person("F05", 5), dataclasses.replace(
+            plan, problems=("no_imu", "no_pose")), stats=STATS)
+        cls.rg, cls.rb, cls.rn, cls.re = (check_session(d) for d in (cls.good, cls.bad, cls.no_emg, cls.emg_only))
 
     @classmethod
     def tearDownClass(cls):
@@ -99,6 +101,15 @@ class FakeSessionsTest(unittest.TestCase):
         self.assertEqual(r["can_train"]["compensation"]["why"], "needs pose")
         self.assertTrue(r["can_train"]["quality"]["ok"])      # reps from the IMU
         self.assertTrue(has(r, "from the imu elbow angle"))
+
+    def test_semg_without_pose_or_imu_still_trains_fatigue(self):
+        r = self.re
+        self.assertTrue(has(r, "8 reps in 1 set(s) from the sEMG envelope (fallback); 8 space markers", "ok"))
+        self.assertTrue(has(r, "quality and compensation can't be labelled", "info"))
+        self.assertTrue(r["can_train"]["fatigue"]["ok"], r["can_train"])
+        self.assertEqual(r["can_train"]["quality"]["why"], "needs pose or IMU")
+        self.assertEqual(r["can_train"]["compensation"]["why"], "needs pose")
+        self.assertTrue(r["usable"])
 
     def test_radar_without_frames_is_reported_not_a_crash(self):
         from rec import session as S

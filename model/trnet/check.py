@@ -241,15 +241,21 @@ def check_and_process(path, contract=None):
     rep.numbers["sync"] = p.sync
 
     # ---------------------------------------------------------- reps and labels
-    if p.flexion_source is None:
-        rep.add("reps", "fail", "no pose or IMU: reps can't be found (no ground truth)")
+    if p.rep_source is None:
+        rep.add("reps", "fail", "no pose, IMU or sEMG: reps can't be found (no ground truth)")
     else:
         n_rep = len(p.reps)
         n_mark = sum(1 for _, k, _ in s.markers if k == "space")
         sets = len({r.set_id for r in p.reps})
         lvl = "ok" if n_rep and (n_mark == 0 or abs(n_rep - n_mark) <= 1) else "warn"
-        rep.add("reps", lvl, f"{n_rep} reps in {sets} set(s) from the {p.flexion_source} elbow angle; "
-                             f"{n_mark} space markers")
+        source = "the sEMG envelope (fallback)" if p.rep_source == "emg" else f"the {p.rep_source} elbow angle"
+        rep.add("reps", lvl, f"{n_rep} reps in {sets} set(s) from {source}; {n_mark} space markers")
+        for note in p.notes:
+            if note.startswith("no reps in the"):
+                rep.add("reps", "warn", note)
+        if p.rep_source == "emg":
+            rep.add("reps", "info", "sEMG has no joint angle: quality and compensation can't be labelled from this "
+                                    "session; curls without a pause between them can merge into one burst")
         if p.reps:
             T = (rec.contract.frames_per_rep / rec.contract.fps) if rec is not None else 128 / 60
             long_ = [i + 1 for i, r in enumerate(p.reps) if r.duration_s > T]
@@ -268,8 +274,8 @@ def check_and_process(path, contract=None):
             why = ""
         elif rec is None:
             why = "no radar"
-        elif p.flexion_source is None:
-            why = "no pose or IMU (no ground truth)"
+        elif p.rep_source is None:
+            why = "no pose, IMU or sEMG (no ground truth)"
         elif not p.reps:
             why = "no reps found"
         else:

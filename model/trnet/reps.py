@@ -1,4 +1,5 @@
-"""Cut a session into reps from the elbow flexion angle (pose, or the IMU if there is no pose).
+"""Cut a session into reps from the elbow flexion angle (pose, or the IMU if there is no pose), or, without either,
+from the sEMG envelope (find_reps_emg).
 
 A rep = valley -> peak -> valley of the flexion angle with at least 30 deg range and 0.8 s length. Its start and
 end are where the angle is within 10 % of the range from its valleys, so rest between reps isn't counted.
@@ -9,6 +10,10 @@ from dataclasses import asdict, dataclass
 import numpy as np
 
 MIN_ROM_DEG = 30.0
+EMG_SWING = 0.30          # an sEMG burst rises at least 30 % of the session's envelope range above the rest around it
+EMG_NOISE_K = 15.0        # ... and at least 15x the resting envelope's own noise (so no activity = no reps)
+EMG_REST_FRAC = 0.30      # curls are cut apart where the envelope comes down to 30 % of the lower neighbouring peak
+EMG_SMOOTH_S = 0.2
 MIN_DUR_S = 0.8
 MAX_DUR_S = 8.0
 SET_BREAK_S = 8.0
@@ -123,6 +128,57 @@ def find_reps(t, flexion_deg, min_rom=MIN_ROM_DEG, min_dur=MIN_DUR_S, max_dur=MA
             continue
         reps.append(Rep(float(t[i0]), float(t[p]), float(t[i1]), float(rom), float(speed[i0:i1 + 1].max()),
                         sparc(speed[i0:i1 + 1], fs)))
+    return group_sets(reps)
+
+
+def find_reps_emg(t, env, swing=EMG_SWING, min_dur=MIN_DUR_S, max_dur=MAX_DUR_S):
+    """Reps from the sEMG envelope, for sessions without a joint angle (no pose, no IMU): each curl is a burst of
+    biceps activity. Rest -> burst -> rest, rising and falling by at least `swing` x the session's envelope range
+    (95th minus 5th percentile) and by at least 15x the resting envelope's noise (min 1 count: a session without
+    activity gives no reps), 0.8-8 s long. Bursts are cut apart only where the envelope comes down near rest (to 30 %
+    of the lower neighbouring peak's height): a dip inside one curl stays higher. Start and end where the envelope is
+    within 10 % of the burst's height from the rest on each side, peak at the envelope's peak.
+    There is no angle, so rom, peak speed and smoothness are NaN: quality and compensation labels stay masked, only
+    fatigue (sEMG median frequency) can be labelled. Curls without a pause between them can merge into one burst,
+    and a dip in activity at the top of a curl can split one: the IMU or camera stay better for rep timing."""
+    t = np.asarray(t, float)
+    x = np.asarray(env, float)
+    ok = np.isfinite(x)
+    if ok.sum() < 10:
+        return []
+    x = np.interp(t, t[ok], x[ok])
+    step = max(1, int(round(1 / (50 * np.median(np.diff(t))))))     # 50 values/s is plenty to find bursts
+    n = len(x) // step * step
+    tb, xb = t[:n].reshape(-1, step).mean(1), x[:n].reshape(-1, step).mean(1)
+    if len(xb) < 10:
+        return []
+    fs = 1 / np.median(np.diff(tb))
+    xs = _smooth(xb, max(1, int(round(EMG_SMOOTH_S * fs))))
+    lo, hi = np.percentile(xs, [5, 95])
+    thr = swing * (hi - lo)
+    if thr <= 0:
+        return []
+    noise = max(1.0, float(np.std(xs[xs <= np.percentile(xs, 30)])))     # the quietest 30 %: rest
+    need = max(thr, EMG_NOISE_K * noise)
+    ext = zigzag(xs, thr)
+    cuts = []
+    for j, (i, kind) in enumerate(ext):
+        peaks = [xs[ext[m][0]] for m in (j - 1, j + 1) if 0 <= m < len(ext)]
+        if kind == -1 and (not peaks or xs[i] - lo <= EMG_REST_FRAC * (min(peaks) - lo)):
+            cuts.append(i)
+    reps = []
+    for v1, v2 in zip(cuts, cuts[1:]):
+        p = v1 + int(np.argmax(xs[v1:v2 + 1]))
+        rise, fall = xs[p] - xs[v1], xs[p] - xs[v2]
+        if rise < need or fall < max(0.7 * thr, EMG_NOISE_K * noise):
+            continue
+        up = np.flatnonzero(xs[v1:p + 1] <= xs[v1] + ONSET_FRAC * rise)
+        down = np.flatnonzero(xs[p:v2 + 1] <= xs[v2] + ONSET_FRAC * fall)
+        i0 = v1 + (up[-1] if up.size else 0)
+        i1 = p + (down[0] if down.size else v2 - p)
+        if not (min_dur <= tb[i1] - tb[i0] <= max_dur):
+            continue
+        reps.append(Rep(float(tb[i0]), float(tb[p]), float(tb[i1]), np.nan, np.nan, np.nan))
     return group_sets(reps)
 
 

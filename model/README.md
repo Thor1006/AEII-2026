@@ -96,7 +96,7 @@ git-ignored. The fake sessions take ~270 MB and the cache ~60 MB. Delete them an
 | Radar | `trnet/radar.py` | Frames → 60-fps grid (gaps masked), angle FFT, magnitude + phase change, range-Doppler |
 | Ground truth | `trnet/truth.py` | sEMG median frequency, IMU forearm angle, pose angles (training only) |
 | Shrug sync | `trnet/sync.py` | Each sensor's leftover offset against the radar from the 3 shrugs |
-| Reps | `trnet/reps.py` | Reps from the elbow angle (pose, else IMU), sets, smoothness (SPARC) |
+| Reps | `trnet/reps.py` | Reps from the elbow angle (pose, else IMU), sets, smoothness (SPARC); without either, from the sEMG envelope's bursts (then only fatigue can be labelled) |
 | Labels | `trnet/labels.py` | Fatigue, quality, 3 compensation flags, next-rep risk; **placeholder thresholds** |
 | Pipeline | `trnet/pipeline.py` | One session → all of the above |
 | Check | `trnet/check.py`, `check_session.py` | Usable or not, and why |
@@ -113,6 +113,7 @@ git-ignored. The fake sessions take ~270 MB and the cache ~60 MB. Delete them an
   - channel 2 is the phase change since the last frame (only in cells within 30 dB of the session level; 0 after a gap).
 - `D [1, 64, 16]`: range-Doppler magnitude.
 - A rep is 128 frames (2.13 s). Longer reps are cropped around their peak.
+- Reps from sEMG alone (no camera, no IMU) are a fallback: curls need a short pause between them, or they merge into one burst.
 
 **Network:**
 

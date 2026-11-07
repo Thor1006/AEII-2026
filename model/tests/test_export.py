@@ -65,6 +65,22 @@ class ExportTest(unittest.TestCase):
         kinds = [m["kind"] for m in self.msgs if m["type"] == "event"]
         self.assertEqual((kinds[0], kinds[-1]), ("session_start", "session_end"))
 
+    def test_reps_from_semg_export_without_an_angle(self):
+        """Radar + sEMG only: reps come from the sEMG envelope and have no range of motion. The export leaves romDeg
+        out instead of writing NaN, which the browser's JSON reader refuses."""
+        folder = synth.make_session(self.tmp / "emg", synth.make_person("F05", 5),
+                                    synth.Plan(sets=1, reps_per_set=6, set_rest_s=10, problems=("no_imu", "no_pose")),
+                                    stats=CB.load_stats())
+        weights = self.tmp / "untrained.pt"
+        result = run_session(folder, weights)
+        self.assertEqual(result.processed.rep_source, "emg")
+        out = self.tmp / "replay_emg.ndjson"
+        EX.export(result, out)
+        msgs = [json.loads(line, parse_constant=lambda c: self.fail(f"{c} in the export")) for line in out.read_text().splitlines()]
+        ends = [m["data"] for m in msgs if m["type"] == "event" and m["kind"] == "rep_end"]
+        self.assertEqual(len(ends), 6)
+        self.assertTrue(all("romDeg" not in e for e in ends))
+
 
 if __name__ == "__main__":
     unittest.main()

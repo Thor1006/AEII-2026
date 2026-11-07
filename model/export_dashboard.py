@@ -116,7 +116,10 @@ def export(run, out_path):
     latest = None
     for n, (rep, sc, (action, why)) in enumerate(zip(run.reps, run.scores, run.actions)):
         add(rep.start_s, {"type": "event", "kind": "rep_start", "data": {"rep": n + 1}})
-        add(rep.end_s, {"type": "event", "kind": "rep_end", "data": {"rep": n + 1, "romDeg": round(rep.rom_deg, 1)}})
+        end = {"rep": n + 1}
+        if np.isfinite(rep.rom_deg):                  # reps found from the sEMG envelope have no angle
+            end["romDeg"] = round(rep.rom_deg, 1)
+        add(rep.end_s, {"type": "event", "kind": "rep_end", "data": end})
         if sc is None:
             continue
         latest = (rep.end_s, sc)
@@ -145,9 +148,9 @@ def export(run, out_path):
         m["seq"] = i
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w") as f:
-        f.write(json.dumps(hello, separators=(",", ":")) + "\n")
+        f.write(json.dumps(hello, separators=(",", ":"), allow_nan=False) + "\n")
         for m in msgs:
-            f.write(json.dumps(m, separators=(",", ":")) + "\n")
+            f.write(json.dumps(m, separators=(",", ":"), allow_nan=False) + "\n")   # NaN would break the browser
     return len(msgs) + 1
 
 

@@ -79,6 +79,25 @@ class RepsTest(unittest.TestCase):
         t = np.arange(0, 20, 0.01)
         self.assertEqual(RP.find_reps(t, 10 * np.sin(2 * np.pi * t / 2)), [])
 
+    def test_reps_from_the_semg_envelope(self):
+        """No pose, no IMU: each fake curl's burst of activity is one rep, its edges within 0.25 s, sets kept."""
+        from trnet import synth
+        from trnet.calibrate import load_stats
+        g = np.random.default_rng(7)
+        person = synth.make_person("E01", 7)
+        tl = synth.plan_timeline(person, synth.Plan(sets=2, reps_per_set=6, set_rest_s=15), g)
+        t, _, env = synth.emg_samples(person, tl, load_stats(), g)
+        reps = RP.find_reps_emg(t, env)
+        self.assertEqual(len(reps), len(tl.reps))
+        for r, truth in zip(reps, tl.reps):
+            self.assertAlmostEqual(r.start_s, truth["start"], delta=0.25)
+            self.assertAlmostEqual(r.end_s, truth["end"], delta=0.25)
+            self.assertTrue(r.start_s < r.peak_s < r.end_s)
+            self.assertEqual(r.set_id, truth["set"])
+            self.assertTrue(np.isnan(r.rom_deg) and np.isnan(r.peak_speed_dps))   # no angle from sEMG
+        self.assertEqual(RP.find_reps_emg(t, np.full(t.size, 12.0)), [])          # no bursts, no reps
+        self.assertEqual(RP.find_reps_emg(t, g.normal(12, 2, t.size)), [])         # noise isn't a curl
+
     def test_zigzag(self):
         x = np.array([0, 5, 1, 40, 38, 2, 3, 45, 0], float)
         self.assertEqual(RP.zigzag(x, 30), [(0, -1), (3, +1), (5, -1), (7, +1), (8, -1)])
