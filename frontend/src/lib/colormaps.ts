@@ -57,9 +57,11 @@ const colormaps: Record<string, Colormap> = {
   inferno,
   gray: gradient(['#000000', '#ffffff']),
   ice: gradient(['#06121f', '#0b3b5c', '#1d7a8c', '#7fd1c7', '#f2fbf9']),
+  /** Signed maps (e.g. phase change): blue below zero, dark at zero, orange above. */
+  diverge: gradient(['#2f6fd6', '#1c1c20', '#f0962e']),
 };
 
-export type ColormapName = 'viridis' | 'inferno' | 'gray' | 'ice' | (string & {});
+export type ColormapName = 'viridis' | 'inferno' | 'gray' | 'ice' | 'diverge' | (string & {});
 
 export function getColormap(name: ColormapName | Colormap): Colormap {
   if (typeof name !== 'string') return name;

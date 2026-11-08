@@ -30,6 +30,9 @@ class BridgeConfig:
     key: str = ""
     #: File holding the key, e.g. on the SD card's boot partition so it can be read from any computer.
     key_file: str = ""
+    #: Start/Stop in the dashboard records one session folder here (the recorder's format) with every provider
+    #: that saves data (radar, emg). A relative path is from the config file. "" = don't record.
+    record_dir: str = "~/truerehab-sessions"
     #: [providers.<name>] tables, only those with enabled = true are started.
     providers: dict[str, dict[str, Any]] = field(default_factory=lambda: {"synthetic": {"enabled": True}})
 
@@ -57,6 +60,11 @@ def load_config(path: str | Path | None) -> BridgeConfig:
         cfg.key_file = str(kf if kf.is_absolute() else (path.parent / kf).resolve())
     if "providers" in raw:
         cfg.providers = raw["providers"]
+    # Pi set v0.1 had record_dir under [providers.radar]: still read there when [bridge] doesn't set it.
+    record_dir = b.get("record_dir", (cfg.providers.get("radar") or {}).get("record_dir"))
+    if record_dir is not None:
+        rd = Path(str(record_dir)).expanduser()
+        cfg.record_dir = "" if not str(record_dir).strip() else str(rd if rd.is_absolute() else (path.parent / rd).resolve())
     if cfg.frame_dtype not in ("f32", "u16", "u8"):
         raise ValueError(f"frame_dtype must be f32, u16 or u8, not {cfg.frame_dtype!r}")
     cfg.resolved_key()  # fail at startup, not on the first connection, if the key is unreadable or malformed

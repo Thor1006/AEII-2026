@@ -44,6 +44,17 @@ assert.equal(t('Patient note: felt better today'), 'Patient note: felt better to
 assert.equal(t('constructor'), 'constructor');
 assert.equal(t('{constructor}'), '{constructor}');
 assert.equal(createTranslator('en')('{constructor}'), '{constructor}');
+// Radar points view (contract v1, 2026-11-08)
+assert.equal(createTranslator('th')('Points (height)'), 'จุดที่เรดาร์ตรวจพบ (ความสูง)');
+assert.equal(t('Points (height)'), '雷達偵測點（高度）');
+// sEMG (Pi bridge provider "emg"): channel names with units, and device messages built from " · " parts
+assert.equal(t('sEMG envelope (ADC)'), 'sEMG 包絡線 (ADC)');
+assert.equal(t('sEMG median frequency (Hz): no data'), 'sEMG 中位頻率 (Hz)：沒有數據');
+assert.equal(t('998 samples/s · Wi-Fi -52 dBm · 12 samples lost · recording 31 s'), '每秒 998 個樣本 · Wi-Fi -52 dBm · 遺失 12 個樣本 · 錄製中 31 秒');
+assert.equal(createTranslator('th')('Flat signal: is the sensor switched on and pressed onto the shield? · 1000 samples/s'), 'สัญญาณนิ่งเป็นเส้นตรง: เซนเซอร์เปิดอยู่และกดติดกับชิลด์แน่นหรือไม่ · 1000 ตัวอย่าง/วินาที');
+assert.equal(t('1000 samples/s · clipping in 4% of samples: check the electrodes'), '每秒 1000 個樣本 · 4% 的樣本超出量程: 請檢查電極');
+assert.equal(t('Link lost (no data for 6 s); reconnecting…'), '連線中斷（6 秒沒有數據），正在重新連接…');
+assert.equal(t('Not reachable at truerehab-myoware.local:3334 (refused). Is the MyoWare switched on (battery), running the Wi-Fi sketch, and on the same Wi-Fi as this computer?'), '無法連接 truerehab-myoware.local:3334（連接被拒）。請確認 MyoWare 已開啟（使用電池）、正在執行 Wi-Fi 程式，並與這部電腦連接同一個 Wi-Fi。');
 const onChange = () => {};
 const ref = React.createRef();
 const input = localizeUi(React.createElement('input', { value: 'My session', onChange, ref, placeholder: 'Pi address' }), t);

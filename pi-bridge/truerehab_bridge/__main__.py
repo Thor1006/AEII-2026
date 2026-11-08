@@ -70,6 +70,9 @@ def main() -> int:
         print("  ! No kit key: anyone on this Wi-Fi can see the data and start sessions. Make one: python -m truerehab_bridge --new-key")
     for p in providers:
         print(f"  Provider: {p.name}{'  (SYNTHETIC DATA)' if p.synthetic else ''}")
+    recorders = [p.name for p in providers if p.records]
+    if recorders and cfg.record_dir:
+        print(f"  Start/Stop in the dashboard records {' + '.join(recorders)} to {cfg.record_dir}")
     print("  Stop with Ctrl+C\n")
 
     try:

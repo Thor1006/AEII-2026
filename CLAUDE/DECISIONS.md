@@ -2,6 +2,117 @@
 
 <!-- Newest on top. One short entry per decision that someone might later ask "why did we do it this way?" about. -->
 
+## 2026-11-08 — Model input v1: heatmaps + the radar's own points; a finer range profile to try; radar stays on USB
+- **Decision:**
+  - Contract `v1`: H `[4, 64, 32]` = angle-FFT magnitude, phase change, and two point layers (height, presence)
+    pooled over 0.25 s; 32 angle bins (zero-padded); D unchanged.
+  - The points come from the same UART frames (TLV 1/7), mapped onto the heatmap grid. `points_az_sign = +1`,
+    measured: still points sit +11 dB above their range row with +1, about 0 dB with −1.
+  - A finer profile `fullmap_fine_awr2x44p.cfg`: 3.88 instead of 5.94 cm per range bin, out to 2.48 m. Same bytes,
+    60 fps and speed steps. It becomes the default only after the board accepts it.
+  - The radar stays on USB (TDM demo). No Ethernet firmware.
+  - See [plan](plans/2026-11-08-points-and-finer-heatmap.md).
+- **Why:**
+  - The user asked for "both and cross references" and a finer heatmap. They chose USB over the Ethernet demo,
+    whose stream holds only bare points.
+  - The heatmap holds only the azimuth antennas, so it has no height; the points have z.
+  - The USB link is ~84 % full, so finer range had to keep 64 bins; the cost is the farthest distance.
+- **Alternatives:**
+  - Points only (sparse, ~7 per frame, no phase).
+  - DDM_ENET over Ethernet (points only, no frame numbers).
+  - 128 range bins (doesn't fit the USB link at 60 fps).
+  - More speed bins (same problem).
+  - A sharper angle method (Capon), left for later.
+
+## 2026-11-07 — sEMG: MyoWare over Wi-Fi, one bridge recording for all sensors, sEMG-envelope reps as a fallback
+- **Decision:**
+  - The MyoWare record sketch sends over Wi-Fi (TCP 3334), the IMU fw 2.1 design; Bluetooth stays as `WIFI_LINK 0`.
+  - The Pi bridge owns one session folder per Start/Stop; each provider (radar, `emg`) adds its files on the shared
+    clock. `record_dir` moves to `[bridge]`.
+  - Live sEMG: envelope 50/s and median frequency 4/s with the model's own `window_mdf`; the median frequency only
+    during movement, announced with a new optional manifest flag `intermittent`.
+  - Without pose or IMU, the model cuts reps from the sEMG envelope's bursts (fatigue labels only).
+  - See [report](output/2026-11-07-1535-semg-support.md).
+- **Why:**
+  - The user chose "Wi-Fi like the IMU" and "All 5 parts". The IMU loses data on the arm, Bluetooth didn't connect to
+    the Mac, and Wi-Fi needs no pairing on a Pi.
+  - One folder and one clock are what `check_session.py` needs to line the sensors up.
+  - At rest the median frequency measures noise, so it is only sent during movement; the flag stops the dashboard
+    and `check_bridge` from calling that silence a fault.
+- **Alternatives:**
+  - Bluetooth (no connection on Nov 4; extra Linux setup).
+  - Each provider recording its own folder (two clocks to align).
+  - Sending the median frequency at rest (meaningless values) or guessing from other signals (hides real faults).
+  - Rep timing from the space markers (depends on someone pressing space for every rep).
+
+## 2026-11-05 — Raspberry Pi set: one tarball + installer; the bridge gets the real radar and records in the recorder's format
+- **Decision:**
+  - `deploy/pi/build_bundle.py` packs a versioned tarball with file hashes: git-tracked sources, the built dashboard,
+    and every .py checked against Python 3.11 syntax.
+  - `install.sh` makes a venv, installs `websockets`/`numpy`/`pyserial` (`--with-model` adds PyTorch), sets up
+    `dialout` and a systemd service.
+  - The bridge's radar provider reuses the model's preprocessing for its 3 maps and starts the radar with the
+    existing profile. Dashboard Start/Stop writes recorder-format sessions.
+  - Live model scores are left out of v0.1.
+  - See [report](output/2026-11-05-2119-pi-software-set.md).
+- **Why:**
+  - One file to copy (SSD or `scp`) and one script to run suits a Pi with no screen.
+  - The recorder format means `check_session.py`/`export_dashboard.py` work on Pi recordings unchanged.
+  - Live scores would need a radar-only rep finder that doesn't exist, and a real-trained network.
+- **Alternatives:**
+  - A Debian package (more work, little gain now).
+  - Docker (heavy on a Pi, serial-port passthrough).
+  - Cloning the git repo on the Pi (needs git, a network and credentials; brings development files).
+  - The bridge writing its own format (two formats to maintain).
+
+## 2026-11-05 — Show the model through dashboard replays (`?replay=`) first; keep the radar's current settings for now
+- **Decision:**
+  - `model/export_dashboard.py` writes protocol-1.2 `.ndjson` replays. The dashboard opens them with a same-origin
+    `?replay=` link, and the radar panel gets buttons for multiple views.
+  - Replays live in the git-ignored `frontend/public/replays/` and are removed from `dist/` after a build.
+  - The radar keeps `fullmap_awr2x44p.cfg` (P0). It gets measured with a person, not retuned.
+  - See [report](output/2026-11-05-1844-dashboard-replay-radar-check.md).
+- **Why:**
+  - The user chose both: "Replay file" and "Only measure current".
+  - A replay needs no installs (the bridge's packages wait for the Pi setup), and it already uses the dashboard's
+    protocol, so the same messages can come live later.
+  - P0's ±1.09 m/s limit may be too low for brisk curls, but that has to be measured before changing anything.
+- **Alternatives:**
+  - The bridge running live on the Mac (needs `websockets`/`numpy`).
+  - Profiles P1–P4 (shorter idle or 2 TX, ±1.6–4.1 m/s at coarser speed bins).
+  - Separate radar panels per view (empty panels for sources without them).
+
+## 2026-11-05 — Radar-only network in `model/`: angle-FFT + phase input, session baseline, radar-time sync, fake data from real recordings
+- **Decision:**
+  - The network lives in a new `model/` (package `trnet`), untrained, with ~239.5k parameters. Its input
+    (`v0-draft` contract):
+    - `H [2,64,16]`: host angle FFT of the 8 azimuth antennas at their real columns (16 bins), as magnitude dB
+      plus the frame-to-frame phase change (only in cells within 30 dB);
+    - `D [1,64,16]`: range-Doppler (log2 Q8 → dB);
+    - 128 frames per rep.
+  - One sample = one set plus the **session's** first 3 reps as the baseline. Labels compare every rep with
+    those reps; the MDF is smoothed over 3 reps.
+  - The radar is the time reference. Pose and IMU offsets come from the 3 shrugs, using speed-like signals;
+    sEMG is reported only.
+  - Fake data replays real empty-room radar frames and the real jitter and Wi-Fi delay sequences.
+  - Training: heads start at the training average, smooth-L1 for scores, positive weight ≤ 5×, Apple GPU.
+  - See [report](output/2026-11-05-1316-neural-network-pipeline.md) and [plan](plans/2026-11-05-neural-network.md).
+- **Why:**
+  - Measured: the static heatmap's 8 values per range bin are antennas, not angles (a 13-wide aperture), so
+    their raw magnitude holds almost no left/right information. The values are complex, so phase is available
+    at 60 fps.
+  - Fatigue builds across sets, and a per-set baseline would reset it.
+  - Webcam delay (~60 ms) is the largest unknown offset, and labels must line up with the frames the network
+    sees.
+  - Real radar noise is coherent across antennas and slow, which independent noise doesn't reproduce.
+  - The first fake run with plain Huber and 0.5 starting points didn't beat the mean baseline.
+- **Alternatives:**
+  - Raw 8-antenna magnitudes as the input (discards angle information).
+  - Zero-padding to 64 angle bins (only interpolates).
+  - A per-set baseline (resets fatigue).
+  - Pose or IMU as the time reference.
+  - Independent Gaussian noise for the fake radar (off by up to 6 dB).
+  - Time-normalised reps (would break the phase/tremor timing).
 ## 2026-11-07 - Use white slides with restrained corner decoration
 - The user clarified that the theme should be white with light decorative detail and less visual distraction. Saved `_v04.pptx` with white backgrounds and subtle pale blue/mint corner arcs behind the existing content. Converted the prior navy-background slides to dark text on white; preserved the user's existing white cover. [Report](output/2026-11-07-white-corner-theme_v01.md).
 - All slide wording, speaker notes, original media, fonts and geometry remain intact. Earlier versions and the script are retained; no GigaFlex additions, commit or push.

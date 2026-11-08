@@ -57,6 +57,8 @@ class FrameStream:
     x: Axis | None = None
     y: Axis | None = None
     description: str | None = None
+    #: Fixed colour scale [low, high] (e.g. (-0.6, 0.6) m for point heights); None = the dashboard's default
+    value_range: tuple[float, float] | None = None
 
     def axes_wire(self) -> dict[str, Any] | None:
         axes = _clean({"x": self.x.wire() if self.x else None, "y": self.y.wire() if self.y else None})
@@ -72,6 +74,7 @@ class FrameStream:
                 "unit": self.unit,
                 "fps": self.fps,
                 "description": self.description,
+                "range": list(self.value_range) if self.value_range else None,
             }
         )
 
@@ -106,9 +109,12 @@ class AuxChannel:
     rate_hz: float | None = None
     #: Key in status.devices that produces it, so the UI can say "Arduino not plugged in".
     device: str | None = None
+    #: Sent only at times (e.g. the sEMG median frequency only during movement): silence is not a fault.
+    intermittent: bool = False
 
     def wire(self) -> dict[str, Any]:
-        return _clean({"key": self.key, "label": self.label, "unit": self.unit, "rateHz": self.rate_hz, "device": self.device})
+        return _clean({"key": self.key, "label": self.label, "unit": self.unit, "rateHz": self.rate_hz, "device": self.device,
+                       "intermittent": True if self.intermittent else None})
 
 
 @dataclass

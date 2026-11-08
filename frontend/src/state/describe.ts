@@ -60,7 +60,7 @@ export function viewTitle(store: SensorStore, view: string): string {
 
 // ---------- stream health ----------
 
-export type StreamState = 'ok' | 'waiting' | 'late' | 'missing' | 'off' | 'unexpected';
+export type StreamState = 'ok' | 'waiting' | 'late' | 'missing' | 'off' | 'idle' | 'unexpected';
 
 export interface StreamHealth {
   id: string;
@@ -78,12 +78,14 @@ export function streamHealth(store: SensorStore, now = Date.now()): StreamHealth
   const connectedFor = store.stats.firstRecvT === null ? 0 : now - store.stats.firstRecvT;
   const out: StreamHealth[] = [];
 
-  const check = (id: string, group: StreamHealth['group'], label: string, rateHz: number | undefined, detailOff?: string) => {
+  const check = (id: string, group: StreamHealth['group'], label: string, rateHz: number | undefined, detailOff?: string,
+                 intermittent = false) => {
     const last = store.lastSeen.get(id);
     const tolerance = Math.max(3000, rateHz ? (3 * 1000) / rateHz : 0);
     const age = last === undefined ? null : now - last;
     let state: StreamState;
     if (detailOff) state = 'off';
+    else if (intermittent && (age === null || age > tolerance)) state = 'idle';   // sent only at times: not a fault
     else if (age === null) state = connectedFor < tolerance ? 'waiting' : 'missing';
     else state = age > tolerance ? 'late' : 'ok';
     out.push({ id, group, label, state, ageMs: age, detail: detailOff });
@@ -103,7 +105,7 @@ export function streamHealth(store: SensorStore, now = Date.now()): StreamHealth
       known.add(`aux:${a.key}`);
       const dev = a.device ? store.devices[a.device] : undefined;
       const off = dev && dev.state !== 'ok' ? `${dev.label ?? a.device}: ${dev.message ?? dev.state}` : undefined;
-      check(`aux:${a.key}`, 'Signals', a.label, a.rateHz, off);
+      check(`aux:${a.key}`, 'Signals', a.label, a.rateHz, off, a.intermittent);
     }
     known.add('status');
     check('status', 'Link', 'Heartbeat (status)', 1000 / (m.statusIntervalMs ?? 1000));
@@ -136,7 +138,8 @@ export function linkQuality(store: SensorStore, now = Date.now()): { quality: Qu
   const reasons: string[] = [];
   const total = stats.received + stats.dropped;
   const dropPct = total ? (stats.dropped / total) * 100 : 0;
-  const expectedFps = store.hello?.manifest.frames[0]?.fps ?? store.status?.fps;
+  const frames = store.hello?.manifest.frames ?? [];
+  const expectedFps = frames.length ? frames.reduce((s, f) => s + f.fps, 0) : store.status?.fps;   // all views together
   const silentMs = stats.lastRecvT === null ? Infinity : now - stats.lastRecvT;
 
   if (silentMs > 3000) reasons.push(`No data for ${Math.round(silentMs / 1000)} s`);

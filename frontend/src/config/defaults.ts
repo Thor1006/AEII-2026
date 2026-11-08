@@ -43,6 +43,8 @@ export const eventTones: Record<string, 'good' | 'warn' | 'bad' | 'info'> = {
 export const auxChannelLabels: Record<string, string> = {
   elbow_angle_deg: 'Elbow angle (°)',
   emg_rms: 'sEMG RMS',
+  emg_env: 'sEMG envelope (ADC)',
+  emg_mdf: 'sEMG median frequency (Hz)',
   force_n: 'Force (N)',
 };
 
@@ -51,6 +53,8 @@ export const viewTitles: Record<string, string> = {
   micro_doppler: 'Micro-Doppler',
   range_time: 'Range–time',
   range_azimuth: 'Range–azimuth',
+  phase_change: 'Phase change',
+  point_height: 'Points (height)',
 };
 
 /** Choices in the "Start session" form. The key is what the Pi receives. */
@@ -65,9 +69,9 @@ export const exercises: { key: string; label: string }[] = [
 export const panelHelp = {
   recommendation: 'What the system suggests right now, based on the last rep. It supports the physiotherapist. It does not replace them.',
   reps: 'Repetitions counted from the radar in this session, and the elbow’s range of motion (ROM). A shrinking ROM is an early sign of fatigue.',
-  scores: 'Three AI scores from 0 to 100%. Green is fine, yellow is borderline, red needs attention. Fatigue and compensation: lower is better. Quality: higher is better.',
+  scores: 'Scores from the AI model, 0 to 100%. Green is fine, yellow is borderline, red needs attention. For fatigue, compensation and risk, lower is better. For quality, higher is better.',
   trend: 'How the scores changed over the last minute. A rising fatigue line usually comes before compensation.',
-  radar: 'Each bright spot is something reflecting the radar. Up/down = distance from the radar. Left/right = speed toward (right) or away (left). A moving arm makes a spot that swings sideways.',
+  radar: 'Each bright spot is something reflecting the radar. Up/down = distance from the radar. In a speed map, left/right = speed toward or away from the radar, so a moving arm makes a spot that swings sideways. If the source sends several maps, the buttons above the map switch between them.',
   aux: 'Signals from the reference sensors (sEMG on the muscle, force sensor, joint angle). They are used to check the radar during development. The final product won’t need them.',
   events: 'Everything that happened, newest first: reps, compensation alerts, recommendations and your markers.',
   health: 'Every data stream the Pi promised to send, and whether it is arriving. If something is red, the matching panel will be empty.',

@@ -1,0 +1,23 @@
+# systemd unit for the TrueRehab-RF bridge. install.sh fills in @USER@ and @DIR@ and installs it as
+# /etc/systemd/system/truerehab-bridge.service.
+#   status:  sudo systemctl status truerehab-bridge
+#   logs:    journalctl -u truerehab-bridge -f
+#   stop:    sudo systemctl stop truerehab-bridge   (needed before using the recorder or radar-lab on the same radar)
+
+[Unit]
+Description=TrueRehab-RF bridge (radar to the web dashboard)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=@USER@
+WorkingDirectory=@DIR@/pi-bridge
+ExecStart=@DIR@/.venv/bin/python -m truerehab_bridge --config config.toml
+Restart=on-failure
+RestartSec=3
+# SIGTERM makes the bridge stop the radar and close an open recording; give it time.
+TimeoutStopSec=20
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

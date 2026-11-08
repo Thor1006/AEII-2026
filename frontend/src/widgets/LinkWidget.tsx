@@ -21,7 +21,8 @@ export function LinkWidget() {
     ['Address', source instanceof WebSocketSource ? displayAddress(source.url) : (source?.label ?? '–')],
     ['Protocol', hello?.protocol ?? '1.0 (no hello)'],
     ['Bridge version', hello?.device.bridgeVersion ?? '–'],
-    ['Radar frames/s', `${stats.fps.toFixed(1)}${hello?.manifest.frames[0] ? ` of ${hello.manifest.frames[0].fps}` : ''}`],
+    // all radar views together: frames of every view are counted, so compare with the sum of their rates
+    ['Radar frames/s', `${stats.fps.toFixed(1)}${hello?.manifest.frames.length ? ` of ${+hello.manifest.frames.reduce((s, f) => s + f.fps, 0).toFixed(1)}` : ''}`],
     ['Data rate', `${bytes(stats.bytesPerSec)}/s`],
     ['Messages lost', `${stats.dropped} of ${total} (${total ? ((stats.dropped / total) * 100).toFixed(1) : '0.0'}%)`],
     ['Round trip', stats.rttMs === null ? '–' : `${stats.rttMs.toFixed(0)} ms`],

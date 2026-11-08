@@ -2,17 +2,18 @@ import { useI18n } from './i18n/I18n.tsx';
 import { useEffect, useState } from 'react';
 import { App } from './App.tsx';
 import { Home } from './home/Home.tsx';
-import { detectAutoConnect } from './lib/address.ts';
+import { detectAutoConnect, replayLinkPath } from './lib/address.ts';
 import { takeKeyFromLocation } from './lib/keystore.ts';
 import s from './Root.module.css';
 
 type Route = 'home' | 'app';
 
-const read = (): Route | null => (location.hash.startsWith('#/app') ? 'app' : location.hash === '#/' ? 'home' : null);
+const read = (): Route | null =>
+  location.hash.startsWith('#/app') ? 'app' : location.hash === '#/' ? 'home' : replayLinkPath() ? 'app' : null;
 
 /**
  * `#/` is the landing page, `#/app` the dashboard.
- * Opened from a Pi bridge or with ?pi=, go straight to the dashboard: those users want live data, not the intro.
+ * Opened from a Pi bridge, with ?pi= or with ?replay=, go straight to the dashboard: those users want data, not the intro.
  */
 export function Root() {
   const { ui } = useI18n();

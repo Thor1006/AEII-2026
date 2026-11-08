@@ -463,6 +463,10 @@ async def _check(ws: Any, rep: Report, seconds: float, test_commands: bool, sign
             rep.ok(f'Signal "{a["label"]}": {n} samples')
         elif dev and dev.get("state") != "ok":
             rep.warn(f'Signal "{a["label"]}": not arriving, and the bridge says why: {dev.get("label", a.get("device"))} — {dev.get("message", dev.get("state"))}')
+        elif a.get("intermittent"):
+            # Announced as sent only at times (e.g. the sEMG median frequency only during movement).
+            rep.warn(f'Signal "{a["label"]}": none in {seconds:.0f} s. It is sent only at times (e.g. during movement): '
+                     "move, or check for longer with --seconds.")
         else:
             rep.fail(f'Signal "{a["label"]}" ({a["key"]}): announced but never arrived')
     announced = {f"score:{x['key']}" for x in manifest.get("scores", [])} | {f"aux:{x['key']}" for x in manifest.get("aux", [])}

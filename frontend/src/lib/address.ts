@@ -59,6 +59,23 @@ export interface BridgeInfo {
 }
 
 /**
+ * `?replay=/replays/<file>.ndjson`: a recording on this same server to open on load, e.g. a model replay written by
+ * model/export_dashboard.py into public/replays/. Only same-origin paths ending in .ndjson are accepted.
+ */
+export function replayLinkPath(): string | null {
+  const p = new URLSearchParams(location.search).get('replay');
+  if (!p || !p.startsWith('/') || p.startsWith('//') || !/\.ndjson$/i.test(p)) return null;
+  return p;
+}
+
+export async function fetchReplayFile(path: string): Promise<File> {
+  const res = await fetch(path, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
+  const blob = await res.blob();
+  return new File([blob], path.split('/').pop() || 'replay.ndjson', { type: 'application/x-ndjson' });
+}
+
+/**
  * Where to connect automatically, in priority order:
  * 1. `?pi=<address>` in the page URL (e.g. from a QR code)
  * 2. the Pi bridge that served this page (it publishes /truerehab-bridge.json)

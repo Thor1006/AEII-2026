@@ -11,12 +11,14 @@ const WORDS: Record<StreamState, string> = {
   late: 'Stopped',
   missing: 'Never arrived',
   off: 'Device off',
+  idle: 'Waiting for movement',
   unexpected: 'Arriving (not announced)',
 };
 
 function detail(h: StreamHealth): string | undefined {
   if (h.detail) return h.detail;
-  if (h.state === 'late' && h.ageMs !== null) return `Last seen ${Math.round(h.ageMs / 1000)} s ago`;
+  if ((h.state === 'late' || h.state === 'idle') && h.ageMs !== null) return `Last seen ${Math.round(h.ageMs / 1000)} s ago`;
+  if (h.state === 'idle') return 'Sent only during movement';
   if (h.state === 'missing') return 'The Pi said it would send this';
   return undefined;
 }

@@ -44,8 +44,14 @@ class SessionWriter:
         if not EXERCISE_RE.match(exercise):
             raise ValueError("exercise must be a short label like elbow_flexion")
         stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
-        self.dir = Path(root) / f"{stamp}_{subject}_{exercise}"
-        self.dir.mkdir(parents=True, exist_ok=False)
+        base = Path(root) / f"{stamp}_{subject}_{exercise}"
+        self.dir, k = base, 2
+        while True:  # two sessions in the same second (e.g. Stop then Start in the dashboard) get _2, _3, ...
+            try:
+                self.dir.mkdir(parents=True, exist_ok=False)
+                break
+            except FileExistsError:
+                self.dir, k = base.with_name(f"{base.name}_{k}"), k + 1
         self.t0_ns = now_ns()
         self.meta = {
             "format": FORMAT,
@@ -146,7 +152,9 @@ class Session:
     markers: list = field(default_factory=list)  # (t_s, key, label)
 
     def radar_index(self):
-        a = np.loadtxt(self.dir / "radar_index.csv", delimiter=",", skiprows=1, dtype=np.int64, ndmin=2)
+        """Empty arrays when no frame was saved (e.g. Start/Stop with the radar unplugged)."""
+        lines = (self.dir / "radar_index.csv").read_text().splitlines()[1:]
+        a = np.array([[int(x) for x in ln.split(",")] for ln in lines if ln.strip()], dtype=np.int64).reshape(-1, 4)
         return {"frame_no": a[:, 0], "t_s": a[:, 1] / 1e9, "offset": a[:, 2], "length": a[:, 3]}
 
     def radar_frames(self):
