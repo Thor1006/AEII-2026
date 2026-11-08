@@ -33,7 +33,7 @@ class DatasetTrainTest(unittest.TestCase):
         self.assertTrue(all(s is not None for s in self.sessions))
         self.assertEqual(sorted(s.subject for s in self.sessions), ["F01", "F02", "F03", "F04"])
         for s in self.sessions:
-            self.assertEqual(s.H.shape[1:], (32, 2, 64, 16))
+            self.assertEqual(s.H.shape[1:], self.c.shapes()["H"])        # (32, 4, 64, 32): T=32 in these tests
             self.assertEqual(len(s.set_id), 10)
 
     def test_cache_round_trip(self):
@@ -48,7 +48,7 @@ class DatasetTrainTest(unittest.TestCase):
         item = ds[1]                                       # second set of the first session
         s = ds.sessions[0]
         torch.testing.assert_close(item["base_H"], torch.from_numpy(s.H[:3].astype(np.float32)))
-        self.assertEqual(tuple(item["H"].shape), (5, 32, 2, 64, 16))
+        self.assertEqual(tuple(item["H"].shape), (5,) + self.c.shapes()["H"])
         b = DS.collate([ds[0], ds[1]])
         self.assertEqual(tuple(b["y"].shape), (2, 5, len(HEADS)))
 

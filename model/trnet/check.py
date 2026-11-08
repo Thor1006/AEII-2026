@@ -56,6 +56,42 @@ def _gaps_text(n_gaps, lost, hz):
     return f", {n_gaps} gap{'s' if n_gaps > 1 else ''} ({lost} sample{'s' if lost != 1 else ''} = {lost / hz:.2f} s lost)"
 
 
+def _points_report(rep, rec):
+    """The radar's own points: how many, whether they agree with the heatmap, how steady their height is."""
+    n = np.array([len(p) for p, ok in zip(rec.points, rec.valid) if ok and p is not None])
+    if not n.size or not n.any():
+        rep.add("radar", "warn", "no detected points in the frames: the height layer stays empty")
+        return
+    c = rec.contract
+    lift, used = R.points_on_heatmap(rec)
+    out = {"per_frame_median": float(np.median(n)), "per_frame_p10_p90": [float(np.percentile(n, 10)),
+                                                                          float(np.percentile(n, 90))]}
+    rep.add("radar", "ok" if np.median(n) >= 3 else "warn",
+            f"points: median {np.median(n):.0f} per frame ({np.percentile(n, 10):.0f}-{np.percentile(n, 90):.0f})")
+    if used >= 50:
+        out["on_heatmap_db"] = round(lift, 1)
+        rep.add("radar", "ok" if lift >= 6 else "warn",
+                f"still points sit on bright heatmap cells: +{lift:.1f} dB above the rest of their range"
+                + ("" if lift >= 6 else " (low: points and heatmap disagree; wrong profile or sign?)"))
+    early = rec.valid & (rec.t_s - rec.t_s[0] <= c.baseline_s)            # standing still at the start
+    by_cell = {}
+    for i in np.flatnonzero(early):
+        p = rec.points[i]
+        if p is None or not len(p):
+            continue
+        rb, ab, ok = R.point_cells(p, c)
+        for r_, a_, z_ in zip(rb[ok], ab[ok], p[ok, 2]):
+            by_cell.setdefault((r_, a_), []).append(z_)
+    jitter = [np.std(v) for v in by_cell.values() if len(v) >= 10]       # one still target's height over time
+    if jitter:
+        noise = float(np.median(jitter))
+        out["still_height_noise_m"] = round(noise, 3)
+        rep.add("radar", "info" if noise <= 0.10 else "warn",
+                f"height noise of a still target: +-{noise:.2f} m (median over {len(jitter)} cells, first "
+                f"{c.baseline_s:.0f} s)" + ("" if noise <= 0.10 else "; a 2-5 cm shrug may drown in it"))
+    rep.numbers["radar"]["points"] = out
+
+
 def check_session(path, contract=None):
     """The check report (a dict) for one session folder."""
     return check_and_process(path, contract)[0]
@@ -158,6 +194,7 @@ def check_and_process(path, contract=None):
         else:
             rep.add("radar", "warn", f"no movement seen in front ({share:.1%} of frames above the empty-room level)"
                                      " - was anybody there?")
+        _points_report(rep, rec)
         jit = (rec.arrival_s - rec.t_s)[rec.valid] * 1000
         rep.add("radar", "info", f"delivery after the fitted frame clock: median {np.median(jit):.1f} ms, "
                                  f"p99 {np.percentile(jit, 99):.1f} ms")

@@ -38,7 +38,7 @@ Check every recording:
 .venv/bin/python check_session.py --all
 ```
 
-Train and test on 6 fake people (makes them once in `data/fake`, ~2 minutes on the Apple GPU):
+Train and test on 6 fake people (makes them once in `data/fake_v2`, the fake-data version; ~3 minutes on the Apple GPU):
 
 ```bash
 .venv/bin/python train.py --fake 6
@@ -92,7 +92,7 @@ git-ignored. The fake sessions take ~270 MB and the cache ~60 MB. Delete them an
 
 | Step | File | What it does |
 |---|---|---|
-| Contract | `trnet/contract.py` | Input shapes, saved with the weights; loading refuses a mismatch (`v0-draft`) |
+| Contract | `trnet/contract.py` | Input shapes, saved with the weights; loading refuses a mismatch (`v1`; older `v0-draft` files still load) |
 | Radar | `trnet/radar.py` | Frames → 60-fps grid (gaps masked), angle FFT, magnitude + phase change, range-Doppler |
 | Ground truth | `trnet/truth.py` | sEMG median frequency, IMU forearm angle, pose angles (training only) |
 | Shrug sync | `trnet/sync.py` | Each sensor's leftover offset against the radar from the 3 shrugs |
@@ -101,16 +101,19 @@ git-ignored. The fake sessions take ~270 MB and the cache ~60 MB. Delete them an
 | Pipeline | `trnet/pipeline.py` | One session → all of the above |
 | Check | `trnet/check.py`, `check_session.py` | Usable or not, and why |
 | Dataset | `trnet/dataset.py` | One sample = one set + the session's first 3 reps; cached `.npz`; leave one subject out |
-| Network | `trnet/network.py` | 239,515 parameters (below) |
+| Network | `trnet/network.py` | 239,803 parameters (below) |
 | Training | `trnet/training.py`, `train.py` | Masked losses, early stopping, per-person report vs the baseline |
 | Rules | `trnet/recommend.py` | Continue / correct posture / reduce load or ROM / rest / see physio |
 | Calibration | `trnet/calibrate.py` → `calib/real_stats.json` | Measured noise and timing of the real recordings |
 | Fake data | `trnet/synth.py` | Fake sessions in the exact recorder format |
 
-**Radar input per frame** (from the recorded profile: 64 range bins × 5.94 cm, 60.00 fps):
-- `H [2, 64, 16]`:
-  - channel 1 is the angle-FFT magnitude. The 8 azimuth antennas sit at their real columns `0,2,7,9,3,5,10,12`; 16 angle bins ≈ the real ~9°.
+**Radar input per frame** (contract `v1`, 2026-11-08; 64 range bins at the recording's step: 5.94 cm with
+`fullmap_awr2x44p.cfg`, 3.88 cm with the finer `fullmap_fine_awr2x44p.cfg`; 60.00 fps):
+- `H [4, 64, 32]`:
+  - channel 1 is the angle-FFT magnitude. The 8 azimuth antennas sit at their real columns `0,2,7,9,3,5,10,12`; 32 angle bins (zero-padded) locate peaks finely, the real resolution stays ~9°.
   - channel 2 is the phase change since the last frame (only in cells within 30 dB of the session level; 0 after a gap).
+  - channels 3 and 4 are the radar's own detected points (TLV 1/7) of the last 15 frames (0.25 s) on the same grid: **height** (SNR-weighted mean z ÷ 1 m) and **presence** (points ÷ 4). The heatmap has no height of its own; the points do.
+  - The points agree with the heatmap: on the real recordings, still points sit +11 dB above the rest of their range row (`check_session.py` reports it). But a still target's height jitters ±0.16–0.25 m per frame, so a 2–5-cm shrug may not show in the height layer: the real sessions decide.
 - `D [1, 64, 16]`: range-Doppler magnitude.
 - A rep is 128 frames (2.13 s). Longer reps are cropped around their peak.
 - Reps from sEMG alone (no camera, no IMU) are a fallback: curls need a short pause between them, or they merge into one burst.
@@ -119,14 +122,14 @@ git-ignored. The fake sessions take ~270 MB and the cache ~60 MB. Delete them an
 
 | Part | Parameters |
 |---|---|
-| Stem A (heatmap, 2 → 16 channels) | 2,656 |
+| Stem A (heatmap, 4 → 16 channels; pools 32 angle bins to 8) | 2,944 |
 | Stem B (range-Doppler, 1 → 16 channels) | 2,512 |
 | Shared CNN trunk: 128 numbers per frame | 109,600 |
 | Within-rep dilated Conv1d (sees ~0.9 s), attention pooling, + duration and rest | 86,849 |
 | Baseline `[v, v − mean(first 3 reps)]` → causal GRU over reps | 37,248 |
 | Heads (6 outputs) + training-only extra head (4) | 650 |
 
-Run `use_phase=False` in the contract to switch the phase channel off and compare (Stem A loses 144 weights).
+Run `use_phase=False` in the contract to switch the phase channel off and compare (Stem A loses 144 weights); `use_points=False` drops the two point layers (288 weights), `angle_bins=16` the finer grid (no weights).
 
 **Labels** (thresholds in `PLACEHOLDER_THRESHOLDS`, to agree with a physiotherapist):
 - **Fatigue:** MDF drop vs the first 3 reps, where a 20 % drop = 1.0. The MDF is smoothed over 3 reps, because one 2-s rep scatters ~5 %.
@@ -175,7 +178,7 @@ Run `use_phase=False` in the contract to switch the phase channel off and compar
 
 - **Not trained on real data:** there are no real sessions with a person yet. The first full session (radar, MyoWare, IMU and webcam with the protocol above) is the next step.
 - **Placeholders:** all thresholds, and the rules' numbers.
-- **The `v0-draft` contract isn't frozen.** With T = 128, 58 % of the fake reps (2.0–2.9 s) get cropped, so decide T after the first real session; the check reports how many reps get cropped.
+- **The `v1` contract isn't frozen.** With T = 128, 58 % of the fake reps (2.0–2.9 s) get cropped, so decide T after the first real session; the check reports how many reps get cropped.
 - **sEMG and pose are not calibrated** (textbook values). Rerun the calibration after real sessions.
 - **Radar left/right and antenna order** are not verified on the board. A consistent order still trains.
 - **Unproven:** fatigue from radar.

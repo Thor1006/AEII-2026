@@ -10,6 +10,8 @@ SESSIONS = RECORDER / "data" / "sessions"      # real recordings (git-ignored)
 RADAR_CFG = RADAR_LAB / "configs" / "fullmap_awr2x44p.cfg"
 CALIB = MODEL_DIR / "calib" / "real_stats.json"
 DATA = MODEL_DIR / "data"                      # fake sessions, caches (git-ignored)
+SYNTH_VERSION = 2                              # bump when trnet.synth changes what it writes (v2: realistic points)
+FAKE = DATA / f"fake_v{SYNTH_VERSION}"         # train.py's fake people; older versions' folders are never reused
 RUNS = MODEL_DIR / "runs"                      # training runs, session checks (git-ignored)
 
 for _p in (RECORDER, RADAR_LAB):

@@ -1,7 +1,7 @@
-"""Radar-only network (untrained, ~239k parameters). Shapes for one batch of B sets with R reps of T frames:
+"""Radar-only network (untrained, ~240k parameters). Shapes for one batch of B sets with R reps of T frames:
 
-  H [B,R,T,C,64,16]  -> Stem A (conv, pool 2x2, conv) ----\
-  D [B,R,T,1,64,16]  -> Stem B (conv, pool 2x2, conv) ----+-> concat [32,32,8] -> CNN trunk -> 128 per frame
+  H [B,R,T,C,64,A]   -> Stem A (conv, pool 2x2, conv, pool angle to 8) --\\     C = 4 in contract v1, A = 32
+  D [B,R,T,1,64,16]  -> Stem B (conv, pool 2x2, conv) -------------------+-> concat [32,32,8] -> CNN trunk -> 128
   per rep:  128 x T  -> 3 dilated Conv1d (sees ~0.9 s) -> masked attention pooling -> + (duration, rest before)
             -> rep vector v_r [64]
   baseline: v_base = mean of the session's first 3 reps (passed in as `base_*`, encoded by the same layers)
@@ -37,15 +37,17 @@ class ConvBlock(nn.Sequential):
 
 
 class Stem(nn.Module):
-    """[C, 64, 16] -> [16, 32, 8]."""
+    """[C, 64, A] -> [16, 32, 8]: both convs see the full angle grid (A = 16, 32 or 64), then it pools to 8."""
 
-    def __init__(self, c_in, width=16):
+    def __init__(self, c_in, width=16, angle_pool=1):
         super().__init__()
         self.c1 = ConvBlock(c_in, width)
         self.c2 = ConvBlock(width, width)
+        self.angle_pool = angle_pool
 
     def forward(self, x):
-        return self.c2(F.max_pool2d(self.c1(x), 2))
+        x = self.c2(F.max_pool2d(self.c1(x), 2))
+        return F.max_pool2d(x, (1, self.angle_pool)) if self.angle_pool > 1 else x
 
 
 class ChannelNorm(nn.Module):
@@ -65,9 +67,9 @@ class TrueRehabNet(nn.Module):
         super().__init__()
         self.contract = contract or InputContract()
         c = self.contract
-        if (c.range_bins, c.angle_bins, c.doppler_bins) != (64, 16, 16):
-            raise ValueError("this layout expects 64 range x 16 angle/Doppler bins (see InputContract)")
-        self.stem_a = Stem(c.heatmap_channels)
+        if c.range_bins != 64 or c.doppler_bins != 16 or c.angle_bins not in (16, 32, 64):
+            raise ValueError("this layout expects 64 range bins, 16 Doppler bins and 16, 32 or 64 angle bins")
+        self.stem_a = Stem(c.heatmap_channels, angle_pool=c.angle_bins // 16)
         self.stem_b = Stem(1)
         self.t1 = ConvBlock(32, 48)   # [48,32,8] -> pool 2x2
         self.t2 = ConvBlock(48, 64)   # [64,16,4] -> pool (2,1)
@@ -95,7 +97,7 @@ class TrueRehabNet(nn.Module):
         return self.proj(self.drop(x.mean(dim=(-2, -1))))
 
     def encode_frames(self, H, D):
-        """H [N,C,64,16], D [N,1,64,16] -> [N,128]."""
+        """H [N,C,64,A], D [N,1,64,16] -> [N,128]."""
         n = self.frame_chunk
         if not n or H.shape[0] <= n:
             return self._frames(H, D)
@@ -181,7 +183,8 @@ def fake_batch(contract: InputContract, B=2, R=4, T=None, n_base=3, seed=0):
     C = contract.heatmap_channels
 
     def part(r):
-        return {"H": torch.rand(B, r, T, C, 64, 16, generator=g), "D": torch.rand(B, r, T, 1, 64, 16, generator=g),
+        return {"H": torch.rand(B, r, T, C, contract.range_bins, contract.angle_bins, generator=g),
+                "D": torch.rand(B, r, T, 1, contract.range_bins, contract.doppler_bins, generator=g),
                 "fmask": torch.ones(B, r, T), "feats": torch.rand(B, r, 2, generator=g), "rmask": torch.ones(B, r)}
     batch = part(R)
     batch.update({"base_" + k: v for k, v in part(n_base).items()})

@@ -7,6 +7,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import numpy as np
+
 from _util import MODEL_DIR, small_contract
 from trnet import calibrate as CB
 from trnet import synth
@@ -41,7 +43,11 @@ class ExportTest(unittest.TestCase):
         self.assertEqual(h["protocol"], "1.2")
         self.assertTrue(h["synthetic"])                      # fake session -> the dashboard's demo banner
         m = h["manifest"]
-        self.assertEqual([f["view"] for f in m["frames"]], ["range_azimuth", "phase_change", "range_doppler"])
+        self.assertEqual([f["view"] for f in m["frames"]],
+                         ["range_azimuth", "phase_change", "point_height", "range_doppler"])
+        heights = [f for f in m["frames"] if f["view"] == "point_height"][0]
+        self.assertEqual((heights["unit"], heights["axes"]["x"]["min"], heights["axes"]["x"]["max"]), ("m", -16, 15))
+        self.assertTrue(all("layer" not in f for f in m["frames"]))       # the export's own bookkeeping stays out
         self.assertEqual([s["key"] for s in m["scores"]],
                          ["fatigue", "quality", "comp_shrug", "comp_lean", "comp_rom", "risk"])
 
@@ -53,9 +59,12 @@ class ExportTest(unittest.TestCase):
     def test_frames_scores_and_events(self):
         frames = [m for m in self.msgs if m["type"] == "frame"]
         self.assertTrue(frames)
-        for f in frames[:30]:
+        rows = {f["view"]: f["shape"] for f in self.msgs[0]["manifest"]["frames"]}
+        for f in frames[:40]:
             self.assertEqual(f["encoding"], "base64-f32")
-            self.assertEqual(len(base64.b64decode(f["data"])), 40 * 16 * 4)
+            self.assertEqual(len(base64.b64decode(f["data"])), rows[f["view"]][0] * rows[f["view"]][1] * 4)
+        h = [np.frombuffer(base64.b64decode(f["data"]), "<f4") for f in frames if f["view"] == "point_height"]
+        self.assertTrue(any(np.abs(x).max() > 0 for x in h) and all(np.abs(x).max() <= 1.0 for x in h))
         keys = {k for m in self.msgs if m["type"] == "scores" for k in m["scores"]}
         self.assertEqual(keys, {"fatigue", "quality", "comp_shrug", "comp_lean", "comp_rom", "risk"})
         reps = [m for m in self.msgs if m["type"] == "event" and m["kind"] == "rep_end"]

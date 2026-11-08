@@ -1,6 +1,6 @@
 """Train and test the radar-only network with leave-one-subject-out (LOSO).
 
-  python train.py --fake 6                fake people (made once in model/data/fake): tests the code only
+  python train.py --fake 6                fake people (made once in model/data/fake_v<N>, N = the fake-data version): tests the code only
   python train.py --sessions DIR          real recorder sessions (only those that pass the session check)
 
 Writes model/runs/<date>_<time>/: report.md (per person and mean, against the majority baseline),
@@ -76,14 +76,21 @@ def main(argv=None):
     ap.add_argument("--patience", type=int, default=8)
     ap.add_argument("--device", default="auto", help="auto (Apple GPU if available), cpu or mps")
     ap.add_argument("--frames-per-rep", type=int, default=None, help="override T (quick runs only)")
+    ap.add_argument("--no-points", action="store_true", help="leave out the point layers (to compare)")
+    ap.add_argument("--angle-bins", type=int, choices=(16, 32, 64), help="angle grid (default: the contract's)")
     ap.add_argument("--max-folds", type=int, default=None)
     a = ap.parse_args(argv)
 
-    contract = default_contract(**({"frames_per_rep": a.frames_per_rep} if a.frames_per_rep else {}))
+    over = {"frames_per_rep": a.frames_per_rep} if a.frames_per_rep else {}
+    if a.no_points:
+        over["use_points"] = False
+    if a.angle_bins:
+        over["angle_bins"] = a.angle_bins
+    contract = default_contract(**over)
     if a.fake:
         plan = synth.Plan(sets=a.fake_sets, reps_per_set=a.fake_reps, set_rest_s=15.0)
-        folders = fake_sessions(a.fake, plan, paths.DATA / "fake")
-        data_desc = f"{a.fake} fake people ({a.fake_sets} sets x {a.fake_reps} reps), model/data/fake"
+        folders = fake_sessions(a.fake, plan, paths.FAKE)
+        data_desc = f"{a.fake} fake people ({a.fake_sets} sets x {a.fake_reps} reps), model/data/{paths.FAKE.name}"
     else:
         root = Path(a.sessions)
         folders = sorted(p for p in root.iterdir() if (p / "meta.json").exists())

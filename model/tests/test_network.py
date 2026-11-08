@@ -15,10 +15,28 @@ class ContractTest(unittest.TestCase):
         c = default_contract()
         self.assertEqual(c.fps, 60.0)
         self.assertEqual(c.az_cols, (0, 2, 7, 9, 3, 5, 10, 12))
-        self.assertAlmostEqual(c.range_res_m, 0.0594140625)
+        self.assertIn(round(c.range_res_m, 4), (0.0594, 0.0388))      # the recorder's profile, or the finer one
         self.assertEqual(c.doppler_bins, 16)
+        self.assertEqual(c.shapes()["H"], (128, 4, 64, 32))           # magnitude, phase, point height, presence
+        self.assertEqual(c.version, "v1")
+
+    def test_the_finer_profile(self):
+        from trnet import paths
+        from radarlab import cfg as radar_cfg
+        lines = radar_cfg.read_lines(paths.RADAR_LAB / "configs" / "fullmap_fine_awr2x44p.cfg", period_ms=1000 / 60)
+        c = InputContract.from_radar_cfg(lines)
+        self.assertAlmostEqual(c.range_res_m * 100, 3.88, places=2)    # was 5.94 cm
+        self.assertAlmostEqual(c.range_res_m * c.range_bins, 2.48, places=2)
+        self.assertAlmostEqual(c.vel_res_ms, 0.1375, places=3)          # speed steps and 60 fps unchanged
+        self.assertEqual((c.fps, c.doppler_bins, c.az_cols), (60.0, 16, (0, 2, 7, 9, 3, 5, 10, 12)))
+
+    def test_contracts_saved_before_v1_load_without_points(self):
+        old = {k: v for k, v in default_contract().to_dict().items()
+               if k not in ("use_points", "points_window", "height_scale_m", "presence_full", "points_az_sign")}
+        old.update(version="v0-draft", angle_bins=16)
+        c = InputContract.from_dict(old)
+        self.assertFalse(c.use_points)
         self.assertEqual(c.shapes()["H"], (128, 2, 64, 16))
-        self.assertEqual(c.version, "v0-draft")
 
     def test_round_trip_and_differences(self):
         c = default_contract()
@@ -38,7 +56,7 @@ class NetworkTest(unittest.TestCase):
 
     def test_shapes_at_every_stage(self):
         n = 5
-        H, D = torch.rand(n, 2, 64, 16), torch.rand(n, 1, 64, 16)
+        H, D = torch.rand(n, self.c.heatmap_channels, 64, self.c.angle_bins), torch.rand(n, 1, 64, 16)
         a, b = self.net.stem_a(H), self.net.stem_b(D)
         self.assertEqual(tuple(a.shape), (n, 16, 32, 8))
         self.assertEqual(tuple(b.shape), (n, 16, 32, 8))
@@ -54,9 +72,20 @@ class NetworkTest(unittest.TestCase):
 
     def test_parameter_count(self):
         n = count_params(self.net)
-        self.assertTrue(230_000 <= n <= 245_000, n)
+        self.assertEqual(n, 239_803)
         no_phase = count_params(TrueRehabNet(small_contract(use_phase=False)))
         self.assertEqual(n - no_phase, 16 * 9)  # one input channel less in Stem A's first conv
+        v0 = count_params(TrueRehabNet(small_contract(angle_bins=16, use_points=False)))
+        self.assertEqual(n - v0, 2 * 16 * 9)    # the two point layers; the finer angle grid adds no weights
+
+    def test_every_supported_angle_grid(self):
+        for a in (16, 32, 64):
+            c = small_contract(angle_bins=a)
+            net = TrueRehabNet(c).eval()
+            out = net.encode_frames(torch.rand(3, c.heatmap_channels, 64, a), torch.rand(3, 1, 64, 16))
+            self.assertEqual(tuple(out.shape), (3, 128))
+        with self.assertRaises(ValueError):
+            TrueRehabNet(small_contract(angle_bins=24))
 
     def test_causal_over_reps(self):
         batch = fake_batch(self.c, B=1, R=5)

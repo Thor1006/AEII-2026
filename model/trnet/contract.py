@@ -4,12 +4,19 @@ v0-draft, measured 2026-11-05 from the recorder's radar sessions (radar-lab prof
   - 60.00 fps; 64 range bins x 5.94 cm (3.80 m); 16 Doppler bins x 0.137 m/s
   - static heatmap = 64 range bins x 8 AZIMUTH ANTENNAS (complex int16), not angles. The antennas sit at
     columns 0,2,7,9,3,5,10,12 of a 13-wide row, so angles need a host angle FFT (16 bins ~ the real ~9 deg).
+v1, 2026-11-08 (plan 2026-11-08-points-and-finer-heatmap):
+  - 32 angle bins: a finer grid for locating peaks (zero-padded angle FFT); the real resolution stays ~9 deg.
+  - the radar's own detected points (TLV 1 x, y, z, speed; TLV 7 SNR), on the same range x angle grid, as two more
+    layers. They add height, which the heatmap lacks (it holds only the azimuth row of antennas).
+  - range resolution from each recording's profile (the finer fullmap_fine_awr2x44p.cfg: 64 x 3.88 cm, 2.48 m).
 Network input per frame:
-  H [C, 64, 16]  angle-FFT magnitude (0..1, 40 dB span) and, if use_phase, the phase change since the
-                 previous frame (-1..1 = -pi..pi, 0 where the cell is near the noise floor or after a gap)
+  H [C, 64, A]   angle-FFT magnitude (0..1, 40 dB span); if use_phase, the phase change since the previous frame
+                 (-1..1 = -pi..pi, 0 near the noise floor or after a gap); if use_points, height (SNR-weighted mean
+                 z of the points in the cell over the last points_window frames / height_scale_m, -1..1, 0 where
+                 none) and presence (points in the cell over that window / presence_full, 0..1)
   D [1, 64, 16]  range-Doppler magnitude (0..1, 40 dB span), zero speed in the middle column
   mask           1 = real frame, 0 = missing/padded
-It becomes v1 only when the real recording profile and protocol are frozen.
+Contracts saved before v1 have no point fields: they load as use_points=False (v0-draft behaviour).
 """
 import hashlib
 import json
@@ -31,13 +38,19 @@ def _quiet(fn, *args, **kw):
 
 @dataclass(frozen=True)
 class InputContract:
-    version: str = "v0-draft"
+    version: str = "v1"
     fps: float = 60.0
     frames_per_rep: int = 128          # T: 2.13 s at 60 fps; longer reps are cropped around their peak
     range_bins: int = 64
-    angle_bins: int = 16
+    angle_bins: int = 32
     doppler_bins: int = 16
     use_phase: bool = True
+    use_points: bool = True
+    points_window: int = 15            # frames pooled per point layer (0.25 s at 60 fps): one frame has ~7 points
+    height_scale_m: float = 1.0        # height layer = z / 1 m, clipped to -1..1
+    presence_full: int = 4             # points in a cell over the window that count as "fully present"
+    points_az_sign: int = 1            # which way a point's x runs along the angle-FFT axis: +1 measured 2026-11-08
+                                       # (still points sit +11 dB above their range row with +1, ~0 dB with -1)
     db_span: float = 40.0              # 0..1 covers the top 40 dB below the session's reference level
     baseline_s: float = 5.0            # reference level from the first 5 s (standing still)
     range_res_m: float = 0.0594140625
@@ -45,11 +58,11 @@ class InputContract:
     az_index: tuple = (0, 1, 2, 3, 4, 5, 6, 7)
     az_cols: tuple = (0, 2, 7, 9, 3, 5, 10, 12)
     cfg_lines: tuple = ()
-    notes: str = "v0-draft from radar-lab fullmap_awr2x44p.cfg recordings (2026-11-04); not frozen"
+    notes: str = "v1 (2026-11-08): 32 angle bins + point height/presence layers; not frozen"
 
     @property
     def heatmap_channels(self):
-        return 2 if self.use_phase else 1
+        return 1 + int(self.use_phase) + 2 * int(self.use_points)
 
     def shapes(self):
         T = self.frames_per_rep
@@ -66,6 +79,8 @@ class InputContract:
         extra = set(d) - known
         if extra:
             raise ValueError(f"unknown contract fields {sorted(extra)} (made by a newer version?)")
+        if "use_points" not in d:                       # saved before v1: no point layers
+            d = {**d, "use_points": False}
         return cls(**{k: tuple(v) if isinstance(v, list) else v for k, v in d.items()})
 
     INFO_ONLY = ("notes", "cfg_lines")  # kept for the record; the fields derived from them are compared
@@ -102,7 +117,7 @@ class InputContract:
 
 
 def default_contract(**overrides):
-    """The v0-draft contract for the profile the recorder uses (radar-lab fullmap_awr2x44p.cfg)."""
+    """The current contract for the profile the recorder uses (paths.RADAR_CFG)."""
     from radarlab import cfg as radar_cfg
     lines = _quiet(radar_cfg.read_lines, paths.RADAR_CFG, period_ms=1000 / 60)
     c = InputContract.from_radar_cfg(lines, **overrides)

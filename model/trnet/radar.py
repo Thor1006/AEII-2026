@@ -5,10 +5,18 @@ Units, measured 2026-11-05 on the real recordings:
       zero-Doppler bin, so it holds what is NOT moving (radar-lab maps.range_azimuth reads it the same way)
   range-Doppler (TLV 5): uint16 = 256 * log2(magnitude) (median 40 dB in an empty room), zero speed in column 0
   temperature (TLV 9): '<iI10h' valid flag (0 = valid), time ms, 10 sensors (the 10th is reserved)
+  detected points (TLV 1): float32 x, y, z, radial speed per point (x across, y forward, z up, metres);
+      side info (TLV 7): int16 SNR, int16 noise per point, in 0.1 dB. ~7 points per frame (median, Nov 5 curls).
+Points and heatmaps come in the same frame, so they are the same instant: point_cells() puts each point on the
+heatmap's range x angle grid, and PointWindow turns the last points_window frames of points into the height and
+presence layers (contract v1). points_on_heatmap() measures how well they agree (still points should sit on
+bright static-heatmap cells); it also fixed which way x runs along the angle axis (contract.points_az_sign).
 Times: the radar has no clock of its own in the output, but frames come exactly one period apart, so
 frame_no x period is used as a device clock and fitted to the host arrivals (lower edge, same as the IMU).
 That removes the USB bunching (arrivals median 15.9 ms apart, p99 19.4 ms, although the mean is 16.667 ms).
 """
+import collections
+import dataclasses
 import struct
 from dataclasses import dataclass, field
 
@@ -17,7 +25,7 @@ import numpy as np
 from . import paths  # noqa: F401
 from .contract import InputContract, default_contract
 
-DETECTED_POINTS, STATIC_HEATMAP, RANGE_DOPPLER, TEMPERATURE = 1, 4, 5, 9
+DETECTED_POINTS, STATIC_HEATMAP, RANGE_DOPPLER, SIDE_INFO, TEMPERATURE = 1, 4, 5, 7, 9
 LOG2_Q8_TO_DB = 20 * np.log10(2) / 256
 WAVELENGTH_M = 3e8 / 77e9
 PHASE_GATE_DB = 30.0   # phase is only trusted in cells within 30 dB of the session reference
@@ -44,6 +52,70 @@ def rd_db(payload, range_bins):
     return np.fft.fftshift(rd, axes=1) * LOG2_Q8_TO_DB
 
 
+def points_of(tlvs):
+    """One frame's detected points -> float32 [n, 5]: x, y, z (m), radial speed (m/s), SNR (dB; NaN if not sent)."""
+    raw = tlvs.get(DETECTED_POINTS, b"")
+    p = np.frombuffer(raw, "<f4").reshape(-1, 4) if len(raw) >= 16 else np.zeros((0, 4), np.float32)
+    out = np.full((len(p), 5), np.nan, np.float32)
+    out[:, :4] = p
+    side = tlvs.get(SIDE_INFO, b"")
+    if len(p) and len(side) == 4 * len(p):
+        out[:, 4] = np.frombuffer(side, "<i2").reshape(-1, 2)[:, 0] / 10.0
+    return out
+
+
+def point_cells(pts, contract: InputContract):
+    """(range bin, angle bin, inside) of each point on the H grid, the same axes as angle_fft (fftshifted).
+    The angle bin comes from the direction cosine along the antenna row, u = x / r: bin = A/2 (1 + sign u)."""
+    pts = np.asarray(pts, dtype=np.float64).reshape(-1, 5)
+    r = np.sqrt((pts[:, :3] ** 2).sum(1))
+    u = np.divide(pts[:, 0], r, out=np.zeros_like(r), where=r > 0)
+    rb = np.rint(r / contract.range_res_m).astype(int)
+    n = contract.angle_bins
+    ab = np.clip(np.rint(n / 2 * (1 + contract.points_az_sign * u)).astype(int), 0, n - 1)
+    inside = (r > 0) & (rb < contract.range_bins) & np.isfinite(pts[:, 2])
+    return rb, ab, inside
+
+
+class PointWindow:
+    """Height and presence layers [range, angle] from the points of the last contract.points_window frames.
+    Frame by frame, so the Pi bridge (live) and to_inputs (recordings) compute exactly the same thing."""
+
+    def __init__(self, contract: InputContract):
+        self.c = contract
+        shape = (contract.range_bins, contract.angle_bins)
+        self.n, self.w, self.wz = np.zeros(shape), np.zeros(shape), np.zeros(shape)
+        self.hist = collections.deque()
+
+    def push(self, pts):
+        """Add one frame's points ([n, 5] from points_of; None or empty for no points or a missing frame)."""
+        entry = None
+        if pts is not None and len(pts):
+            rb, ab, ok = point_cells(pts, self.c)
+            if ok.any():
+                w = np.nan_to_num(np.asarray(pts, float)[ok, 4], nan=10.0).clip(1.0, None)  # SNR (dB) as the weight
+                entry = (rb[ok], ab[ok], w, w * np.asarray(pts, float)[ok, 2])
+        self._add(entry, 1.0)
+        self.hist.append(entry)
+        if len(self.hist) > self.c.points_window:
+            self._add(self.hist.popleft(), -1.0)
+
+    def _add(self, entry, sign):
+        if entry is None:
+            return
+        rb, ab, w, wz = entry
+        np.add.at(self.n, (rb, ab), sign)
+        np.add.at(self.w, (rb, ab), sign * w)
+        np.add.at(self.wz, (rb, ab), sign * wz)
+
+    def layers(self):
+        """(height -1..1, presence 0..1), float32."""
+        has = self.n > 0.5
+        height = np.zeros(self.n.shape, np.float32)
+        height[has] = np.clip(self.wz[has] / np.maximum(self.w[has], 1e-9) / self.c.height_scale_m, -1, 1)
+        return height, np.clip(self.n / self.c.presence_full, 0, 1).astype(np.float32)
+
+
 def temperature_c(payload):
     """Hottest valid sensor in deg C, or NaN when the radar marks the reading invalid."""
     if len(payload) < 28:
@@ -64,6 +136,7 @@ class RadarRecording:
     arrival_s: np.ndarray       # [N] host arrival time, NaN when missing
     contract: InputContract
     problems: list = field(default_factory=list)
+    points: list = field(default_factory=list)   # [N] float32 [n, 5] per frame (points_of), None when missing
 
     @property
     def fps(self):
@@ -84,7 +157,7 @@ def load_radar(session, contract: InputContract | None = None):
     contract = contract or contract_for(session.meta)
     idx = session.radar_index()
     raw = (session.dir / "radar.bin").read_bytes()
-    nums, arrivals, statics, rds, temps, npts = [], [], [], [], [], []
+    nums, arrivals, statics, rds, temps, npts, pts = [], [], [], [], [], [], []
     problems = []
     n_ant = len(contract.az_index)
     for no, t, off, n in zip(idx["frame_no"], idx["t_s"], idx["offset"], idx["length"]):
@@ -105,6 +178,7 @@ def load_radar(session, contract: InputContract | None = None):
         rds.append(rd_db(f.tlvs[RANGE_DOPPLER], contract.range_bins))
         temps.append(temperature_c(f.tlvs.get(TEMPERATURE, b"")))
         npts.append(f.num_points)
+        pts.append(points_of(f.tlvs))
     if len(nums) < 2:
         raise ValueError(f"{session.dir.name}: fewer than 2 usable radar frames")
     nums = np.array(nums)
@@ -129,7 +203,10 @@ def load_radar(session, contract: InputContract | None = None):
     n_points[pos] = np.array(npts)[order]
     arr = np.full(k, np.nan)
     arr[pos] = np.array(arrivals)[order]
-    return RadarRecording(grid, slope * grid + icpt, valid, Z, RD, temp, n_points, arr, contract, problems)
+    points = [None] * k
+    for j, o in zip(pos, order):
+        points[j] = pts[o]
+    return RadarRecording(grid, slope * grid + icpt, valid, Z, RD, temp, n_points, arr, contract, problems, points)
 
 
 def reference_levels(rec: RadarRecording):
@@ -157,10 +234,38 @@ def to_inputs(rec: RadarRecording, refs=None):
         dphi = np.angle(rec.Z[1:] * np.conj(rec.Z[:-1])) / np.pi
         P[1:] = np.where(gate, dphi, 0).astype(np.float32)
         chans.append(P)
+    if c.use_points:
+        win = PointWindow(c)
+        height, presence = np.zeros_like(Hm), np.zeros_like(Hm)
+        for i in range(len(rec.valid)):
+            win.push(rec.points[i] if rec.valid[i] and i < len(rec.points) else None)
+            height[i], presence[i] = win.layers()
+        chans += [height, presence]
     H = np.stack(chans, 1)
     H[~rec.valid] = 0
     Dm[~rec.valid] = 0
     return H, Dm, rec.valid.copy()
+
+
+def points_on_heatmap(rec: RadarRecording, sign=None, still_only=True):
+    """Agreement of the points with the static heatmap of the same frame: (median dB by which the heatmap cell under
+    each still point is brighter than the median of its range bin, number of points used). A clearly positive lift
+    means they agree; testing sign=+1 and -1 tells which way x runs along the angle axis."""
+    c = rec.contract if sign is None else dataclasses.replace(rec.contract, points_az_sign=int(sign))
+    lifts = []
+    for i in np.flatnonzero(rec.valid):
+        p = rec.points[i] if i < len(rec.points) else None
+        if p is None or not len(p):
+            continue
+        if still_only:
+            p = p[np.abs(p[:, 3]) < c.vel_res_ms / 2]
+        rb, ab, ok = point_cells(p, c)
+        ok &= rb > 0
+        if not ok.any():
+            continue
+        mag = 20 * np.log10(np.abs(rec.Z[i]) + 1e-3)
+        lifts.extend((mag[rb[ok], ab[ok]] - np.median(mag[rb[ok]], axis=1)).tolist())
+    return (float(np.median(lifts)) if lifts else float("nan")), len(lifts)
 
 
 def motion_energy(rec: RadarRecording, r_min_m=0.3, r_max_m=3.0):

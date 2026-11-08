@@ -183,12 +183,24 @@ def _reflector_points(J):
 
 
 # ---------------------------------------------------------------- radar
-class RadarBackground:
-    """Empty-room antenna data and range-Doppler raw values, from real frames or from the measured stats."""
+def _range_rows(n, res_dst, res_src):
+    """Source rows for a range axis of n bins at res_dst, from one at res_src: (i0, i1, frac, nearest)."""
+    s = np.minimum(np.arange(n) * res_dst / res_src, n - 1)
+    i0 = np.floor(s).astype(int)
+    i1 = np.minimum(i0 + 1, n - 1)
+    return i0, i1, (s - i0)[:, None], np.rint(s).astype(int)
 
-    def __init__(self, stats, mode, rng):
+
+class RadarBackground:
+    """Empty-room antenna data and range-Doppler raw values, from real frames or from the measured stats.
+    Given a contract with another range step than the recordings', the rows are resampled by distance (the room's
+    walls stay where they are); the stats' antenna patterns per row are taken from the nearest row."""
+
+    def __init__(self, stats, mode, rng, contract=None):
         self.rng = rng
         self.real = None
+        self.rows = None
+        src_res = ((stats.get("radar") or {}).get("profile") or {}).get("range_res_m", 0.0594140625)
         if mode in ("real", "auto"):
             names = (stats.get("radar") or {}).get("sessions", [])
             src = [paths.SESSIONS / n for n in names if (paths.SESSIONS / n / "radar.bin").exists()]
@@ -202,6 +214,7 @@ class RadarBackground:
                 self.real = ([R.static_iq(f.tlvs[R.STATIC_HEATMAP]) for f in fr],
                              [np.frombuffer(f.tlvs[R.RANGE_DOPPLER], "<u2").astype(float).reshape(64, 16) for f in fr])
                 self.mode = "real:" + src[0].name
+                src_res = R.contract_for(s.meta).range_res_m
             elif mode == "real":
                 raise FileNotFoundError("real background asked for, but the empty-room recordings aren't here")
         if self.real is None:
@@ -216,6 +229,13 @@ class RadarBackground:
             sd = np.fft.ifftshift(np.array(r["rd_db_std"]), axes=1) / R.LOG2_Q8_TO_DB
             self.rd_med, self.rd_sd = med, sd
             self.mode = "stats"
+        if contract is not None and abs(contract.range_res_m / src_res - 1) > 1e-3:
+            self.rows = _range_rows(contract.range_bins, contract.range_res_m, src_res)
+            self.mode += f" (rows resampled {src_res * 100:.2f} -> {contract.range_res_m * 100:.2f} cm)"
+            if self.real is None:
+                nearest = self.rows[3]
+                for name in ("mean", "U", "sd", "rho", "resid", "coef", "rd_med", "rd_sd"):
+                    setattr(self, name, getattr(self, name)[nearest])
         self.start = int(rng.integers(0, len(self.real[0]))) if self.real else 0
 
     def _cgauss(self, shape):
@@ -226,11 +246,82 @@ class RadarBackground:
             n = len(self.real[0])
             m = (self.start + k) % (2 * n - 2)            # forwards then backwards: no jump at the end
             j = m if m < n else 2 * n - 2 - m
-            return self.real[0][j].copy(), self.real[1][j].copy()
+            iq, rd = self.real[0][j], self.real[1][j]
+            if self.rows is not None:
+                i0, i1, f, _ = self.rows
+                return (1 - f) * iq[i0] + f * iq[i1], (1 - f) * rd[i0] + f * rd[i1]
+            return iq.copy(), rd.copy()
         self.coef = self.rho * self.coef + np.sqrt(1 - self.rho ** 2) * self.sd * self._cgauss(self.sd.shape)
         z = self.mean + np.einsum("rk,rka->ra", self.coef, self.U) + self.resid * self._cgauss(self.mean.shape)
         rd = self.rd_med + self.rd_sd * self.rng.standard_normal(self.rd_med.shape)
         return z, rd
+
+    def mean_static(self):
+        """The room's average static antenna data [64, 8] (to place the room's own points on its bright spots)."""
+        if self.real:
+            iq = np.mean(self.real[0][: min(100, len(self.real[0]))], axis=0)
+            if self.rows is not None:
+                i0, i1, f, _ = self.rows
+                iq = (1 - f) * iq[i0] + f * iq[i1]
+            return iq
+        return self.mean
+
+
+def room_points(bg, contract, rng, n=3, r_min_m=0.6):
+    """Positions (x, y, z) of the room's strongest still reflectors: the brightest cells of its mean static map."""
+    mag = np.abs(R.angle_fft(bg.mean_static()[None], contract)[0])
+    first = int(np.ceil(r_min_m / contract.range_res_m))
+    mag[:first] = 0
+    out = []
+    for _ in range(n):
+        rb, ab = np.unravel_index(int(np.argmax(mag)), mag.shape)
+        if mag[rb, ab] <= 0:
+            break
+        mag[max(0, rb - 2):rb + 3, max(0, ab - 2):ab + 3] = 0          # next peak elsewhere
+        r = rb * contract.range_res_m
+        u = contract.points_az_sign * (2 * ab / contract.angle_bins - 1)
+        z = float(rng.normal(0, 0.3))
+        horiz = np.sqrt(max(r * r - z * z, 0))
+        x = u * r
+        out.append((x, np.sqrt(max(horiz * horiz - x * x, 0)), z))
+    return out
+
+
+def fake_points(P, v, a, room, contract, rng):
+    """One frame of detected points like the real radar's: sparse (~7, most of them still), noisy height, a few
+    misses and ghosts. P [m, 3] reflector positions, v [m] radial speeds, a [m] amplitudes; room [(x, y, z)].
+    Returns (TLV 1 points bytes, TLV 7 side info bytes)."""
+    res, vres = contract.range_res_m, contract.vel_res_ms
+    r_max = contract.range_bins * res
+    rows = []
+    for i in range(len(P)):
+        moving = abs(v[i]) > vres
+        if rng.random() > (0.75 if moving else 0.45):
+            continue
+        x, y, z = P[i]
+        r = np.sqrt(x * x + y * y + z * z)
+        r_n = r + rng.normal(0, 0.5 * res)
+        u = np.clip(x / r + rng.normal(0, 0.03), -0.99, 0.99)
+        z_n = z + (rng.uniform(-1.2, 1.2) if rng.random() < 0.1 else rng.normal(0, 0.2))  # real: +-0.16-0.25 m
+        rows.append((u * r_n, r_n, z_n, round(v[i] / vres) * vres if moving else 0.0,
+                     10 + 10 * np.log10(max(a[i], 1e-6) / 400.0) + rng.normal(0, 2)))
+    for x, y, z in room:
+        if rng.random() < 0.5:
+            r = np.sqrt(x * x + y * y + z * z)
+            rows.append((x, r, z + rng.normal(0, 0.2), 0.0, rng.uniform(12, 20)))
+    if rng.random() < 0.25:                                                 # a ghost
+        r, u = rng.uniform(0.3, 0.95 * r_max), rng.uniform(-0.9, 0.9)
+        rows.append((u * r, r, rng.uniform(-1, 1), 0.0, rng.uniform(6, 9)))
+    points, side = b"", b""
+    for x, r, z, vv, snr in rows:                                           # (x, range, z) -> (x, y, z)
+        if not 0.2 < r < r_max:
+            continue
+        y2 = r * r - x * x - z * z
+        if y2 <= 0:
+            continue
+        points += struct.pack("<ffff", x, np.sqrt(y2), z, vv)
+        side += struct.pack("<hh", int(np.clip(snr, 6, 35) * 10), 300)
+    return points, side
 
 
 def radar_frames(person, tl, stats, plan, rng, contract, bg):
@@ -246,8 +337,11 @@ def radar_frames(person, tl, stats, plan, rng, contract, bg):
     amp = np.array([REFLECTORS[k] for k in names]) * person.reflect
     r = np.linalg.norm(P, axis=2)
     v = np.gradient(r, period, axis=0)                       # radial speed (m/s)
-    sin_az = P[..., 0] / np.hypot(P[..., 0], P[..., 1])
+    u_az = contract.points_az_sign * P[..., 0] / r                # direction cosine along the antenna row
     a = amp * (1.3 / r) ** 2
+    prng = np.random.default_rng((person.seed, 0x50))             # the points' own randomness: the other sensors'
+                                                                    # fake data stays as it was without points
+    room = room_points(bg, contract, prng)
     res, vres = contract.range_res_m, contract.vel_res_ms
     cols = np.array(contract.az_cols)
     rbins = np.arange(contract.range_bins)
@@ -265,7 +359,7 @@ def radar_frames(person, tl, stats, plan, rng, contract, bg):
         kr = np.sinc(rbins[:, None] - r[k] / res) * np.exp(-((rbins[:, None] - r[k] / res) / 2.5) ** 2)   # [64, m]
         still = np.abs(np.sinc(v[k] / vres))                                   # only slow things in the static map
         phase = np.exp(-1j * 4 * np.pi * r[k] / LAM)
-        steer = np.exp(1j * np.pi * cols[None, :] * sin_az[k][:, None])        # [m, 8] antennas at real columns
+        steer = np.exp(1j * np.pi * cols[None, :] * u_az[k][:, None])          # [m, 8] antennas at real columns
         iq_cols = (kr * (a[k] * still * phase)) @ steer                             # [64, 8] in column order
         z = iq.copy()
         z[:, list(contract.az_index)] += iq_cols
@@ -273,11 +367,7 @@ def radar_frames(person, tl, stats, plan, rng, contract, bg):
         lin = 2 ** (rd_raw / 256) + 8 * (np.abs(kr) * a[k]) @ np.abs(kd).T          # [64, 16]
         rd_payload = np.clip(256 * np.log2(np.maximum(lin, 1)), 0, 65535).astype("<u2").tobytes()
         st = np.stack([z.imag, z.real], -1).round().clip(-32768, 32767).astype("<i2").tobytes()
-        moving = np.flatnonzero(np.abs(v[k]) > vres)
-        pts = [(P[k, i, 0], P[k, i, 1], P[k, i, 2], v[k, i]) for i in moving[:6]] + \
-              [(P[k, 0, 0], P[k, 0, 1], P[k, 0, 2], 0.0)]
-        points = b"".join(struct.pack("<ffff", *p) for p in pts)
-        side = b"".join(struct.pack("<hh", 200, 50) for _ in pts)
+        points, side = fake_points(P[k], v[k], a[k], room, contract, prng)
         stats_tlv = struct.pack("<6I", 1200, 900, 14000, 0, 31, 22)
         hot = int(round(temp0 + 6 * k / n))
         temp = struct.pack("<iI10h", 0, int(t[k] * 1000), *([hot - 3, hot - 2, hot - 1, hot - 3, hot - 1, hot,
@@ -390,11 +480,12 @@ def _monotonic(t):
     return np.maximum.accumulate(t)
 
 
-def make_session(root, person: Person, plan: Plan = Plan(), seed=None, stats=None, subject=None):
-    """Write one fake session folder under root; returns its path."""
+def make_session(root, person: Person, plan: Plan = Plan(), seed=None, stats=None, subject=None, contract=None):
+    """Write one fake session folder under root; returns its path. contract: the radar profile to fake (default:
+    the recorder's), e.g. one made from radar-lab's fullmap_fine_awr2x44p.cfg."""
     stats = stats or load_stats()
     rng = np.random.default_rng(person.seed if seed is None else seed)
-    contract = default_contract()
+    contract = contract or default_contract()
     tl = plan_timeline(person, plan, rng)
     subject = subject or ("Alice" if "name_subject" in plan.problems else person.code)
     d = Path(root) / f"2026-01-01_{person.seed % 1000000:06d}_{subject}_elbow_flexion"
@@ -413,7 +504,7 @@ def make_session(root, person: Person, plan: Plan = Plan(), seed=None, stats=Non
         j0 = int(rng.integers(0, len(jit)))
         rows, off, count, nos = [], 0, 0, []
         with open(d / "radar.bin", "wb") as f:
-            bg = RadarBackground(stats, plan.background, rng)
+            bg = RadarBackground(stats, plan.background, rng, contract)
             for no, t_true, b in radar_frames(person, tl, stats, plan, rng, contract, bg):
                 arrive = t_true + 0.004 + jit[(j0 + no) % len(jit)] - jit.min()
                 f.write(b)
@@ -530,7 +621,8 @@ def make_session(root, person: Person, plan: Plan = Plan(), seed=None, stats=Non
             w.writerow([int(t_m * 1e9), key, label])
     summary["markers"] = len(tl.markers)
     meta.update({"ended": "2026-01-01T00:10:00+07:00", "duration_s": round(tl.t_end, 3), "summary": summary,
-                 "fake": {"generator": "trnet.synth", "warning": "FAKE DATA: tests the code only",
+                 "fake": {"generator": "trnet.synth", "synth_version": paths.SYNTH_VERSION,
+                          "warning": "FAKE DATA: tests the code only",
                           "seed": person.seed, "person": asdict(person),
                           "plan": {**asdict(plan), "problems": list(plan.problems)},
                           "background": bg.mode if "radar" in sensors else None,

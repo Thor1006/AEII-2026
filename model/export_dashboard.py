@@ -28,7 +28,7 @@ from trnet import radar as R  # noqa: E402
 from trnet.inference import latest_weights, run_session  # noqa: E402
 
 FPS = 15
-MAX_RANGE = 40              # 2.4 m
+MAX_RANGE_M = 2.4           # the maps stop at 2.4 m (the person stands at 1.0-1.6 m)
 SCORES = [  # key, label (as in the dashboard's translation catalog), higher is worse, [warn, bad]
     ("fatigue", "Fatigue", True, [0.7, 0.85], "How tired the working muscle seems, learned from sEMG during training. Lower is better."),
     ("quality", "Movement quality", False, [0.2, 0.4], "Range, speed and smoothness compared with the first reps. Higher is better."),
@@ -49,6 +49,10 @@ ACTION_INFO = [
 COMP_PATTERN = {"comp_shrug": "shoulder_shrug", "comp_lean": "trunk_lean", "comp_rom": "reduced_rom"}
 
 
+POINTS_HELP = ("What the network sees, part 3: the radar's own detected points of the last 0.25 s, by distance and "
+               "direction, coloured by how high they are (metres above or below the radar). Empty cells stay 0.")
+
+
 def b64(a):
     return base64.b64encode(np.ascontiguousarray(a, "<f4").tobytes()).decode()
 
@@ -63,26 +67,36 @@ def export(run, out_path):
     t0_s = float(rec.t_s[0])
     base_ms = int(time.time() * 1000) - int((rec.t_s[-1] - t0_s) * 1000) - 60_000
     T = lambda t: base_ms + int(round((t - t0_s) * 1000))  # noqa: E731
-    span_m = MAX_RANGE * c.range_res_m
+    rows = max(4, min(c.range_bins, int(round(MAX_RANGE_M / c.range_res_m))))
+    span_m = rows * c.range_res_m
     vres = c.vel_res_ms
+    half = c.angle_bins // 2
+    ang = {"label": "Angle bin", "min": -half, "max": half - 1}
+    rng_axis = {"label": "Range", "unit": "m", "min": 0, "max": round(span_m, 2)}
     meta = p.session.meta
     subject = str(meta.get("subject", ""))
     session_info = {"id": p.name, "state": "running", "exercise": meta.get("exercise", "elbow_flexion"),
                     "side": {"l": "left", "r": "right"}.get(getattr(p.pose, "side", ""), None),
                     "startedAt": T(t0_s), "userId": subject}
+    A = c.angle_bins
     frames = [
-        {"view": "range_azimuth", "label": "Where things are", "shape": [MAX_RANGE, 16], "unit": "",
-         "axes": {"x": {"label": "Angle bin", "min": -8, "max": 7}, "y": {"label": "Range", "unit": "m", "min": 0, "max": round(span_m, 2)}},
+        {"view": "range_azimuth", "label": "Where things are", "shape": [rows, A], "unit": "",
+         "axes": {"x": ang, "y": rng_axis}, "layer": ("H", 0),
          "fps": FPS, "description": "What the network sees, part 1: everything reflecting the radar, by distance and direction. 0 = 40 dB below the strongest echo, 1 = the strongest."},
-        {"view": "phase_change", "label": "Tiny motion", "shape": [MAX_RANGE, 16], "unit": "×π rad",
-         "axes": {"x": {"label": "Angle bin", "min": -8, "max": 7}, "y": {"label": "Range", "unit": "m", "min": 0, "max": round(span_m, 2)}},
+        {"view": "phase_change", "label": "Tiny motion", "shape": [rows, A], "unit": "×π rad",
+         "axes": {"x": ang, "y": rng_axis}, "layer": ("H", 1),
          "fps": FPS, "description": "What the network sees, part 2: how far each spot moved since the last frame, down to a fraction of a millimetre. 0 = still or too faint to tell."},
-        {"view": "range_doppler", "label": "Movement speed", "shape": [MAX_RANGE, 16], "unit": "",
-         "axes": {"x": {"label": "Radial speed", "unit": "m/s", "min": round(-8 * vres, 2), "max": round(7 * vres, 2)}, "y": {"label": "Range", "unit": "m", "min": 0, "max": round(span_m, 2)}},
-         "fps": FPS, "description": "What the network sees, part 3: how fast things move toward or away from the radar. The middle column is still."},
+        {"view": "range_doppler", "label": "Movement speed", "shape": [rows, c.doppler_bins], "unit": "",
+         "axes": {"x": {"label": "Radial speed", "unit": "m/s", "min": round(-(c.doppler_bins // 2) * vres, 2),
+                        "max": round((c.doppler_bins // 2 - 1) * vres, 2)}, "y": rng_axis}, "layer": ("D", 0),
+         "fps": FPS, "description": f"What the network sees, part {3 + int(c.use_points)}: how fast things move toward or away from the radar. The middle column is still."},
     ]
+    if c.use_points:
+        frames.insert(2, {"view": "point_height", "label": "Points (height)", "shape": [rows, A], "unit": "m",
+                          "axes": {"x": ang, "y": rng_axis}, "layer": ("H", 1 + int(c.use_phase)), "range": [-0.6, 0.6],
+                          "fps": FPS, "description": POINTS_HELP})
     manifest = {
-        "frames": frames,
+        "frames": [{k: v for k, v in f.items() if k != "layer"} for f in frames],
         "scores": [{"key": k, "label": lbl, "higherIsWorse": hiw, "thresholds": th, "description": d, "rateHz": 1}
                    for k, lbl, hiw, th, d in SCORES],
         "aux": ([{"key": "elbow_angle_deg", "label": "Elbow angle (°)", "unit": "°", "rateHz": FPS, "device": "pose"}]
@@ -105,7 +119,11 @@ def export(run, out_path):
     add(t0_s, {"type": "event", "kind": "session_start", "data": {"session": session_info}})
     for k, i in enumerate(sel):
         t = float(rec.t_s[i])
-        for f, data in ((frames[0], H[i, 0, :MAX_RANGE]), (frames[1], H[i, 1, :MAX_RANGE]), (frames[2], D[i, 0, :MAX_RANGE])):
+        for f in frames:
+            src, ch = f["layer"]
+            data = (H if src == "H" else D)[i, ch, :rows]
+            if f["view"] == "point_height":
+                data = data * c.height_scale_m                      # metres above (+) or below (-) the radar
             add(t, {"type": "frame", "view": f["view"], "shape": f["shape"], "unit": f["unit"], "axes": f["axes"],
                     "frameIndex": int(rec.frame_no[i]), "data": b64(data), "encoding": "base64-f32"})
     if p.pose is not None:
@@ -164,7 +182,7 @@ def main(argv=None):
         folder = Path(a.session)
         person = None
     else:
-        folder = next(p for p in sorted((paths.DATA / "fake").iterdir()) if f"_{a.person}_" in p.name)
+        folder = next(p for p in sorted(paths.FAKE.iterdir()) if f"_{a.person}_" in p.name)
         person = a.person
     weights = Path(a.weights) if a.weights else latest_weights(person)
     run = run_session(folder, weights)

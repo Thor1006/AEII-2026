@@ -128,6 +128,40 @@ class FakeVsRealTest(unittest.TestCase):
             self.assertAlmostEqual(p.sync["pose"]["offset_ms"], radar_late - STATS["pose"]["latency_ms"], delta=15.0)
             self.assertEqual(p.pose.side, truth["reps"] and p.session.meta["fake"]["person"]["side"])
 
+    def test_fake_points_look_like_the_real_ones(self):
+        """Sparse (a few per frame, mostly still), on the fake heatmap's bright cells like the real radar's (measured
+        +11 dB on the Nov 5 curls), with the same sign convention."""
+        rec = R.load_radar(S.load(self.sessions[0]))
+        n = np.array([len(p) for p, ok in zip(rec.points, rec.valid) if ok])
+        self.assertTrue(3 <= np.median(n) <= 12, np.median(n))
+        moving = np.concatenate([np.abs(p[:, 3]) > 0 for p, ok in zip(rec.points, rec.valid) if ok and len(p)])
+        self.assertLess(moving.mean(), 0.5)
+        lift, used = R.points_on_heatmap(rec)
+        self.assertGreater(lift, 6.0)
+        self.assertLess(R.points_on_heatmap(rec, sign=-rec.contract.points_az_sign)[0], lift - 4.0)
+
+    def test_the_finer_profile_keeps_the_room_where_it_is(self):
+        """A fake session on the 3.88-cm profile: the empty-room background (recorded at 5.94 cm) is resampled by
+        distance, so the room's brightest static spot stays at the same distance."""
+        from radarlab import cfg as radar_cfg
+        from trnet.contract import InputContract
+        lines = radar_cfg.read_lines(paths.RADAR_LAB / "configs" / "fullmap_fine_awr2x44p.cfg", period_ms=1000 / 60)
+        fine = InputContract.from_radar_cfg(lines)
+        d = synth.make_session(self.tmp / "fine", synth.make_person("F07", 7), SHORT, stats=STATS, contract=fine)
+        rec = R.load_radar(S.load(d))
+        self.assertAlmostEqual(rec.contract.range_res_m, 0.0388, places=4)
+        self.assertGreater(R.points_on_heatmap(rec)[0], 6.0)
+        coarse_c = synth.default_contract()
+        room = {}
+        for name, c in (("coarse", coarse_c), ("fine", fine)):
+            bg = synth.RadarBackground(STATS, "stats", np.random.default_rng(0), c)
+            level = 20 * np.log10(np.abs(R.angle_fft(bg.mean_static()[None], c)[0]).mean(axis=1) + 1e-3)
+            room[name] = (np.arange(c.range_bins) * c.range_res_m, level)
+        d = np.arange(0.5, 2.3, 0.01)                        # distances both grids cover
+        a, b = (np.interp(d, *room[k]) for k in ("coarse", "fine"))
+        self.assertGreater(np.corrcoef(a, b)[0, 1], 0.9)    # the same room profile, by distance
+        self.assertLess(np.median(np.abs(a - b)), 1.5)      # dB; near the radar the level changes fast with distance
+
     def test_injected_problems_show_up(self):
         person = synth.make_person("F50", 50)
         d = synth.make_session(self.tmp / "p", person, dataclasses.replace(SHORT, problems=("radar_gap", "wifi_drop")),
