@@ -8,9 +8,10 @@ Radar provider: the AWR2944PEVM on USB (TI mmWave demo with radar-lab's profile)
           the radar.
 
 Every radar frame (60 fps) goes through the model's own preprocessing (model/trnet/radar.py): angle FFT of the
-static heatmap with the antennas at their real columns, the phase change since the previous frame, and the
-range-Doppler map. One frame in four (15 fps) is sent to viewers as three maps: "Where things are",
-"Tiny motion" and "Movement speed", cropped to the first 2.4 m.
+static heatmap with the antennas at their real columns (32 angle bins in contract v1), the phase change since the
+previous frame, the radar's own detected points pooled over the last 0.25 s (PointWindow, the model's height
+layer), and the range-Doppler map. One frame in four (15 fps) is sent to viewers as four maps: "Where things are",
+"Tiny motion", "Points (height)" and "Movement speed", cropped to the first 2.4 m.
 
 Recording: Start/Stop in the dashboard writes every raw frame into the bridge's shared session folder (radar.bin,
 radar_index.csv; the bridge writes meta.json and markers.csv, under [bridge] record_dir), so
@@ -43,14 +44,17 @@ DEFAULT_CFG = REPO / "radar-lab" / "configs" / "fullmap_awr2x44p.cfg"
 XDS110 = (0x0451, 0xBEF3)                            # TI's on-board debugger: one command port, one data port
 FRAME_PERIOD_MS = 16.667                             # 60 fps, measured stable (recorder default)
 STATS_HZ = 1.0
+HEIGHT_RANGE_M = (-0.6, 0.6)                         # colour scale of "Points (height)": a person's points sit within it
 
 VIEWS = (
     ("range_azimuth", "Where things are", "",
      "What the network sees, part 1: everything reflecting the radar, by distance and direction. 0 = 40 dB below the strongest echo, 1 = the strongest."),
     ("phase_change", "Tiny motion", "×π rad",
      "What the network sees, part 2: how far each spot moved since the last frame, down to a fraction of a millimetre. 0 = still or too faint to tell."),
+    ("point_height", "Points (height)", "m",
+     "What the network sees, part 3: the radar's own detected points of the last 0.25 s, by distance and direction, coloured by how high they are (metres above or below the radar). Empty cells stay 0."),
     ("range_doppler", "Movement speed", "",
-     "What the network sees, part 3: how fast things move toward or away from the radar. The middle column is still."),
+     "What the network sees, part 4: how fast things move toward or away from the radar. The middle column is still."),
 )
 
 
@@ -104,6 +108,7 @@ class RadarProvider(Provider):
                  replay: str = "", replay_speed: float = 1.0, replay_loop: bool = True, **options: Any) -> None:
         super().__init__(**options)
         from trnet.contract import InputContract                     # numpy only (no PyTorch)
+        from trnet import radar as R
         from radarlab import cfg as radar_cfg
         self.data_port, self.cli_port, self.data_baud = data_port, cli_port, int(data_baud)
         self.cfg_path = Path(cfg_file).expanduser() if cfg_file else DEFAULT_CFG
@@ -132,6 +137,7 @@ class RadarProvider(Provider):
         self._frames = self._missing = 0
         self._rate_t0, self._rate_n, self._fps_in = time.monotonic(), 0, 0.0
         self._temp: float | None = None
+        self._points = R.PointWindow(self.contract) if self.contract.use_points else None
         self._rec: dict[str, Any] | None = None
         self._cli = None
 
@@ -142,9 +148,12 @@ class RadarProvider(Provider):
     def manifest(self) -> ManifestPart:
         frames = []
         for view, label, unit, desc in VIEWS:
+            if view == "point_height" and not self.contract.use_points:
+                continue
             x = self.x_speed if view == "range_doppler" else self.x_angle
             frames.append(FrameStream(view, (self.rows, self.contract.angle_bins if view != "range_doppler" else self.contract.doppler_bins),
-                                      self.fps_out, label=label, unit=unit or None, x=x, y=self.y, description=desc))
+                                      self.fps_out, label=label, unit=unit or None, x=x, y=self.y, description=desc,
+                                      value_range=HEIGHT_RANGE_M if view == "point_height" else None))
         return ManifestPart(frames=frames, events=["marker"])
 
     def health(self) -> dict[str, DeviceHealth]:
@@ -318,17 +327,25 @@ class RadarProvider(Provider):
         if consecutive:
             strong = (mag_db > ref_h - R.PHASE_GATE_DB) & (self._prev_mag > ref_h - R.PHASE_GATE_DB)
             phase = np.where(strong, np.angle(z * np.conj(self._prev_z)) / np.pi, 0).astype(np.float32)
+        if self._points is not None:              # every frame, so the 0.25-s window matches the recordings'
+            if self._prev_no is not None and frame.number > self._prev_no + 1:
+                for _ in range(min(frame.number - self._prev_no - 1, c.points_window)):
+                    self._points.push(None)       # missing frames count as frames without points
+            self._points.push(R.points_of(frame.tlvs))
         self._prev_z, self._prev_mag, self._prev_no = z, mag_db, frame.number
         step = max(1, int(round(c.fps / self.fps_out)))
         if frame.number % step:
             return
         t_ms = time.time() * 1000
         rows = self.rows
-        maps = (
+        maps = [
             ("range_azimuth", np.clip((mag_db - ref_h) / c.db_span + 1, 0, 1), self.x_angle, None),
             ("phase_change", phase, self.x_angle, "×π rad"),
-            ("range_doppler", np.clip((rd - ref_d) / c.db_span + 1, 0, 1), self.x_speed, None),
-        )
+        ]
+        if self._points is not None:
+            height, _presence = self._points.layers()
+            maps.append(("point_height", height * c.height_scale_m, self.x_angle, "m"))
+        maps.append(("range_doppler", np.clip((rd - ref_d) / c.db_span + 1, 0, 1), self.x_speed, None))
         for view, data, x, unit in maps:
             msg = Frame(view, np.ascontiguousarray(data[:rows], dtype=np.float32), t=t_ms, frame_index=int(frame.number),
                         unit=unit, x=x, y=self.y)

@@ -170,6 +170,8 @@ export interface FrameStreamInfo {
   fps: number;
   /** Plain-language explanation for the ⓘ button. */
   description?: string;
+  /** Fixed colour scale [low, high], e.g. [-0.6, 0.6] m for point heights. Default: 0–1, or ±1 for signed maps. */
+  range?: [number, number];
 }
 
 export interface ScoreInfo {

@@ -78,8 +78,12 @@ class ReplayTest(unittest.TestCase):
 
     def test_manifest(self):
         m = self.provider().manifest()
-        self.assertEqual([f.view for f in m.frames], ["range_azimuth", "phase_change", "range_doppler"])
-        self.assertEqual({f.shape for f in m.frames}, {(40, 16)})
+        self.assertEqual([f.view for f in m.frames], ["range_azimuth", "phase_change", "point_height", "range_doppler"])
+        self.assertEqual({f.shape for f in m.frames}, {(40, 32), (40, 16)})       # 32 angle bins, 16 speed bins
+        self.assertEqual([f.shape[1] for f in m.frames], [32, 32, 32, 16])
+        wire = {f.view: f.wire() for f in m.frames}
+        self.assertEqual(wire["point_height"]["range"], [-0.6, 0.6])        # its own colour scale, in metres
+        self.assertNotIn("range", wire["range_azimuth"])
         self.assertEqual({f.fps for f in m.frames}, {15.0})
         self.assertIn("marker", m.events)
 
@@ -87,13 +91,15 @@ class ReplayTest(unittest.TestCase):
         p = self.provider()
         out: list[Frame] = []
         p._read(FakeLoop(), out.append)
-        self.assertEqual(len(out), 3 * len([n for n in range(1, self.n_frames + 1) if n % 4 == 0]))
+        self.assertEqual(len(out), 4 * len([n for n in range(1, self.n_frames + 1) if n % 4 == 0]))
         by_view = {}
         for f in out:
             by_view.setdefault(f.view, []).append(f)
-            self.assertEqual(f.data.shape, (40, 16))
+            self.assertEqual(f.data.shape, (40, 16 if f.view == "range_doppler" else 32))
             self.assertEqual(f.data.dtype, np.float32)
             self.assertTrue(np.isfinite(f.data).all())
+        heights = np.stack([f.data for f in by_view["point_height"]])
+        self.assertTrue(np.abs(heights).max() > 0 and np.abs(heights).max() <= 1.0)   # metres, within the 1-m scale
         mag, ph, rd = (np.stack([f.data for f in by_view[v]]) for v in ("range_azimuth", "phase_change", "range_doppler"))
         self.assertTrue(0 <= mag.min() and mag.max() <= 1 and mag.max() > 0.9)
         self.assertTrue(np.abs(ph).max() <= 1 and np.abs(ph).max() > 0.05)     # the fake arm moves the phase

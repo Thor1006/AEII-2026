@@ -54,6 +54,7 @@ export const viewTitles: Record<string, string> = {
   range_time: 'Range–time',
   range_azimuth: 'Range–azimuth',
   phase_change: 'Phase change',
+  point_height: 'Points (height)',
 };
 
 /** Choices in the "Start session" form. The key is what the Pi receives. */

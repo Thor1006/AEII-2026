@@ -57,6 +57,8 @@ class FrameStream:
     x: Axis | None = None
     y: Axis | None = None
     description: str | None = None
+    #: Fixed colour scale [low, high] (e.g. (-0.6, 0.6) m for point heights); None = the dashboard's default
+    value_range: tuple[float, float] | None = None
 
     def axes_wire(self) -> dict[str, Any] | None:
         axes = _clean({"x": self.x.wire() if self.x else None, "y": self.y.wire() if self.y else None})
@@ -72,6 +74,7 @@ class FrameStream:
                 "unit": self.unit,
                 "fps": self.fps,
                 "description": self.description,
+                "range": list(self.value_range) if self.value_range else None,
             }
         )
 

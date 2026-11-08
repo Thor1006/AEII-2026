@@ -44,6 +44,9 @@ assert.equal(t('Patient note: felt better today'), 'Patient note: felt better to
 assert.equal(t('constructor'), 'constructor');
 assert.equal(t('{constructor}'), '{constructor}');
 assert.equal(createTranslator('en')('{constructor}'), '{constructor}');
+// Radar points view (contract v1, 2026-11-08)
+assert.equal(createTranslator('th')('Points (height)'), 'จุดที่เรดาร์ตรวจพบ (ความสูง)');
+assert.equal(t('Points (height)'), '雷達偵測點（高度）');
 // sEMG (Pi bridge provider "emg"): channel names with units, and device messages built from " · " parts
 assert.equal(t('sEMG envelope (ADC)'), 'sEMG 包絡線 (ADC)');
 assert.equal(t('sEMG median frequency (Hz): no data'), 'sEMG 中位頻率 (Hz)：沒有數據');

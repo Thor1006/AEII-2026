@@ -2,7 +2,7 @@
 
 What it does on a Raspberry Pi 5:
 - At boot it starts the **bridge**. A phone or laptop on the same Wi-Fi opens `http://<kit>.local:8080` and sees the
-  **live radar**: the 3 maps the network uses ("Where things are", "Tiny motion", "Movement speed"), plus radar
+  **live radar**: the 4 maps the network uses ("Where things are", "Tiny motion", "Points (height)", "Movement speed"), plus radar
   health and temperature.
 - **sEMG (new in v0.2):** with the MyoWare 2.0 on its Wi-Fi link, the dashboard's "Reference signals" panel shows
   the muscle's **envelope** and its **median frequency** (it falls as the muscle tires; sent only during movement).

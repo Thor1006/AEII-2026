@@ -156,7 +156,7 @@ Every message has an envelope:
    "statusIntervalMs":1000}}
 ```
 
-The dashboard labels itself from the manifest and checks that every listed stream arrives (Technical → Data streams). An aux channel's `device` links it to `status.devices`, so a missing Arduino shows as "Device off: Not plugged in" instead of an error. An aux channel with `"intermittent": true` is sent only at times (the sEMG median frequency, only during movement), so silence shows as "Waiting for movement", not as a fault.
+The dashboard labels itself from the manifest and checks that every listed stream arrives (Technical → Data streams). An aux channel's `device` links it to `status.devices`, so a missing Arduino shows as "Device off: Not plugged in" instead of an error. A frame stream may give its own colour scale, `"range": [low, high]` (e.g. `[-0.6, 0.6]` m for "Points (height)"); otherwise maps use 0–1, or ±1 when signed. An aux channel with `"intermittent": true` is sent only at times (the sEMG median frequency, only during movement), so silence shows as "Waiting for movement", not as a fault.
 
 **Commands (dashboard → Pi)** get an `ack` with the same id:
 
