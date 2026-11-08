@@ -15,7 +15,7 @@
   - Labels use placeholder thresholds. `check_session.py` runs after each recording. Fake data replays real empty-room radar frames and the real timing.
   - 73 tests. On fake data it beats the baseline for 5 of 6 heads (plumbing only). No real session with a person exists yet.
   - Without pose or IMU, reps come from the sEMG envelope (fallback): then only fatigue can be labelled.
-  - Dashboard: `model/export_dashboard.py` writes a replay that `frontend/` opens with `?replay=/replays/<file>.ndjson`. The radar panel switches between 3 views. Live mode waits for the Pi. [Report](output/2026-11-05-1844-dashboard-replay-radar-check.md).
+  - Dashboard: `model/export_dashboard.py` writes a replay that `frontend/` opens with `?replay=/replays/<file>.ndjson`. The radar panel switches between 4 views (incl. "Points (height)"). Live mode waits for the Pi. [Report](output/2026-11-05-1844-dashboard-replay-radar-check.md).
 - `sandbox/Encoder_0.1/` and the existing AI/dashboard demos still use synthetic input. `frontend/` (home/dashboard, EN/TH/zh-HK, session history) and `Phisit/` (teammate's FastAPI/React demo) are unchanged.
 - Ground truth, all into `recorder/` ([plan](plans/2026-11-04-recorder.md)):
   - **MyoWare 2.0 sEMG:** runs `firmware/myoware_record` with the Wi-Fi link since 2026-11-07 ([report](output/2026-11-07-1601-myoware-upload.md)): `tcp://truerehab-myoware.local:3334`, 1000.1 samples/s, 0 gaps, RSSI ~-45 dBm, and the Pi bridge's check passes with the real board. Not yet worn. Power switch must be ON (it cuts the ESP32 even on USB). On this Mac its CH340 USB port (`/dev/cu.usbserial-*`) can't do 921600 baud: upload with `UploadSpeed=115200`, read the data over Wi-Fi.
@@ -42,7 +42,7 @@
   - [Report](output/2026-11-05-1844-dashboard-replay-radar-check.md).
 
 ## Open questions
-- Freeze the input contract (v0-draft: radar-lab profile, angle FFT + phase `[2,64,16]`, range-Doppler `[1,64,16]`)?
+- Freeze the input contract (v1: angle FFT + phase + point height/presence `[4,64,32]`, range-Doppler `[1,64,16]`)?
   - Open: frames per rep. T = 128 crops 58 % of the fake 2.0–2.9-s reps.
   - Open: whether the phase channel carries muscle signal.
   - The recording protocol is in `model/README.md`. The browser's fast point output is a different input.
