@@ -2,6 +2,42 @@
 
 <!-- Newest on top. One short entry per decision that someone might later ask "why did we do it this way?" about. -->
 
+## 2026-11-07 - Use white slides with restrained corner decoration
+- The user clarified that the theme should be white with light decorative detail and less visual distraction. Saved `_v04.pptx` with white backgrounds and subtle pale blue/mint corner arcs behind the existing content. Converted the prior navy-background slides to dark text on white; preserved the user's existing white cover. [Report](output/2026-11-07-white-corner-theme_v01.md).
+- All slide wording, speaker notes, original media, fonts and geometry remain intact. Earlier versions and the script are retained; no GigaFlex additions, commit or push.
+
+## 2026-11-07 - Return to the original slides with a blue, white and mint theme
+- The user requested removing the generated illustration page and keeping the previous slide content. Removed slide 3 from v02 and saved the 15-slide `_v03.pptx` with white/navy/mint colors. Preserved their cover edits, original pictures, slide order, wording, notes, fonts and geometry. [Report](output/2026-11-07-restore-deck-theme_v01.md).
+- Earlier versions and the existing speaking script remain unchanged. GigaFlex stays outside this deck. No commit/push.
+
+## 2026-11-07 - Edit the supplied presentation and preserve the user's changes
+- The user explicitly requested embedding the minimalist no-text home-rehabilitation illustration into the attached PowerPoint. Used their newer 16-slide Downloads file as the source and replaced the inserted Background and problems slide at position 3 with the requested blue/white/mint image. Saved `_v02.pptx`, preserving all other slide parts and renders exactly. [Report](output/2026-11-07-background-illustration_v01.md).
+- Preserved the original attachment and all earlier versions. Image and prompt are saved separately with `_v01` asset-series suffixes. The speaking script was not edited. GigaFlex remains outside presentation edits until the user requests otherwise. No commit/push.
+
+## 2026-11-05 - Number every generated or revised deliverable
+- User requested duplicates of the latest structured deck and script, and a number in filenames after every edit/new generation. Created byte-identical `_v01` copies in `presentation/`, preserving originals. Future deliverable revisions use the next available `_vNN` suffix before the extension; existing numbered files are retained. Paired deck/script deliveries share a version number.
+- Saved this standing preference in `CLAUDE/CLAUDE.md` for other assistants. [Report](output/2026-11-05-numbered-deliverable-copies.md). No content/layout changes, commit or push.
+
+## 2026-11-05 - Follow the user's four part presentation structure
+- Added a new 15-slide deck and matching DOCX speech in `presentation/`, preserving the previous stage and poster versions. Order: short introduction; background/problems with team identity, traditional measurement, contactless concept and home rationale; developer flowcharts; dashboard and practical showcase. Presenter-to-developer-to-demo handoffs are explicit.
+- Kept the simple visual style. Used the official school identity, an openly licensed goniometer photo, an actual synthetic-mode dashboard capture and recorded real radar output. Practical setup is labeled illustrative; future models and contactless goals are distinguished from demonstrated acquisition. [Report](output/2026-11-05-structured-presentation-and-script.md). No code/hardware changes, commit or push.
+
+## 2026-11-05 - Add a visual stage presentation and matching speech as backup
+- User requested a slide-based speaking version and simple Steve Jobs-inspired visual storytelling. Supplied a separate 10-slide main deck with 2 hidden Q&A slides, native movement/sensing/timing diagrams, actual hardware and measurement images, and a matching DOCX script with timing and subtle delivery cues. Spoken scripts also live in slide notes.
+- White/black with one blue accent, short slide text and conceptual movement continuity guide attention. Existing poster speech stays primary, with this approximately 5-6 minute stage version as backup. Hardware substitution and unvalidated clinical/model outputs remain explicit. [Report](output/2026-11-05-stage-presentation-and-script.md). No changes to the submitted materials, code or hardware; no commit/push.
+
+## 2026-11-05 - Preserve the expanded poster speech while supplying DOCX
+- User clarified that only the file type should change, with the same content. Supplied `presentation/TrueRehab_RF_Poster_Speaking_Script_Expanded.docx` from the original expanded speech's DOCX source. Complete text matches the `.doc`, and all three rendered page texts and page breaks match its approved PDF. Original `.doc` retained; no content changes, commit or push.
+
+## 2026-11-05 - Provide the latest evidence review as editable Word DOCX
+- User requested a `.docx` file type. Converted the latest evidence review and presentation/project options to [Word](output/2026-11-05-evidence-review-and-presentation-options.docx), preserving every substantive source paragraph, audited claim and reference URL. The narrative audit uses headings instead of a wide table for readability.
+- Verified all source wording, clickable reference links and a six-page rendered layout. Original Markdown, submitted poster/proposal and existing speaking scripts remain intact. No commit/push.
+
+## 2026-11-05 - Review evidence before extending the presentation or product claims
+- User supplied proposed clinical/commercial statistics and requested interesting presentation material, project improvements and a Git pull. Pulled through `8e5b6db`; preserved local Word scripts and reconciled both note conflicts with all histories retained. Safety stash kept, no commit/push.
+- The proposal's fatigue percentages and two-to-three-rep warnings are examples, not validated thresholds or results. The 88%/68% figures were located in an ESPRM 2024 small-cohort Box and Block abstract. External telerehabilitation outcomes are not TrueRehab-RF treatment effects. The 23%/27% figures refer to ECG/blood-pressure failures in a specific cardiac platform, not general wearable placement errors.
+- [Audit and ready-to-use presentation options](output/2026-11-05-evidence-review-and-presentation-options.md) recommend movement-quality framing, multimodal recording completion, independent labels, individual baselines and quality-aware evaluation. Recommendations only; no approved prototype implementation, poster rewrite or claim of clinical validation.
+
 ## 2026-11-05 — IMU goes wireless over Wi-Fi (TCP), not Bluetooth; recorder clock fit through the lower edge
 - **Decision:**
   - The IMU board streams over Wi-Fi with `WIFI_LINK 1`: one TCP client, port 3333, at `truerehab-imu.local`. A 32 KB buffer is sent by a core-0 task; USB output is unchanged.
@@ -21,6 +57,10 @@
 - **Decision:** One sketch (`sandbox/imu-mpu6050-oled/imu_mpu6050_oled/`) with LIVE and RECORD modes. IMU sampled in `loop()` on core 1; OLED drawn by its own task on core 0 on its own I2C bus. Registers driven directly; any chip whose settings read back is accepted. RECORD sends counts at the recorder's 16384/g and 131/(°/s) but measures ±4 g/±500 °/s (2 × register value), with `RECORD_WIDE_RANGE 0` for the old ±2 g/±250 °/s int16. Missed slots are skipped and counted, never burst. Accel calibration is stored in flash and applied to LIVE/OLED only; RECORD stays raw with the numbers in `#` lines. See [report](output/2026-11-04-2232-imu-firmware-fix.md).
 - **Why:** Measured on the board: OLED writes stalled sampling ~29 ms (would lose ~25 % at 200 Hz); the chip is a 0x74 clone the Adafruit library rejects; |a| 0.88–1.05 g at rest. Elbow curls can pass 250 °/s, so ±250 °/s could clip, while the count scale stays the documented one. Raw record data keeps offline processing free to choose its own corrections.
 - **Alternatives:** Adafruit MPU6050 library (rejects the chip); OLED split into page writes in the same loop (more fragile); MPU FIFO (clone FIFO sizes differ, harder timestamps); plain ±2 g/±250 °/s in RECORD (clips fast reps); applying calibration to RECORD lines (bakes one estimate into the data).
+## 2026-11-04 - Prepare the poster speech first and retain slides as backup
+- User chose poster explanation and live demo as the main preparation, with the existing slide deck as a second plan. Public research has not confirmed a compulsory stage presentation or a speaking-time limit.
+- Saved the approved English speech under `presentation/`; user later requested more detail, so the current expanded `.doc` has three pages and eight sections, with poster cues, the AWR2944PEVM/no-DCA substitution and a clear distinction between measured radar output and unvalidated AI scores. The expanded 626-word script is a rehearsal length, not an official event time limit. Original short file was open and locked, so the new version is `TrueRehab_RF_Poster_Speaking_Script_Expanded.doc`.
+- All three expanded pages visually checked and all 31 revised spoken paragraphs preserved. No poster edit, hardware command, commit or push. [Report](output/2026-11-04-poster-speaking-script.md).
 
 ## 2026-11-03 - Synchronize local and teammate radar work
 - User explicitly requested pull then push. Preserve a named local safety stash, pull through cc97005, reconcile context/decision conflicts and publish local radar demos/plans/reports with the unchanged poster reference.
