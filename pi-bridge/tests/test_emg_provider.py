@@ -105,6 +105,19 @@ class Signal(unittest.TestCase):
         p._handle_lines(restart, BASE_MS + 4000, lambda m: None)
         self.assertEqual(p._lost, 100)                                        # a restart isn't counted as lost
 
+    def test_wifi_pauses_are_held_data_only(self):
+        """A chunk 1.1 s after the last one with nothing missing is a Wi-Fi pause (the board kept sampling, the network
+        held the data back); a gap in the board's own clock is lost samples, not a pause."""
+        p = EmgProvider(port="tcp://127.0.0.1:9")
+        p._link, p._connected_at = "up", time.monotonic() - 5
+        lines = board_lines(self.raw[:3000], self.env[:3000])
+        p._handle_lines(lines[:1000], BASE_MS + 1000, lambda m: None)
+        p._handle_lines(lines[1000:2000], BASE_MS + 2100, lambda m: None)    # held back 1.1 s, then all of it
+        p._handle_lines(lines[2500:3000], BASE_MS + 2700, lambda m: None)    # 500 samples never came
+        self.assertEqual([round(s, 2) for _, s in p._pauses], [1.1])
+        self.assertEqual(p._lost, 500)
+        self.assertIn("1 Wi-Fi pause(s) in 5 min, longest 1.1 s", p.health()["emg"].message)
+
     def test_flat_signal_and_clipping_in_plain_words(self):
         p = EmgProvider(port="tcp://127.0.0.1:9")
         p._link, p._connected_at = "up", time.monotonic() - 5
@@ -190,6 +203,34 @@ class Live(unittest.TestCase):
         self.assertEqual(summary["emg"]["samples"], len(data["values"]))
         self.assertTrue(np.all(np.diff(data["t_host_s"]) >= 0))
         self.assertIsNotNone(load_emg(s))                                      # and the model's
+
+    def test_another_reader_is_named_and_not_fought(self):
+        """The board serves one client and drops the old one for a new one. When another program keeps taking it, the
+        bridge says so and waits longer before taking it back, instead of both reconnecting every second."""
+        self.wait_for(lambda: self.p.health()["emg"].state == "ok", what="the link")
+        other = socket.create_connection((self.fake.host, self.fake.port))     # another program connects
+        try:
+            self.wait_for(lambda: self.fake.clients >= 3, what="the bridge taking the board back")
+            other.close()
+            other = socket.create_connection((self.fake.host, self.fake.port))  # ... and takes it again
+            self.wait_for(lambda: self.p.health()["emg"].state == "error", what="the warning")
+            msg = self.p.health()["emg"].message
+            self.assertIn("Another program is reading the MyoWare", msg)
+            self.assertIn("trying again in 5 s", msg)
+            clients = self.fake.clients
+            time.sleep(2)
+            self.assertEqual(self.fake.clients, clients)                         # it waits instead of fighting
+        finally:
+            other.close()
+
+    def test_wifi_pause_on_a_live_link(self):
+        """The fake board holds its data back for 1.1 s (as the real one does now and then): one pause, nothing lost."""
+        self.wait_for(lambda: self.p.health()["emg"].state == "ok", what="the link")
+        self.fake.pause_every = 60.0                                         # one pause now, the next in a minute
+        self.wait_for(lambda: len(self.p._pauses) >= 1, what="the pause to be seen")
+        self.assertEqual(self.fake.pauses, 1)
+        self.assertGreater(self.p._pauses[0][1], 0.9)
+        self.assertEqual(self.p._lost, 0)
 
     def test_not_reachable_in_plain_words(self):
         p = EmgProvider(port=f"tcp://127.0.0.1:{free_port()}")

@@ -8,7 +8,7 @@ ws_port = 8765                # live data (WebSocket)
 http_port = 8080              # serves the dashboard: people open http://<pi>.local:8080. 0 = off
 web_root = "../frontend/dist" # built dashboard (npm run build), relative to this file
 status_interval_ms = 1000
-frame_dtype = "f32"           # "u16" or "u8" cut Wi-Fi traffic 2–4× with a little precision loss
+frame_dtype = "u8"            # "f32", "u16" or "u8": u8 cuts Wi-Fi traffic 4× with no visible difference
 client_queue = 120            # per-viewer buffer; a slow phone drops messages instead of slowing the Pi
 record_dir = "~/truerehab-sessions"   # Start/Stop in the dashboard records every sensor here (recorder format). "" = off
 
@@ -46,7 +46,7 @@ data_port = "auto"            # finds the board's two TI XDS110 USB ports; or e.
 cli_port = "auto"             # its command port; or e.g. "/dev/ttyACM0"
 start_radar = true            # send radar-lab's profile at start, like the recorder (never flashes anything)
 cfg_file = ""                 # "" = ../radar-lab/configs/fullmap_awr2x44p.cfg
-fps = 15                      # maps per second to viewers (the radar itself runs at 60)
+fps = 10                      # maps per second to viewers (the radar itself runs at 60)
 max_range_m = 2.4
 replay = ""                   # a recorder session folder: play it instead of the live radar (testing)
 
@@ -54,5 +54,5 @@ replay = ""                   # a recorder session folder: play it instead of th
 enabled = false               # MyoWare 2.0 sEMG running firmware/myoware_record: envelope + median frequency
 port = "tcp://truerehab-myoware.local:3334"   # its Wi-Fi link; or a USB port like "/dev/ttyUSB0" (bench only, never worn)
 baud = 921600                 # USB only
-env_hz = 50                   # envelope values per second to viewers
+env_hz = 25                   # envelope values per second to viewers
 active_ratio = 9              # median frequency only while the muscle works (power >= 9x rest); 0 = always

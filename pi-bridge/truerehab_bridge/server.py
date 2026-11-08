@@ -6,6 +6,7 @@ Viewers can send commands (session.start / session.stop / marker) and pings.
 from __future__ import annotations
 
 import asyncio
+import collections
 import json
 import logging
 import signal
@@ -69,7 +70,9 @@ class Bridge:
         #: The open recording (Start/Stop in the dashboard), shared by every provider that saves data.
         self.recording: Recording | None = None
         self._seq = 0
-        self._frame_times: list[float] = []
+        #: When each frame of the last second was made (for the status "fps"). Trimmed as frames come, so it stays
+        #: small while nobody watches (it used to grow ~7 MB/h, and the first viewer paid for trimming it).
+        self._frame_times: collections.deque[float] = collections.deque()
         self._parts = [p.manifest() for p in providers]
         self._manifest = manifest_wire(self._parts, COMMANDS, cfg.status_interval_ms)
         self._manifest["events"] = sorted(set(self._manifest["events"]) | set(SESSION_EVENTS))
@@ -97,6 +100,7 @@ class Bridge:
         """Called by providers (in the event loop). Encodes once, queues for every viewer."""
         if isinstance(msg, Frame):
             self._frame_times.append(time.monotonic())
+            self._trim_frame_times()
         if not self.viewers:
             return  # nobody watching: don't spend sequence numbers or CPU on encoding
         try:
@@ -142,8 +146,7 @@ class Bridge:
         return out
 
     def status(self) -> dict[str, Any]:
-        now = time.monotonic()
-        self._frame_times = [t for t in self._frame_times if now - t <= 1.0]
+        self._trim_frame_times()
         msg: dict[str, Any] = {
             **self._envelope(),
             "type": "status",
@@ -159,6 +162,11 @@ class Bridge:
         if temp is not None:
             msg["cpuTempC"] = temp
         return msg
+
+    def _trim_frame_times(self) -> None:
+        now = time.monotonic()
+        while self._frame_times and now - self._frame_times[0] > 1.0:
+            self._frame_times.popleft()
 
     async def _heartbeat(self) -> None:
         while True:

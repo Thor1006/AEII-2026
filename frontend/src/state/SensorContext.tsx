@@ -63,15 +63,18 @@ export function SensorProvider({ children, store: external, initialSource }: Sen
     current.current.unsubs.forEach((u) => u());
     current.current.source.disconnect();
     current.current = null;
+    store.playout.enabled = false; // charts stop at the last data instead of scrolling on
     setSource(null);
     setState('closed');
-  }, []);
+  }, [store]);
 
   const connect = useCallback(
     (next: SensorSource) => {
       // No awaits before next.connect(): keeps the user gesture for Web Serial.
       disconnect();
       store.reset();
+      // Live sources run the charts on the sender's clock; a replay keeps its own playhead (speed, loop).
+      store.playout.enabled = next.kind === 'websocket' || next.kind === 'mock';
       const unsubs = [
         next.onMessage((msg, meta) => store.ingest(msg, meta.bytes)),
         next.onState((s, err) => {

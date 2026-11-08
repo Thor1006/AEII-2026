@@ -15,9 +15,11 @@ Start records one session folder under `[bridge] record_dir` (default `~/truereh
 
 ## sEMG: the MyoWare 2.0 over Wi-Fi
 
-The board runs `firmware/myoware_record` (Wi-Fi link, port 3334). In `config.toml`: `[providers.emg]  enabled = true`. The dashboard's "Reference signals" panel then shows the **sEMG envelope** (50/s) and the **median frequency** (4/s, only while the muscle works; it falls as the muscle tires). Wear it only on battery, never with USB plugged in.
+The board runs `firmware/myoware_record` (Wi-Fi link, port 3334). In `config.toml`: `[providers.emg]  enabled = true`. The dashboard's "Reference signals" panel then shows the **sEMG envelope** (`env_hz` values/s: 25 in the shipped settings) and the **median frequency** (4/s, only while the muscle works; it falls as the muscle tires). Wear it only on battery, never with USB plugged in.
 
-No board? `python fake_myoware.py` serves FAKE sEMG the way the board does on `tcp://127.0.0.1:3334`; set `port = "tcp://127.0.0.1:3334"`.
+No board? `python fake_myoware.py` serves FAKE sEMG the way the board does on `tcp://127.0.0.1:3334`; set `port = "tcp://127.0.0.1:3334"`. With `--pause-every 20` it holds its data back for 1.1 s every 20 s and then sends it all at once, like the real board's Wi-Fi pauses.
+
+**Wi-Fi pauses and other readers** (2026-11-08): the health line counts pauses where the board kept sampling but the network held the data back for 0.3 s or more ("2 Wi-Fi pause(s) in 5 min, longest 1.1 s"; the log has one line each, and a recording's `meta.json` gets `wifi_pauses` and `longest_pause_s`). The board serves one client and drops the old one for a new one: when another program keeps taking it (its `link_clients` jumps between our links), the bridge says "Another program is reading the MyoWare…" and waits 5, 15, 30, then 60 s before taking it back, instead of both reconnecting every second. `recorder/link_report.py <session>` explains a recording's pauses afterwards.
 
 ## Setup on the Pi (5 steps)
 

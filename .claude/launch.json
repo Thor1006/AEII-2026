@@ -4,19 +4,52 @@
     {
       "name": "frontend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "frontend", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "frontend",
+        "run",
+        "dev"
+      ],
       "port": 5173
     },
     {
       "name": "mock-bridge",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "frontend", "run", "mock"],
+      "runtimeArgs": [
+        "--prefix",
+        "frontend",
+        "run",
+        "mock"
+      ],
       "port": 8765
+    },
+    {
+      "name": "mock-bridge-pauses",
+      "runtimeExecutable": "/usr/bin/env",
+      "runtimeArgs": [
+        "PORT=8766",
+        "PAUSE_EVERY=10",
+        "PAUSE_S=1.1",
+        "npm",
+        "--prefix",
+        "frontend",
+        "run",
+        "mock"
+      ],
+      "port": 8766
     },
     {
       "name": "model-demo",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8770", "--bind", "127.0.0.1", "--directory", "model/runs/demo"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8770",
+        "--bind",
+        "127.0.0.1",
+        "--directory",
+        "model/runs/demo"
+      ],
       "port": 8770,
       "url": "http://127.0.0.1:8770"
     }

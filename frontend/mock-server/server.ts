@@ -7,6 +7,10 @@
  *   PORT=9000 FPS=10 DTYPE=u8 DROP=0.05 npm run mock
  *
  * DROP simulates lost messages (0–1) to check the drop counter.
+ * PAUSE_EVERY=20 holds the reference signals (aux) back for PAUSE_S=1.1 s every 20 s and then sends them all at once,
+ * like a Wi-Fi sensor's pause; the radar maps keep coming (the radar is on USB). For the live charts' playout delay.
+ * (The held messages keep their sequence numbers, so "Messages lost" climbs here; the real bridge numbers messages
+ * when it sends them, so a pause doesn't count as lost there.)
  * BREAK deliberately violates the protocol, to prove the checker catches it:
  *   BREAK=nohello    never send hello
  *   BREAK=badframe   frame payload shorter than its header says
@@ -29,6 +33,8 @@ const PORT = Number(process.env.PORT ?? 8765);
 const FPS = Number(process.env.FPS ?? 20);
 const DTYPE = (process.env.DTYPE ?? 'f32') as FrameDType;
 const DROP = Number(process.env.DROP ?? 0);
+const PAUSE_EVERY = Number(process.env.PAUSE_EVERY ?? 0);
+const PAUSE_S = Number(process.env.PAUSE_S ?? 1.1);
 const BREAK = process.env.BREAK ?? '';
 const KEY = process.env.KEY ? Buffer.from(process.env.KEY, 'hex') : null;
 if (process.env.KEY && (!/^[0-9a-f]{64}$/i.test(process.env.KEY))) throw new Error('KEY must be 64 hex characters');
@@ -60,11 +66,20 @@ const broadcast = (data: string | ArrayBuffer) => {
   }
 };
 
+const held: string[] = [];
+const started = Date.now();
 setInterval(() => {
   if (!wss.clients.size) return;
-  for (const msg of gen.next(Date.now())) {
+  const now = Date.now();
+  const pausing = PAUSE_EVERY > 0 && (now - started) % (PAUSE_EVERY * 1000) >= PAUSE_EVERY * 1000 - PAUSE_S * 1000;
+  if (!pausing && held.length) for (const m of held.splice(0)) broadcast(m); // the held samples, all at once
+  for (const msg of gen.next(now)) {
     if (DROP > 0 && Math.random() < DROP) continue;
     if (BREAK === 'noscores' && msg.type === 'scores') continue;
+    if (pausing && msg.type === 'aux') {
+      held.push(JSON.stringify(msg));
+      continue;
+    }
     if (msg.type === 'frame') {
       const buf = encodeBinaryFrame(msg, DTYPE);
       broadcast(BREAK === 'badframe' ? buf.slice(0, buf.byteLength - 100) : buf);

@@ -7,6 +7,7 @@ import type {
   SessionInfo,
   StatusMessage,
 } from '../sensor/protocol.ts';
+import { PlayoutClock } from './PlayoutClock.ts';
 import { RingBuffer } from './RingBuffer.ts';
 import { SessionReportTracker } from './SessionReport.ts';
 import type { SessionReport } from './SessionReport.ts';
@@ -60,6 +61,8 @@ export class SensorStore {
   stats: LinkStats = emptyStats();
   /** Host time each stream was last seen. */
   readonly lastSeen = new Map<StreamId, number>();
+  /** Where the live charts end: slightly behind the Pi's clock, so short Wi-Fi pauses don't freeze them. */
+  readonly playout = new PlayoutClock();
 
   private readonly historyLength: number;
   private readonly lastSeq = new Map<string, number>();
@@ -85,6 +88,7 @@ export class SensorStore {
 
   ingest(msg: SensorMessage, bytes = 0): void {
     const now = msg.recvT ?? Date.now();
+    this.playout.observe(now, msg.t, msg.type === 'aux' && this.steadyAux(msg.channels));
     this.trackSequence(msg);
     this.stats.received++;
     this.stats.lastRecvT = now;
@@ -166,6 +170,7 @@ export class SensorStore {
     this.lastSeq.clear();
     this.frameTimes.clear();
     this.byteLog.clear();
+    this.playout.reset();
     this.notify();
   }
 
@@ -199,6 +204,13 @@ export class SensorStore {
       map.set(key, buf);
     }
     return buf;
+  }
+
+  /** Channels sent steadily (not "intermittent" like the median frequency, which only comes during movement and is
+   *  stamped at its window's centre): their lateness says how late the network delivers. */
+  private steadyAux(channels: Record<string, number>): boolean {
+    const defs = this.hello?.manifest?.aux;
+    return Object.keys(channels).every((key) => !defs?.find((a) => a.key === key)?.intermittent);
   }
 
   private trackSequence(msg: SensorMessage): void {

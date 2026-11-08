@@ -1,4 +1,4 @@
-# TrueRehab-RF — Raspberry Pi set (v0.2)
+# TrueRehab-RF — Raspberry Pi set (v0.3)
 
 What it does on a Raspberry Pi 5:
 - At boot it starts the **bridge**. A phone or laptop on the same Wi-Fi opens `http://<kit>.local:8080` and sees the
@@ -10,7 +10,9 @@ What it does on a Raspberry Pi 5:
   in `~/truerehab-sessions/`, on one clock, in the recorder's format.
 - The **model tools** (session check, dashboard replays) run on the Pi after `install.sh --with-model`.
 
-**Not in v0.2:**
+**New in v0.3:** smoother live data over Wi-Fi (see "Wi-Fi: smooth live data" below).
+
+**Not in v0.3:**
 - **Live model scores.** The network needs reps cut from the radar alone, and that part doesn't exist yet. The
   network is also trained on fake data only.
 - **Live IMU in the dashboard.** Record it with `recorder/record.py` (stop the bridge first).
@@ -84,6 +86,99 @@ It does these steps (safe to run again):
 
 No board yet? `.venv/bin/python pi-bridge/fake_myoware.py` sends **fake** sEMG the way the board does, on
 `tcp://127.0.0.1:3334`: set `port` to that to test everything.
+
+## Wi-Fi: smooth live data (new in v0.3)
+The MyoWare sends over 2.4-GHz Wi-Fi. Now and then the network holds its data back for about a second (after a
+short radio blackout the ESP32 most likely waits 1–2 s before it resends). Nothing is lost: it arrives late, all at once.
+What v0.3 does about it:
+- **The live charts run a moment behind:** 0.25 s, or up to 1.5 s after a pause, so a short pause no longer
+  freezes them. Recordings don't change.
+- **The MyoWare's health line counts the pauses**, e.g. "2 Wi-Fi pause(s) in 5 min, longest 1.1 s". The log
+  (`journalctl -u truerehab-bridge -f`) has a line per pause, next to "viewer connected" lines.
+- **The dashboard stream is about 5× lighter** (8-bit maps, 10 maps/s, 25 envelope values/s), so less traffic on
+  2.4 GHz. An older `pi-bridge/config.toml` keeps its own values: copy `frame_dtype`, `fps` and `env_hz` from
+  `config.pi.toml`.
+
+**One reader per board.** The MyoWare serves one program at a time, and a new one kicks out the old. Stop the
+Mac's `record.py` or any other bridge while the Pi reads it. If two keep trying, the dashboard says "Another program
+is reading the MyoWare…" and the Pi waits longer each time (5, 15, 30, 60 s).
+
+**On the Pi, once: Wi-Fi power save off.** Find the Wi-Fi connection's name (Imager usually calls it `preconfigured`):
+```bash
+nmcli -t -f NAME,TYPE connection show
+```
+```bash
+sudo nmcli connection modify preconfigured 802-11-wireless.powersave 2
+```
+```bash
+sudo nmcli connection up preconfigured
+```
+Check that this says `off`:
+```bash
+iw dev wlan0 get power_save
+```
+
+**During sessions:** unplug the USB 3 SSD (USB 3 gives off noise near 2.4 GHz), and don't run `nmcli dev wifi list`
+(it makes the Pi scan for networks, which pauses its Wi-Fi).
+
+**Placement:** the router (or the Pi, when it is the access point) 1–2 m in front of the person, at chest height, on
+the sensor's side. The body blocks 2.4 GHz: watch the lowest "Wi-Fi … dBm" in the health line during a set of curls
+(above −65 dBm is good, below −70 is weak).
+
+### Laptop on a cable (keeps the dashboard off Wi-Fi)
+Plug a network cable from the laptop (USB-C LAN adapter) into the Pi's Ethernet port. On the Pi, once (not tested on
+our Pi yet):
+```bash
+sudo nmcli connection add type ethernet ifname eth0 con-name trh-laptop ipv4.method shared connection.autoconnect no
+```
+Each time:
+```bash
+sudo nmcli connection up trh-laptop
+```
+Then open `http://10.42.0.1:8080` on the laptop: the address, not `trh-kit-01.local`, so the data stays on the
+cable. (Don't use this profile while the Pi's Ethernet port is plugged into a router.)
+
+### At the venue: bring the kit's own network
+Venue Wi-Fi with a login page (like the HKCEC's) doesn't work for the boards. The boards know one Wi-Fi name and
+password (their `wifi_secrets.h`): any network for them must use that name and password, or both boards need a
+re-flash. Pick one:
+1. **The Pi as the access point (free).** It takes the Pi off its current Wi-Fi, so set it up with the laptop cable
+   above (or a keyboard and screen). With the boards' Wi-Fi name, once:
+   ```bash
+   sudo nmcli connection add type wifi ifname wlan0 con-name trh-ap ssid "BOARDS-WIFI-NAME" 802-11-wireless.mode ap 802-11-wireless.band bg 802-11-wireless.channel 6 ipv4.method shared wifi-sec.key-mgmt wpa-psk connection.autoconnect no
+   ```
+   Start it (`--ask` asks for the boards' Wi-Fi password, so it isn't saved in the shell history):
+   ```bash
+   sudo nmcli --ask connection up trh-ap
+   ```
+   Back to the normal Wi-Fi:
+   ```bash
+   sudo nmcli connection up preconfigured
+   ```
+   Viewers join this network and open `http://10.42.0.1:8080` (or use the laptop cable). Use channel 1 or 11 instead
+   of 6 if 6 is crowded (`nmcli dev wifi list` shows the networks around: run it before a session, not during). Never
+   run a phone hotspot with the same name at the same time. If the bridge can't find `truerehab-myoware.local`, put
+   the board's address in `port`. **Not tested on our Pi yet:** try it at home for an hour with both boards first.
+2. **A small travel router** (e.g. GL.iNet Opal, about 1,500 THB): its 2.4-GHz network gets the boards' name and
+   password, a fixed channel (1, 6 or 11) at 20 MHz, 802.11b off; the Pi on its LAN port; viewers on its 5-GHz
+   network or a cable. The most robust choice.
+3. **An iPhone hotspot** ("Maximize Compatibility" on) as the last resort, with the iPhone itself as the dashboard
+   (one hop instead of two).
+
+### Wi-Fi check (about 25 min, MyoWare on the bench, nothing flashed)
+1. Exactly one program reads the board.
+2. Four 5-minute recordings with Start/Stop (subject code `TEST`):
+   - **A:** no dashboard watching (press Start, close the tab, reopen it to press Stop);
+   - **B:** the Mac watching over Wi-Fi;
+   - **C:** the Mac on the laptop cable;
+   - **D:** the iPhone watching, reloading the page 5 times, 10 s apart.
+3. Compare them. `recorder/link_report.py` needs only Python; run it on the Pi, or on the Mac after copying the
+   folders (`scp -r pi@trh-kit-01.local:~/truerehab-sessions ~/Downloads/`):
+   ```bash
+   python3 recorder/link_report.py ~/truerehab-sessions/<A> ~/truerehab-sessions/<B> ~/truerehab-sessions/<C> ~/truerehab-sessions/<D>
+   ```
+   It says how often the data paused and why (held by the network, ended by the ESP32's resend timer, not sent by
+   the board, another program on the board), then prints a table that compares the four.
 
 ## 5. Update to a newer set
 Unpack the new `.tar.gz` over the old folder (`tar xzf ...` in the same place), then run `bash install.sh` again.

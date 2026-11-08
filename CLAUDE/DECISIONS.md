@@ -2,6 +2,29 @@
 
 <!-- Newest on top. One short entry per decision that someone might later ask "why did we do it this way?" about. -->
 
+## 2026-11-08 — Wi-Fi pauses: hide them in the dashboard, measure them, keep TCP for now (Pi set v0.3)
+- **Decision:**
+  - The live reference-signal charts run on the Pi's clock, 0.25–1.5 s behind (adaptive, gradual), and keep moving
+    through a pause. Recordings are unchanged.
+  - The bridge counts Wi-Fi pauses (held data, nothing missing).
+  - It backs off 5/15/30/60 s when another program takes the MyoWare (detected by `link_clients` jumps).
+  - Dashboard stream defaults: `frame_dtype = "u8"`, radar `fps = 10`, `env_hz = 25`.
+  - The MyoWare reports `link_stall_ms` / `link_buf_max` and marks its packets CS4.
+  - The sensors stay on TCP: UDP, ESP-NOW and a resumable stream only if tomorrow's check shows they're needed.
+  - See [plan](plans/2026-11-08-wifi-drop-fixes.md).
+- **Why:**
+  - Five reviewers challenged the first draft. The ~1-s pauses fit the ESP32's TCP resend timer (1.0–2.0 s in this
+    lwIP build, not tunable from Arduino), not the dashboard's ~1 Mbit/s stream. They found two "on connect" causes:
+    two readers on one board, and a bridge list that grew while nobody watched.
+  - A display delay fixes what the user sees whatever the cause, without hardware.
+  - The measuring tools (health counter, `link_report.py`, firmware numbers) tell the causes apart on the real Pi.
+- **Alternatives:**
+  - Fixed 1.5-s delay (always laggy).
+  - Delaying the radar maps too (adds latency to a USB stream that has no pauses).
+  - Rebuilding lwIP (too risky before the competition).
+  - Per-viewer view subscription (breaks the lost-message counter).
+  - Doing nothing until measured (the user wanted it built tonight to test tomorrow).
+
 ## 2026-11-08 — Model input v1: heatmaps + the radar's own points; a finer range profile to try; radar stays on USB
 - **Decision:**
   - Contract `v1`: H `[4, 64, 32]` = angle-FFT magnitude, phase change, and two point layers (height, presence)

@@ -14,13 +14,15 @@ Live, in the dashboard's "Reference signals" panel:
            recent window, i.e. 3x its amplitude): at rest it would measure the noise, not the muscle.
 Recording: every line as received into emg.csv (t_ns,line) of the bridge's shared session folder: the file the
 recorder's --emg writes, so model/check_session.py reads it unchanged.
-Health in plain words: not reachable, silent, flat signal, clipping, samples lost.
+Health in plain words: not reachable, silent, flat signal, clipping, samples lost, Wi-Fi pauses (the board kept
+sampling but the network held the data back for 0.3 s or more), and another program taking the board's one link.
 """
 from __future__ import annotations
 
 import asyncio
 import collections
 import csv
+import logging
 import socket
 import threading
 import time
@@ -43,6 +45,14 @@ REST_CREEP = 1.002               # the quietest-window level may rise 0.2 % per 
 MIN_WINDOWS = 8                  # 2 s of windows before the activity gate trusts its resting level
 GAP_US = 1500                    # consecutive samples further apart than this: samples were lost
 IDLE_S, RETRY_S, CONNECT_S = 6.0, 1.0, 2.0   # as the recorder's Wi-Fi link (recorder/rec/sources.py)
+PAUSE_MS = 300                   # the board sends every ~20 ms: a longer silence with no samples missing is a pause
+PAUSE_WINDOW_S = 300             # health counts the pauses of the last 5 minutes
+# The board serves one client and drops the old one for a new one. Once another program is seen taking it, wait
+# longer before taking it back each time, so two readers don't take turns every second and both lose half the data.
+TAKEN_BACKOFF_S = (5.0, 15.0, 30.0, 60.0)
+TAKEN_FORGET_S = 60.0            # a link that holds this long means the other program is gone
+
+log = logging.getLogger("truerehab.emg")
 
 
 def tcp_address(port: str) -> tuple[str, int] | None:
@@ -57,6 +67,11 @@ def tcp_address(port: str) -> tuple[str, int] | None:
 
 class LinkLost(Exception):
     """The board stopped answering. The reason is shown and noted in the recording."""
+
+    def __init__(self, reason: str, by_board: bool = False) -> None:
+        super().__init__(reason)
+        #: The board closed the connection itself: it does that when another program connects (one client at a time).
+        self.by_board = by_board
 
 
 class TcpLink:
@@ -88,7 +103,7 @@ class TcpLink:
         except OSError as exc:
             raise LinkLost(type(exc).__name__) from exc
         if not data:
-            raise LinkLost("closed by the board")
+            raise LinkLost("closed by the board", by_board=True)
         self.last_rx = time.monotonic()
         return data
 
@@ -130,6 +145,7 @@ class _Stream:
         self.since = 0                                      # samples since the last median-frequency window
         self.offsets: collections.deque[tuple[float, float]] = collections.deque()  # (arrival ms, wall - device)
         self.last_t = {"emg_env": -1e18, "emg_mdf": -1e18}
+        self.last_arrival_ms: float | None = None           # when the last chunk with samples arrived (wall clock)
 
 
 class EmgProvider(Provider):
@@ -164,6 +180,9 @@ class EmgProvider(Provider):
         self._board: dict[str, str] = {}
         self._board_first: dict[str, str] | None = None
         self._rec: dict[str, Any] | None = None
+        self._pauses: collections.deque[tuple[float, float]] = collections.deque()  # (monotonic, seconds)
+        self._client_no: int | None = None      # the board's link_clients when we last connected: our client number
+        self._taken = 0                         # times another program connected to the board between our links
 
     # ------------------------------------------------------------------ manifest / health
     def manifest(self) -> ManifestPart:
@@ -184,6 +203,11 @@ class EmgProvider(Provider):
             raw = np.array(self._recent, dtype=float) if len(self._recent) >= 200 else None
             lost, board, first = self._lost, dict(self._board), self._board_first or {}
             rec_s = self._rec["samples"] / FS if self._rec else None
+            while self._pauses and now - self._pauses[0][0] > PAUSE_WINDOW_S:
+                self._pauses.popleft()
+            pauses = [s for _, s in self._pauses]
+        if link == "taken":
+            return {DEVICE: DeviceHealth("error", LABEL, msg)}
         if link != "up":
             return {DEVICE: DeviceHealth("missing", LABEL, msg)}
         if last is None or now - last > 3:
@@ -201,6 +225,8 @@ class EmgProvider(Provider):
             parts.append(f"Wi-Fi {board['rssi_dbm']} dBm")
         if lost:
             parts.append(f"{lost} samples lost")
+        if pauses:
+            parts.append(f"{len(pauses)} Wi-Fi pause(s) in 5 min, longest {max(pauses):.1f} s")
         dropped = _int(board.get("link_dropped")) - _int(first.get("link_dropped"))
         if dropped > 0:
             parts.append(f"the board dropped {dropped} lines (Wi-Fi too slow)")
@@ -281,11 +307,29 @@ class EmgProvider(Provider):
                         self._handle_lines(lines, arrival_ms, emit)
             except LinkLost as lost:
                 reconnect = True
-                self._set_link("missing", f"Link lost ({lost}); reconnecting…")
-                self._note(f"link lost ({lost})", drop=True)
-                self._stop.wait(RETRY_S)
+                wait = self._retry_after(lost, time.monotonic() - self._connected_at)
+                if wait > RETRY_S:
+                    self._set_link("taken", "Another program is reading the MyoWare (it serves one reader at a time). "
+                                            f"Close the other recorder or bridge; trying again in {wait:.0f} s.")
+                    self._note(f"link lost (taken by another program; waiting {wait:.0f} s)", drop=True)
+                    log.warning("another program is reading the MyoWare: waiting %.0f s before taking it back", wait)
+                else:
+                    self._set_link("missing", f"Link lost ({lost}); reconnecting…")
+                    self._note(f"link lost ({lost})", drop=True)
+                self._stop.wait(wait)
             finally:
                 link.close()
+
+    def _retry_after(self, lost: LinkLost, held_s: float) -> float:
+        """Seconds to wait before reconnecting: 1 s, unless the board closed the link and another program has been
+        seen connecting between our links (then 5, 15, 30, 60 s)."""
+        with self._lock:
+            if held_s >= TAKEN_FORGET_S:
+                self._taken = 0
+            taken = self._taken
+        if not lost.by_board or not taken:
+            return RETRY_S
+        return TAKEN_BACKOFF_S[min(taken, len(TAKEN_BACKOFF_S)) - 1]
 
     # ------------------------------------------------------------------ per chunk
     def _handle_lines(self, lines: list[bytes], arrival_ms: float, emit: Emit) -> None:
@@ -326,11 +370,27 @@ class EmgProvider(Provider):
                 self._header.append(s)
             elif s.startswith("# status"):
                 self._board = dict(kv.split("=", 1) for kv in s[len("# status"):].split() if "=" in kv)
-                if self._board_first is None:
+                if self._board_first is None:               # the status the board sends as we connect
                     self._board_first = dict(self._board)
+                    self._count_other_clients(_int(self._board.get("link_clients")))
+
+    def _count_other_clients(self, n: int) -> None:
+        """`n` = the board's link_clients as we connect, i.e. our client number since it started. A jump of 2 or more
+        since our last link means another program connected in between (under _lock)."""
+        if n <= 0:
+            return
+        prev, self._client_no = self._client_no, n
+        if prev is not None and n - prev >= 2:          # (n < prev: the board restarted)
+            self._taken += 1
+            log.warning("another program connected to the MyoWare %d time(s) since our last link", n - prev - 1)
 
     def _samples(self, dev: list[int], raw: list[int], env: list[int], arrival_ms: float, emit: Emit) -> None:
         st = self._st
+        if st.last_arrival_ms is not None and st.prev_us is not None and arrival_ms - st.last_arrival_ms > PAUSE_MS:
+            d = (dev[0] - st.prev_us) & 0xFFFFFFFF
+            if 0 < d <= GAP_US:                             # the board kept sampling: the network held the data back
+                self._pause((arrival_ms - st.last_arrival_ms) / 1000)
+        st.last_arrival_ms = arrival_ms
         lost = accepted = 0
         env_out: list[tuple[float, float]] = []
         mdf_out: list[tuple[float, float]] = []
@@ -384,6 +444,16 @@ class EmgProvider(Provider):
                 st.last_t[key] = t
                 emit(Aux({key: round(v, 1)}, t=t))
 
+    def _pause(self, seconds: float) -> None:
+        """A Wi-Fi pause: no data for `seconds`, then the held samples arrived with nothing missing."""
+        now = time.monotonic()
+        with self._lock:
+            self._pauses.append((now, seconds))
+            if self._rec is not None:
+                self._rec["pauses"] += 1
+                self._rec["longest_pause"] = max(self._rec["longest_pause"], seconds)
+        log.info("sEMG paused %.2f s: the board kept sampling, the network held the data back", seconds)
+
     def _active(self, power: float) -> bool:
         """Is the muscle working in this window? Band power >= active_ratio x the quietest recent window."""
         self._rest = power if self._rest is None else min(self._rest * REST_CREEP, power)
@@ -400,7 +470,8 @@ class EmgProvider(Provider):
         f = open(rec.dir / "emg.csv", "w", newline="")
         out = csv.writer(f)
         out.writerow(["t_ns", "line"])
-        files = {"rec": rec, "file": f, "csv": out, "lines": 0, "samples": 0, "drops": 0, "flushed": time.monotonic()}
+        files = {"rec": rec, "file": f, "csv": out, "lines": 0, "samples": 0, "drops": 0, "pauses": 0,
+                 "longest_pause": 0.0, "flushed": time.monotonic()}
         with self._lock:
             t = rec.t()
             for h in self._header:                 # what the board said when the link opened
@@ -424,6 +495,7 @@ class EmgProvider(Provider):
             return {}
         files["file"].close()
         return {"emg": {"lines": files["lines"], "samples": files["samples"], "link_drops": files["drops"],
+                        "wifi_pauses": files["pauses"], "longest_pause_s": round(files["longest_pause"], 2),
                         "error": None}}
 
 

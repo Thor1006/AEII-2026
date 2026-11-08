@@ -104,6 +104,22 @@ emg = s.record_mode("emg", "E")     # t_s on the host clock, values[:, 0] raw, [
 s.markers                           # (t_s, key, label)
 ```
 
+## Wi-Fi link report
+
+How often a Wi-Fi sensor's data paused in a recording, and why (recorder or Pi bridge sessions; pure Python):
+
+```bash
+.venv/bin/python link_report.py data/sessions/<A> data/sessions/<B>
+```
+
+- **held:** the board kept sampling and all of it arrived late (the network held it back). A tiny first chunk after the
+  pause means the ESP32's TCP resend timer ended it (it waits 1-2 s after a short radio blackout).
+- **not sent:** the board's own clock jumps too (it froze, restarted or its buffer was full).
+- Also: how late chunks arrive, a regular delay every 0.52 s (a Mac's AirDrop/Handoff radio on the receiving side), link
+  drops, another program reading the board, signal strength, and the MyoWare's `link_stall_ms` / `link_buf_max`.
+- Several sessions: a comparison table at the end. On the Nov 5 bench session it finds the two ~1.1-s pauses (both ended
+  by the resend timer) and the Mac's 0.52-s pattern.
+
 ## Files
 
 - `record.py` — the recorder (status line, keys, starts/stops the radar)
@@ -111,6 +127,7 @@ s.markers                           # (t_s, key, label)
 - `rec/sources.py` — radar and serial-line sensors, one thread each
 - `rec/pose.py` — camera + MediaPipe source, joint angles
 - `pose_check.py` — camera list and live skeleton preview
+- `link_report.py` — Wi-Fi pauses in a recording, and why
 - `rec/radar_lab.py` — uses `radar-lab/` (frame reader, configs, radar commands) without copying it
 - `tests/` — `.venv/bin/python -m unittest discover tests` (simulated radar + a fake MyoWare)
 

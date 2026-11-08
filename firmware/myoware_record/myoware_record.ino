@@ -22,7 +22,9 @@
   SAFETY (SparkFun's warning): do not have the shield on a person while USB-C is plugged in (programming or
   charging). For recordings on a person: unplug USB and run on the battery; the data goes over Wi-Fi.
 
-  NOT YET RUN on the board (compiles, 2026-11-07: see CLAUDE/plans/2026-11-07-semg-support.md).
+  On the board since 2026-11-07 (Wi-Fi link verified: CLAUDE/output/2026-11-07-1601-myoware-upload.md).
+  2026-11-08 (compiled, not yet uploaded): the status line adds link_stall_ms and link_buf_max, and the Wi-Fi
+  packets are marked CS4 (see CLAUDE/plans/2026-11-08-wifi-drop-fixes.md).
 */
 
 #include <Wire.h>
@@ -43,6 +45,7 @@
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #include <freertos/stream_buffer.h>
+#include <lwip/sockets.h>  // IP_TOS
 const char *LINK_HOSTNAME = "truerehab-myoware";  // reachable as truerehab-myoware.local
 constexpr uint16_t LINK_PORT = 3334;
 constexpr size_t LINK_BUF_BYTES = 65536;  // ~2.7 s of 1-kHz output, kept while Wi-Fi stalls
@@ -85,7 +88,9 @@ volatile uint32_t linkIp = 0;            // IPv4 in IPAddress byte order; 0 = no
 volatile int8_t linkRssi = 0;            // dBm
 volatile uint32_t linkClients = 0;       // clients accepted since boot
 volatile uint32_t linkSendFails = 0;     // clients dropped after a failed send
+volatile uint32_t linkStallMs = 0;       // link task: longest wait in one send during its last 5-s window
 uint32_t linkDropped = 0;                // core 1: lines not sent because the buffer was full
+uint32_t linkBufMax = 0;                 // core 1: most bytes waiting in linkOut since the last status line
 
 const char *linkStateName(uint8_t s) {
   switch (s) {
@@ -128,6 +133,8 @@ void addLine(const char *line) {
   if (linkClient && linkOut) {
     if (xStreamBufferSpacesAvailable(linkOut) >= n + 1) {
       xStreamBufferSend(linkOut, dst, n + 1, 0);
+      const uint32_t waiting = LINK_BUF_BYTES - xStreamBufferSpacesAvailable(linkOut);
+      if (waiting > linkBufMax) linkBufMax = waiting;
     } else {
       linkDropped++;
     }
@@ -160,14 +167,20 @@ void sayStatus() {
   const float hz = now > ratePrevMs ? 1000.0f * (samples - ratePrevSamples) / (now - ratePrevMs) : 0.0f;
   ratePrevSamples = samples;
   ratePrevMs = now;
-  char buf[260];
+  char buf[320];
   int n = snprintf(buf, sizeof(buf), "# status up_s=%lu emg_hz=%.1f samples=%lu skipped=%lu",
                    (unsigned long)(now / 1000), hz, (unsigned long)samples, (unsigned long)skipped);
 #if WIFI_LINK
   const IPAddress ip((uint32_t)linkIp);
-  snprintf(buf + n, sizeof(buf) - n, " wifi=%s ip=%u.%u.%u.%u rssi_dbm=%d link_clients=%lu link_dropped=%lu link_send_fails=%lu",
+  // link_stall_ms: the longest single send of the last ~5 s (the network took nothing for that long).
+  // link_buf_max: the most bytes waiting since the last status line (65536 = full: lines get dropped).
+  snprintf(buf + n, sizeof(buf) - n,
+           " wifi=%s ip=%u.%u.%u.%u rssi_dbm=%d link_clients=%lu link_dropped=%lu link_send_fails=%lu"
+           " link_stall_ms=%lu link_buf_max=%lu",
            linkStateName(linkState), ip[0], ip[1], ip[2], ip[3], (int)linkRssi, (unsigned long)linkClients,
-           (unsigned long)linkDropped, (unsigned long)linkSendFails);
+           (unsigned long)linkDropped, (unsigned long)linkSendFails, (unsigned long)linkStallMs,
+           (unsigned long)linkBufMax);
+  linkBufMax = 0;
 #else
   snprintf(buf + n, sizeof(buf) - n, " bluetooth=%s", SerialBT.hasClient() ? "connected" : "waiting");
 #endif
@@ -235,6 +248,7 @@ void linkTask(void *) {
   WiFi.setAutoReconnect(true);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   uint32_t joinStartMs = millis(), lastRssiMs = 0;
+  uint32_t stallWindowMs = millis(), stallMax = 0;  // the longest send of the current 5-s window
   bool serving = false;
   WiFiClient client;
   static uint8_t chunk[1460];  // one TCP segment
@@ -276,6 +290,10 @@ void linkTask(void *) {
       client.stop();
       client = incoming;
       client.setNoDelay(true);
+      // Mark our packets CS4: Wi-Fi sends them in its "video" queue, ahead of ordinary traffic such as a dashboard
+      // stream, and still in aggregates ("voice" would send each packet alone).
+      const int tos = 0x80;
+      client.setSocketOption(IPPROTO_IP, IP_TOS, &tos, sizeof(tos));
       linkDiscard();  // nothing from before this client
       linkClients = linkClients + 1;
       linkClient = true;
@@ -295,10 +313,19 @@ void linkTask(void *) {
     // Send about every 20 ms (~50 packets/s of ~0.5 KB at 1 kHz); a backlog of a full segment or more goes at once.
     if (xStreamBufferBytesAvailable(linkOut) < sizeof chunk) vTaskDelay(pdMS_TO_TICKS(20));
     const size_t n = xStreamBufferReceive(linkOut, chunk, sizeof chunk, 0);
+    const uint32_t sendStartMs = millis();
     if (n > 0 && client.write(chunk, n) != n) {  // the client closed, or took nothing for ~10 s
       linkClient = false;
       client.stop();
       linkSendFails = linkSendFails + 1;
+    }
+    // A send waits when the network stops taking data (no acknowledgements): the board's view of a Wi-Fi pause.
+    const uint32_t sendMs = millis() - sendStartMs;
+    if (sendMs > stallMax) stallMax = sendMs;
+    if (millis() - stallWindowMs >= 5000) {
+      linkStallMs = stallMax;
+      stallMax = 0;
+      stallWindowMs = millis();
     }
   }
 }

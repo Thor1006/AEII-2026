@@ -23,7 +23,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 TOP = "truerehab-pi"
 
 # (folder, keep) : git-tracked files under folder, filtered by keep(relative path)

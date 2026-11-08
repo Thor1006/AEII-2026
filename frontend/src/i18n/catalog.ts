@@ -514,6 +514,8 @@ export const catalog: Record<string, readonly [string, string]> = {
   '{count} samples lost': ['ตัวอย่างหาย {count} ตัว', '遺失 {count} 個樣本'],
   'the board dropped {count} lines (Wi-Fi too slow)': ['บอร์ดทิ้งข้อมูล {count} บรรทัด (Wi-Fi ช้าเกินไป)', '電路板捨棄了 {count} 行數據（Wi-Fi 太慢）'],
   'recording {seconds} s': ['กำลังบันทึก {seconds} วินาที', '錄製中 {seconds} 秒'],
+  '{count} Wi-Fi pause(s) in 5 min, longest {seconds} s': ['Wi-Fi หยุดชะงัก {count} ครั้งใน 5 นาที นานสุด {seconds} วินาที', '5 分鐘內 Wi-Fi 停頓 {count} 次，最長 {seconds} 秒'],
+  'Another program is reading the MyoWare (it serves one reader at a time). Close the other recorder or bridge; trying again in {seconds} s.': ['มีโปรแกรมอื่นกำลังอ่าน MyoWare อยู่ (บอร์ดส่งข้อมูลให้ได้ทีละโปรแกรม) ปิดโปรแกรมบันทึกหรือบริดจ์อีกตัวก่อน จะลองใหม่ใน {seconds} วินาที', '另一個程式正在讀取 MyoWare（電路板一次只服務一個讀取程式）。請關閉另一個錄製程式或橋接程式；{seconds} 秒後重試。'],
   'clipping in {percent} of samples': ['สัญญาณเกินช่วงวัดใน {percent} ของตัวอย่าง', '{percent} 的樣本超出量程'],
   'check the electrodes': ['ตรวจแผ่นอิเล็กโทรด', '請檢查電極'],
   'Flat signal': ['สัญญาณนิ่งเป็นเส้นตรง', '訊號平直'],

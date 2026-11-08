@@ -4,6 +4,8 @@ the recorder without the board.
 
     python fake_myoware.py                  serves tcp://127.0.0.1:3334 until Ctrl+C
     python fake_myoware.py --port 0         any free port (it prints which)
+    python fake_myoware.py --pause-every 20 every 20 s it holds its data back for 1.1 s, then sends it all at once:
+                                            the Wi-Fi pause the real board shows now and then (--pause-s sets how long)
   then in the bridge's config:  [providers.emg]  enabled = true,  port = "tcp://127.0.0.1:3334"
   or the recorder:              python record.py --emg tcp://127.0.0.1:3334 ...
 
@@ -50,10 +52,13 @@ class FakeMyoWare:
     """Serves the fake signal on host:port (port 0 = any free port: read .port). speed > 1 runs its clock faster."""
 
     def __init__(self, host: str = "127.0.0.1", port: int = 3334, seed: int = 1, speed: float = 1.0,
-                 boot_us: int = 12_000_000) -> None:
+                 boot_us: int = 12_000_000, pause_every: float = 0.0, pause_s: float = 1.1) -> None:
         self.raw, self.env, self.curls = fake_signal(seed)
         self.speed = float(speed)
         self.boot_us = int(boot_us)
+        #: Every `pause_every` s (0 = never), hold the data back for `pause_s` s and then send it all: a Wi-Fi pause.
+        self.pause_every, self.pause_s = float(pause_every), float(pause_s)
+        self.pauses = 0
         self._srv = socket.create_server((host, port))
         self._srv.setblocking(False)
         self.host, self.port = self._srv.getsockname()[:2]
@@ -100,7 +105,17 @@ class FakeMyoWare:
 
     def _serve(self) -> None:
         sent = next_status = 0
+        next_pause = time.monotonic() + self.pause_every
+        hold_until = 0.0
         while not self._stop.is_set():
+            now_m = time.monotonic()
+            if self.pause_every > 0 and now_m >= max(next_pause, hold_until):
+                hold_until = now_m + self.pause_s
+                next_pause = now_m + max(self.pause_every, self.pause_s + 0.1)   # pauses start this far apart
+                self.pauses += 1
+            if time.monotonic() < hold_until:          # held back by "the network": sent later, nothing lost
+                self._stop.wait(0.02)                  # (a new client waits in the queue, as on the board)
+                continue
             try:
                 conn, _ = self._srv.accept()
             except (BlockingIOError, OSError):
@@ -143,9 +158,14 @@ def main() -> int:
     ap.add_argument("--host", default="127.0.0.1", help="address to listen on (default 127.0.0.1: this computer only)")
     ap.add_argument("--port", type=int, default=3334, help="TCP port (default 3334, like the board; 0 = any free port)")
     ap.add_argument("--seed", type=int, default=1, help="which fake person")
+    ap.add_argument("--pause-every", type=float, default=0.0, metavar="S",
+                    help="hold the data back every S seconds, like a Wi-Fi pause (default 0: never)")
+    ap.add_argument("--pause-s", type=float, default=1.1, metavar="S", help="how long each pause lasts (default 1.1 s)")
     args = ap.parse_args()
-    fake = FakeMyoWare(args.host, args.port, seed=args.seed).start()
-    print(f"Fake MyoWare (FAKE sEMG, {len(fake.raw) / FS:.0f}-s loop) on {fake.url}. Stop with Ctrl+C.", flush=True)
+    fake = FakeMyoWare(args.host, args.port, seed=args.seed, pause_every=args.pause_every, pause_s=args.pause_s).start()
+    pauses = f", a {args.pause_s:.1f}-s pause every {args.pause_every:.0f} s" if args.pause_every > 0 else ""
+    print(f"Fake MyoWare (FAKE sEMG, {len(fake.raw) / FS:.0f}-s loop{pauses}) on {fake.url}. Stop with Ctrl+C.",
+          flush=True)
     try:
         while True:
             time.sleep(1)

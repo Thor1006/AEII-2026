@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useI18n } from '../i18n/I18n.tsx';
 import type { TimeSeriesChartProps } from '../components/TimeSeriesChart.tsx';
 import { TimeSeriesChart } from '../components/TimeSeriesChart.tsx';
@@ -15,6 +16,9 @@ export interface AuxWidgetProps extends Partial<Omit<TimeSeriesChartProps, 'seri
 export function AuxWidget({ channels, mode = 'stacked', ...chart }: AuxWidgetProps) {
   const { ui } = useI18n();
   const store = useSensorStore();
+  // Live: every chart ends at the same moment, a little behind the Pi's clock, and keeps moving through a Wi-Fi pause.
+  const playout = useCallback(() => store.playout.tEnd(), [store]);
+  const clock = store.playout.enabled ? playout : undefined;
   const keys = channels ?? auxKeys(store);
   const series = keys.map((key, i) => {
     const { label, unit } = auxInfo(store, key);
@@ -26,14 +30,14 @@ export function AuxWidget({ channels, mode = 'stacked', ...chart }: AuxWidgetPro
     };
   });
   if (!series.length) return ui(<div style={{ color: 'var(--text-muted)' }}>No reference signals. Plug in the Arduino (sEMG / force) to see them here.</div>);
-  if (mode === 'overlay') return ui(<TimeSeriesChart series={series} windowMs={15_000} {...chart} />);
+  if (mode === 'overlay') return ui(<TimeSeriesChart series={series} windowMs={15_000} clock={clock} {...chart} />);
 
-  // Charts share the time window (newest sample), so they stay aligned.
+  // Live, the charts share the playout clock, so they stay aligned (a replay ends each at its newest sample).
   return ui((
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, height: '100%' }}>
       {series.map((sr) =>
         sr.points.length ? (
-          <TimeSeriesChart key={sr.key} series={[sr]} windowMs={15_000} style={{ flex: 1, minHeight: 90 }} {...chart} />
+          <TimeSeriesChart key={sr.key} series={[sr]} windowMs={15_000} clock={clock} style={{ flex: 1, minHeight: 90 }} {...chart} />
         ) : (
           <div key={sr.key} style={{ fontSize: 12, color: 'var(--text-muted)' }}>
             {sr.label}: no data

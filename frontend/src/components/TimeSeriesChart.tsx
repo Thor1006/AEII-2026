@@ -18,8 +18,13 @@ export interface Series {
 
 export interface TimeSeriesChartProps {
   series: Series[];
-  /** Visible window in ms, ending at the newest sample (sensor time, so replay works). */
+  /** Visible window in ms, ending at the newest sample (sensor time, so replay works), or at `clock()`. */
   windowMs?: number;
+  /**
+   * Live charts: returns where the window ends (sensor time, ms), and the chart then moves on its own (~30 redraws/s)
+   * instead of waiting for data. null = end at the newest sample. Keep the function's identity stable.
+   */
+  clock?: () => number | null;
   yRange?: [number, number] | 'auto';
   /** Break the line when samples are further apart than this (dropped data). */
   gapMs?: number;
@@ -34,11 +39,14 @@ export interface TimeSeriesChartProps {
 }
 
 const PAD = { l: 38, r: 8, t: 6, b: 18 };
+/** Live redraws at most this often (ms): smooth enough, and easy on a phone's battery. */
+const LIVE_FRAME_MS = 33;
 
 /** Multi-series line chart on canvas. Cheap enough for 20+ updates/s. */
 export function TimeSeriesChart({
   series,
   windowMs = 30_000,
+  clock,
   yRange = 'auto',
   gapMs = 1000,
   thresholds = [],
@@ -52,8 +60,10 @@ export function TimeSeriesChart({
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const size = useCanvasSize(wrapRef, canvasRef);
+  const drawRef = useRef<() => void>(() => {});
 
-  useEffect(() => {
+  // Drawn with the latest props on every render and, for a live chart, on every animation frame in between.
+  const draw = () => {
     const canvas = canvasRef.current;
     if (!canvas || size.width === 0) return;
     const ctx = canvas.getContext('2d')!;
@@ -61,13 +71,15 @@ export function TimeSeriesChart({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
 
-    const tEnd = Math.max(-Infinity, ...series.map((sr) => sr.points[sr.points.length - 1]?.t ?? -Infinity));
+    const tEnd = clock?.() ?? newestT(series);
     const tStart = tEnd - windowMs;
-    const visible = series.map((sr) => sr.points.filter((p) => p.t >= tStart));
+    // A point just outside the window on each side keeps the line running to the edges (clipped below).
+    const visible = series.map((sr) => sr.points.filter((p) => p.t >= tStart - gapMs && p.t <= tEnd + gapMs));
 
     let [lo, hi] = yRange === 'auto' ? [Infinity, -Infinity] : yRange;
     if (yRange === 'auto') {
       for (const pts of visible) for (const p of pts) {
+        if (p.t < tStart || p.t > tEnd) continue;
         if (p.v < lo) lo = p.v;
         if (p.v > hi) hi = p.v;
       }
@@ -77,7 +89,7 @@ export function TimeSeriesChart({
       hi += padY;
     }
 
-    const x = (t: number) => PAD.l + ((t - tStart) / windowMs) * (W - PAD.l - PAD.r);
+    const x = (tt: number) => PAD.l + ((tt - tStart) / windowMs) * (W - PAD.l - PAD.r);
     const y = (v: number) => PAD.t + (1 - (v - lo) / (hi - lo)) * (H - PAD.t - PAD.b);
     const el = wrapRef.current!;
 
@@ -117,6 +129,10 @@ export function TimeSeriesChart({
 
     if (!Number.isFinite(tEnd)) return;
 
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(PAD.l, 0, W - PAD.l - PAD.r, H);
+    ctx.clip();
     series.forEach((sr, i) => {
       const pts = visible[i];
       if (!pts.length) return;
@@ -155,14 +171,36 @@ export function TimeSeriesChart({
       }
       ctx.stroke();
     });
+    ctx.restore();
+  };
+
+  useEffect(() => {
+    drawRef.current = draw;
+    draw();
   });
 
+  useEffect(() => {
+    if (!clock) return;
+    let raf = 0;
+    let last = 0;
+    const tick = (ts: number) => {
+      raf = requestAnimationFrame(tick);
+      if (ts - last < LIVE_FRAME_MS) return;
+      last = ts;
+      drawRef.current();
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [clock]);
+
+  // The legend shows the value at the chart's right edge (on a live chart, a moment behind the newest sample).
+  const legendEnd = clock?.() ?? null;
   return ui((
     <div className={cx(s.root, className)} style={{ height, ...style }}>
       {showLegend && series.length > 0 && (
         <ul className={s.legend}>
           {series.map((sr, i) => {
-            const last = sr.points[sr.points.length - 1];
+            const last = valueAt(sr.points, legendEnd);
             return (
               <li key={sr.key}>
                 <span className={s.swatch} style={{ background: sr.color ?? `var(--series-${(i % 6) + 1})` }} />
@@ -178,6 +216,17 @@ export function TimeSeriesChart({
       </div>
     </div>
   ));
+}
+
+function newestT(series: Series[]): number {
+  return Math.max(-Infinity, ...series.map((sr) => sr.points[sr.points.length - 1]?.t ?? -Infinity));
+}
+
+/** The last point at or before `tEnd` (the newest point when tEnd is null). */
+function valueAt(points: TimedValue[], tEnd: number | null): TimedValue | undefined {
+  if (tEnd === null) return points[points.length - 1];
+  for (let j = points.length - 1; j >= 0; j--) if (points[j].t <= tEnd) return points[j];
+  return undefined;
 }
 
 function defaultFormat(v: number): string {

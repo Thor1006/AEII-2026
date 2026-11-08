@@ -29,6 +29,8 @@ The page opens on a **start screen**: connect to a Pi, try demo data, or open a 
 
 Pis that connected before appear under "Recent". Two views: **Session** (what to do now, reps, scores) and **Technical** (radar map, data-stream health, connection numbers, reference signals, event log).
 
+**Live charts run a moment behind** (`src/state/PlayoutClock.ts`, 2026-11-08): on a live source the reference-signal charts end slightly behind the Pi's clock (0.25 s, up to 1.5 s after a Wi-Fi pause) and keep moving, so a sensor's short Wi-Fi pause no longer freezes them; the held samples land before the charts reach them. Replays keep their own playhead. Check: `node scripts/check-playout.ts`. To see it, `PAUSE_EVERY=10 npm run mock` holds the reference signals back for 1.1 s every 10 s (the launch config `mock-bridge-pauses` runs it on port 8766: open `/?pi=ws://127.0.0.1:8766`).
+
 To test over Wi-Fi from a phone or tablet, run `npm run dev` and `npm run mock` on the Mac. Open `http://<mac-ip>:5173/?pi=<mac-ip>` on the other device. The page must be **http**. Browsers block `ws://` from https pages.
 
 ## Model replays (`?replay=`)
