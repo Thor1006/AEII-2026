@@ -103,4 +103,5 @@ python3 view.py --sim --clutter-removal
 - `radarlab/cfg.py` — antenna layout and range/speed scales from a config file
 - `radarlab/sim.py` — fake room that sends the same bytes as the demo
 - `configs/fullmap_awr2x44p.cfg` — the working config (clutter removal off + heatmaps on)
+- `configs/fullmap_fine_awr2x44p.cfg` — the same with a finer range step (3.88 cm instead of 5.94, up to 2.48 m; same data size and 60 fps). Not yet run on the board (2026-11-08)
 - `tests/` — `python3 -m unittest discover tests`
