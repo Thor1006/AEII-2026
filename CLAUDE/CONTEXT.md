@@ -1,7 +1,7 @@
 # Context
 
 <!-- Living state. Keep under ~40 lines; reports hold detailed run history. -->
-**Last updated:** 2026-11-07 16:01 (MyoWare record sketch uploaded, Wi-Fi link checked)
+**Last updated:** 2026-11-08 17:04 (model input v1: radar points + 32 angle bins; finer range profile to try)
 
 ## Current focus
 **Plan B is selected and received: AWR2944PEVM, no DCA1000.** The submitted AWR1843BOOST/DCA1000 poster stays frozen. Two independent USB radar demos now coexist; their profiles, outputs and measured limits differ. Run only one serial collector at a time. No raw ADC or validated fatigue/body model is claimed.
@@ -10,9 +10,10 @@
 - Teammate's `radar-lab/`: independent macOS 2D/3D viewer with static range-azimuth and range-Doppler heatmaps. Its different profile reportedly measured 60.0 radar fps, 601/601 frames; this is not a new benchmark of the Windows 40-Hz profile. [Report](output/2026-11-03-2214-radar-lab-fullmap-3d.md), `radar-lab/README.md`. Height comes only from sparse measured points; angular orientation is unverified there. Stop-on-close verified on the board Nov 4 (type `sensorStop` slowly at 60 fps).
 - Received: radar/power, MyoWare + Wireless Shield + 30 pads, Pi 5 8GB + cooler + 27-W PSU + 64-GB A2 microSD, Micro-HDMI, SSD and USB-C LAN adapter. UART is verified; Ethernet/custom phase, ground-truth synchronization, clinical inference and Pi deployment remain unverified.
 - **`model/` (new, untrained):** radar-only network and its pipeline, all tested without sensors. [Report](output/2026-11-05-1316-neural-network-pipeline.md), `model/README.md`.
-  - Network: 239,515 parameters. Input `v0-draft`: angle FFT + phase `[2,64,16]`, range-Doppler `[1,64,16]`, 128 frames per rep.
+  - Network: 239,803 parameters. Input `v1` (2026-11-08): H `[4,64,32]` = angle FFT, phase, and the radar's own points as height + presence (0.25 s pooled); range-Doppler `[1,64,16]`; 128 frames per rep. [Report](output/2026-11-08-1704-points-and-finer-heatmap.md).
+  - Points agree with the heatmap (+11 dB on real recordings) but a still target's height jitters ±0.16–0.25 m; on fake data the point layers HURT the model (shrug F1 0.49 vs 0.60 without). Decision pending.
   - Labels use placeholder thresholds. `check_session.py` runs after each recording. Fake data replays real empty-room radar frames and the real timing.
-  - 64 tests. On fake data it beats the baseline for 5 of 6 heads (plumbing only). No real session with a person exists yet.
+  - 73 tests. On fake data it beats the baseline for 5 of 6 heads (plumbing only). No real session with a person exists yet.
   - Without pose or IMU, reps come from the sEMG envelope (fallback): then only fatigue can be labelled.
   - Dashboard: `model/export_dashboard.py` writes a replay that `frontend/` opens with `?replay=/replays/<file>.ndjson`. The radar panel switches between 3 views. Live mode waits for the Pi. [Report](output/2026-11-05-1844-dashboard-replay-radar-check.md).
 - `sandbox/Encoder_0.1/` and the existing AI/dashboard demos still use synthetic input. `frontend/` (home/dashboard, EN/TH/zh-HK, session history) and `Phisit/` (teammate's FastAPI/React demo) are unchanged.
@@ -23,6 +24,7 @@
 - **Pi set v0.2** (`deploy/pi/`, [report](output/2026-11-07-1535-semg-support.md)): live radar + MyoWare sEMG (envelope, median frequency) in the dashboard; Start/Stop records both into one folder on one clock. Verified from the PortableSSD install with replayed radar + `fake_myoware.py`, and with the real MyoWare over Wi-Fi (`check_bridge` passes; not worn yet). Not yet run on a real Pi or the live radar. Live model scores need radar-only rep detection.
 
 ## Recent changes
+- 2026-11-08 - Radar points + heatmaps (contract v1), finer profile `fullmap_fine_awr2x44p.cfg` (3.88 cm, not yet on the board), 4th dashboard view "Points (height)". Radar stays on USB (Ethernet demo = bare points). [Report](output/2026-11-08-1704-points-and-finer-heatmap.md).
 - 2026-11-07 - MyoWare: the Wi-Fi record sketch uploaded (Wi-Fi file copied from the IMU's, unopened); real board at 1000/s with 0 gaps over Wi-Fi; Pi bridge check passes. [Report](output/2026-11-07-1601-myoware-upload.md).
 - 2026-11-07 - sEMG support end to end (the IMU is unreliable): MyoWare Wi-Fi firmware, bridge `emg` provider and one shared recording, sEMG-envelope reps, dashboard EN/TH/zh-HK, Pi set v0.2 on the PortableSSD.
   - Verified without the board: `check_bridge` 18/18, a radar + sEMG recording is USABLE with "fatigue ✓"; fixed a replay-loop frame-number bug on the way.
@@ -38,9 +40,6 @@
   - Radar smoke test with the current settings: 60 fps, 0 missing; IMU 200/s over Wi-Fi.
   - The user chose to keep the radar settings (measure only). The person runs are still to do.
   - [Report](output/2026-11-05-1844-dashboard-replay-radar-check.md).
-- 2026-11-05 - Built `model/`: network, pipeline, session check, calibration, fake data and leave-one-subject-out training; 57 tests pass.
-  - Found: the heatmap's 8 values are antennas, not angles. 2 of the 6 IMU recordings are firmware simulations. The two empty-room radar recordings differ by up to 38 dB.
-  - [Report](output/2026-11-05-1316-neural-network-pipeline.md).
 
 ## Open questions
 - Freeze the input contract (v0-draft: radar-lab profile, angle FFT + phase `[2,64,16]`, range-Doppler `[1,64,16]`)?
@@ -56,6 +55,8 @@
 - Repo instructions describe macOS/zsh, but Windows work also exists. Home copy/font license and the poster's "oral health" wording remain open; submitted sources stay unchanged.
 
 ## Next steps
+0. **Radar points decision:** keep the point layers on for the model, or off until real sessions show a benefit (fake data: off is better).
+0. **Finer profile on the board** (radar plugged in, power first): 60 fps, 0 missing, temperature, two metal objects ~5 cm apart; then switch `paths.RADAR_CFG`, the recorder and the bridge to it.
 0. **MyoWare:** wear it on battery (switch ON, USB out, fresh pads on the biceps) and record curls with the radar over Wi-Fi; then `check_session.py`, `python -m trnet.calibrate`, and check the sEMG thresholds on the real signal.
 0. **Pi set v0.2:** live-radar check (power first, then USB; installed bridge + `check_bridge`), then on the real Pi: flash the SD card, copy from the SSD, `bash install.sh`, then `selftest.py` (see `deploy/pi/README.md`).
 1. **Fix the IMU wiring for the arm** (solder or a locking connector, cable taped down). On the arm it had 179 I²C errors and lost 36 of 72 s. Then redo the curls run with it.

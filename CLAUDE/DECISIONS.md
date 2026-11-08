@@ -2,6 +2,28 @@
 
 <!-- Newest on top. One short entry per decision that someone might later ask "why did we do it this way?" about. -->
 
+## 2026-11-08 — Model input v1: heatmaps + the radar's own points; a finer range profile to try; radar stays on USB
+- **Decision:**
+  - Contract `v1`: H `[4, 64, 32]` = angle-FFT magnitude, phase change, and two point layers (height, presence)
+    pooled over 0.25 s; 32 angle bins (zero-padded); D unchanged.
+  - The points come from the same UART frames (TLV 1/7), mapped onto the heatmap grid. `points_az_sign = +1`,
+    measured: still points sit +11 dB above their range row with +1, about 0 dB with −1.
+  - A finer profile `fullmap_fine_awr2x44p.cfg`: 3.88 instead of 5.94 cm per range bin, out to 2.48 m. Same bytes,
+    60 fps and speed steps. It becomes the default only after the board accepts it.
+  - The radar stays on USB (TDM demo). No Ethernet firmware.
+  - See [plan](plans/2026-11-08-points-and-finer-heatmap.md).
+- **Why:**
+  - The user asked for "both and cross references" and a finer heatmap. They chose USB over the Ethernet demo,
+    whose stream holds only bare points.
+  - The heatmap holds only the azimuth antennas, so it has no height; the points have z.
+  - The USB link is ~84 % full, so finer range had to keep 64 bins; the cost is the farthest distance.
+- **Alternatives:**
+  - Points only (sparse, ~7 per frame, no phase).
+  - DDM_ENET over Ethernet (points only, no frame numbers).
+  - 128 range bins (doesn't fit the USB link at 60 fps).
+  - More speed bins (same problem).
+  - A sharper angle method (Capon), left for later.
+
 ## 2026-11-07 — sEMG: MyoWare over Wi-Fi, one bridge recording for all sensors, sEMG-envelope reps as a fallback
 - **Decision:**
   - The MyoWare record sketch sends over Wi-Fi (TCP 3334), the IMU fw 2.1 design; Bluetooth stays as `WIFI_LINK 0`.
