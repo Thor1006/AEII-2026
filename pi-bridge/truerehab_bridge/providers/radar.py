@@ -3,7 +3,9 @@ Radar provider: the AWR2944PEVM on USB (TI mmWave demo with radar-lab's profile)
 
   live    finds the board's two USB ports (TI XDS110), starts the radar with the profile already in use
           (radar-lab/configs/fullmap_awr2x44p.cfg, the same lines the recorder sends; never flashes anything) and
-          reads its frames in a thread. Stops the radar (sensorStop) when the bridge stops.
+          reads its frames in a thread. Stops the radar (sensorStop) when the bridge stops. The radar stops by
+          itself after its 65,535 frames (about 18 min); the bridge then sends the same profile again on the open
+          command port. Frame numbers go on counting across every restart (_continue_numbering).
   replay  plays a recorder session's radar.bin in real time (replay = "<session folder>"), for testing without
           the radar.
 
@@ -43,6 +45,10 @@ use_repo_code()
 DEFAULT_CFG = REPO / "radar-lab" / "configs" / "fullmap_awr2x44p.cfg"
 XDS110 = (0x0451, 0xBEF3)                            # TI's on-board debugger: one command port, one data port
 FRAME_PERIOD_MS = 16.667                             # 60 fps, measured stable (recorder default)
+FRAME_LIMIT = 65535                                  # the most frames the firmware takes per start (~18 min at 60 fps);
+                                                     # 0 ("forever") crashes sensorStart on this board (radar-lab/README.md)
+END_SILENCE_S = 0.25                                 # this quiet after its last frames: it has stopped by itself
+NO_FRAMES_S = 3.0                                    # this quiet anywhere else: a cable or the board
 STATS_HZ = 1.0
 HEIGHT_RANGE_M = (-0.6, 0.6)                         # colour scale of "Points (height)": a person's points sit within it
 
@@ -112,7 +118,7 @@ class RadarProvider(Provider):
         from radarlab import cfg as radar_cfg
         self.data_port, self.cli_port, self.data_baud = data_port, cli_port, int(data_baud)
         self.cfg_path = Path(cfg_file).expanduser() if cfg_file else DEFAULT_CFG
-        self.cfg_lines = radar_cfg.read_lines(self.cfg_path, period_ms=FRAME_PERIOD_MS, num_frames=65535)
+        self.cfg_lines = radar_cfg.read_lines(self.cfg_path, period_ms=FRAME_PERIOD_MS, num_frames=FRAME_LIMIT)
         self.contract = InputContract.from_radar_cfg(self.cfg_lines)
         self.start_radar = bool(start_radar)
         self.fps_out = float(fps)
@@ -140,6 +146,13 @@ class RadarProvider(Provider):
         self._points = R.PointWindow(self.contract) if self.contract.use_points else None
         self._rec: dict[str, Any] | None = None
         self._cli = None
+        # live frame numbers go on counting across radar restarts (_continue_numbering)
+        self._shift = 0
+        self._own_prev: int | None = None
+        self._last_no: int | None = None
+        self._last_t = 0.0
+        self._restarting = False
+        self._limit_restarts = 0
 
     # ------------------------------------------------------------------ manifest / health
     def _label(self) -> str:
@@ -161,10 +174,14 @@ class RadarProvider(Provider):
             h = self._state
             if h.state == "ok":
                 parts = [f"{self._fps_in:.0f} fps"]
+                if self._restarting:
+                    parts.insert(0, "restarting: it sent all its frames (18-min limit)…")
                 if self._temp is not None:
                     parts.append(f"{self._temp:.0f} °C" + (" — HOT, stop soon" if self._temp >= 85 else ""))
                 if self._missing:
                     parts.append(f"{self._missing} frames missing")
+                if self._limit_restarts:
+                    parts.append(f"restarted {self._limit_restarts}× at its 18-min frame limit")
                 if self._rec:
                     parts.append(f"recording {self._rec['frames']} frames")
                 if self.replay:
@@ -232,22 +249,65 @@ class RadarProvider(Provider):
             self._set("ok", "starting")
             reader = FrameReader()
             last = time.monotonic()
+            near_end = False                          # the radar's own count is in its last second of frames
             while not self._stop.is_set():
                 chunk = data.read(65536)
+                now = time.monotonic()
                 if chunk:
-                    last = time.monotonic()
+                    last = now
                     for f in reader.feed(chunk):
-                        yield f.raw, f
-                elif time.monotonic() - last > 3:
+                        near_end = f.number > FRAME_LIMIT - 60
+                        yield self._continue_numbering(f, now)
+                elif near_end and self.start_radar and now - last > END_SILENCE_S:
+                    self._restart_in_place()          # it stopped by itself after its last frame: start it again
+                    reader, last, near_end = FrameReader(), time.monotonic(), False
+                elif now - last > NO_FRAMES_S:
+                    if near_end:                      # someone else started it, so only they can start it again
+                        self._set("error", f"The radar sent all its {FRAME_LIMIT:,} frames (about 18 min) and stopped. "
+                                           "The program that started it has to start it again.")
+                        raise RuntimeError("radar finished its frames")
                     self._set("error", "No frames for 3 s. Check the cables; if it stays silent, press the radar's reset button.")
                     raise RuntimeError("radar silent")
         finally:
             data.close()
 
+    def _continue_numbering(self, frame, now: float) -> tuple[bytes, Any]:
+        """(raw, frame), numbered on from the frames before. When the radar starts again (after its frame limit, or
+        when the bridge restarts it after an error), its own count begins again near 1. Here the count goes on where
+        it stopped, plus the frames the pause would have held, in the packet's header too. So a recording never jumps
+        back (the model sorts frames by number and would mix the two runs), frame_no × period stays a clock, and the
+        pause shows as missing frames."""
+        own = frame.number
+        if self._own_prev is not None and own <= self._own_prev and self._last_no is not None:
+            pause = max(1, round((now - self._last_t) * 1000 / FRAME_PERIOD_MS))
+            self._shift = self._last_no + pause - own
+            self._prev_z = self._prev_no = None      # no phase change across it, and not "missing" in the live count
+        self._own_prev = own
+        number = own + self._shift
+        self._last_no, self._last_t = number, now
+        return renumber(frame, number) if self._shift else (frame.raw, frame)
+
+    def _restart_in_place(self) -> None:
+        """The radar stops by itself after FRAME_LIMIT frames. Send the profile again on the command port that is
+        still open: closing that port is what makes this board's port go silent until a reset (radar-lab/README.md)."""
+        with self._lock:
+            self._restarting = True
+        try:
+            self._configure()
+        finally:
+            with self._lock:
+                self._restarting = False
+        with self._lock:
+            self._limit_restarts += 1
+
     def _start(self, cli_port: str) -> None:
         import serial
-        from view import cli_send, send_cfg   # radar-lab/view.py: the same start sequence the recorder uses
         self._cli = serial.Serial(cli_port, 115200, timeout=0.05)
+        self._configure()
+
+    def _configure(self) -> None:
+        """Send the profile on the open command port: it begins with sensorStop and ends with sensorStart."""
+        from view import cli_send, send_cfg   # radar-lab/view.py: the same start sequence the recorder uses
         for attempt in (1, 2):
             self._cli.reset_input_buffer()
             cli_send(self._cli, "", wait=0.3)       # a stray byte waiting on the port made the first line fail (2026-11-05)
