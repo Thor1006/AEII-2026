@@ -14,7 +14,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from truerehab_bridge.config import BridgeConfig  # noqa: E402
 from truerehab_bridge.protocol import Aux, Event, Frame, Scores, decode_frame, encode, parse_serial_line  # noqa: E402
 from truerehab_bridge.providers import SyntheticProvider  # noqa: E402
-from truerehab_bridge.server import Bridge  # noqa: E402
+
+try:  # the server needs websockets; the encoders and parsers below don't, so they're tested either way
+    from truerehab_bridge.server import Bridge  # noqa: E402
+    HAVE_WS = True
+except ModuleNotFoundError as e:
+    if e.name != "websockets":
+        raise
+    HAVE_WS = False
 
 ENV = {"v": 1, "seq": 7, "t": 1000.0, "src": "test", "kitId": "KIT-T"}
 
@@ -73,6 +80,7 @@ class SerialLines(unittest.TestCase):
         self.assertIsNone(parse_serial_line("nan"))
 
 
+@unittest.skipUnless(HAVE_WS, "websockets not installed")
 class BridgeLogic(unittest.TestCase):
     def setUp(self) -> None:
         self.bridge = Bridge(BridgeConfig(), [SyntheticProvider()])

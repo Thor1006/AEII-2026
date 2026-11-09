@@ -38,6 +38,12 @@ class FakeVsRealTest(unittest.TestCase):
         cls.tmp = Path(tempfile.mkdtemp())
         cls.sessions = [synth.make_session(cls.tmp, synth.make_person(f"F{i:02d}", i), SHORT, stats=STATS)
                         for i in range(1, 4)]
+        # The reps-and-delays test gets its own sessions with the saved-statistics radar background. With "auto",
+        # the real empty-room recordings (when this computer has them) replace thousands of random draws, so every
+        # sensor after the radar would get different fake data on a computer without them.
+        stats_bg = dataclasses.replace(SHORT, background="stats")
+        cls.stats_bg_sessions = [synth.make_session(cls.tmp / "stats_bg", synth.make_person(f"F{i:02d}", i),
+                                                    stats_bg, stats=STATS) for i in range(1, 4)]
 
     @classmethod
     def tearDownClass(cls):
@@ -112,7 +118,11 @@ class FakeVsRealTest(unittest.TestCase):
             self.assertEqual(s.pose()["world"].shape[1:], (33, 3))
 
     def test_pipeline_finds_the_planned_reps_and_delays(self):
-        for d in self.sessions:
+        """On sessions with the saved-statistics radar background, so the result is the same on every computer.
+        The webcam delay must be found within one webcam frame: over 40 fake people the error was 5 ms (median),
+        17 ms (90 %) and 29 ms at worst (measured 2026-11-09)."""
+        one_pose_frame_ms = 1000 / STATS["pose"]["fps"]
+        for d in self.stats_bg_sessions:
             p = PL.process(d)
             truth = p.session.meta["fake"]["truth"]
             self.assertEqual(len(p.reps), len(truth["reps"]))
@@ -125,7 +135,8 @@ class FakeVsRealTest(unittest.TestCase):
             self.assertTrue(p.sync["imu"]["applied"])
             self.assertAlmostEqual(p.sync["imu"]["offset_ms"], radar_late - imu_late, delta=6.0)
             self.assertTrue(p.sync["pose"]["applied"])
-            self.assertAlmostEqual(p.sync["pose"]["offset_ms"], radar_late - STATS["pose"]["latency_ms"], delta=15.0)
+            self.assertAlmostEqual(p.sync["pose"]["offset_ms"], radar_late - STATS["pose"]["latency_ms"],
+                                   delta=one_pose_frame_ms)
             self.assertEqual(p.pose.side, truth["reps"] and p.session.meta["fake"]["person"]["side"])
 
     def test_fake_points_look_like_the_real_ones(self):

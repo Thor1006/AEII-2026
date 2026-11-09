@@ -44,6 +44,7 @@ class AngleTest(unittest.TestCase):
 
 @unittest.skipUnless(importlib.util.find_spec("mediapipe") and importlib.util.find_spec("cv2"),
                      "mediapipe/opencv not installed (camera pose is optional, e.g. not on the Pi)")
+@unittest.skipUnless(P.MODEL.exists(), "pose model not downloaded (recorder/models/, git-ignored: see recorder/README.md)")
 class EstimatorTest(unittest.TestCase):
     def test_empty_frame_has_no_person(self):
         est = P.PoseEstimator()

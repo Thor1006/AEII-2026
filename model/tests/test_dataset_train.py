@@ -86,6 +86,9 @@ class DatasetTrainTest(unittest.TestCase):
         self.assertEqual(float(TRN.loss_fn(out, b2, {})[0].detach()), 0.0)
 
     def test_overfits_a_tiny_batch(self):
+        """The network can learn 2 sets by heart: within 150 steps the loss falls below 30 % of its start and stays
+        there for 10 steps in a row. It gets there at step ~6 (measured 2026-11-09), so the loop stops early:
+        a few seconds instead of 49 s for all 150 steps."""
         torch.manual_seed(0)
         net = TrueRehabNet(self.c)
         net.drop.p = 0.0
@@ -93,14 +96,18 @@ class DatasetTrainTest(unittest.TestCase):
         b = DS.collate([ds[0], ds[1]])
         b["y"][..., 0] = torch.linspace(0, 1, b["y"].shape[1])        # something to learn
         opt = torch.optim.Adam(net.parameters(), lr=3e-3)
-        first = None
+        first, value, below = None, None, 0
         for _ in range(150):
             loss, _ = TRN.loss_fn(net(b), b, {})
-            first = first if first is not None else float(loss.detach())
+            value = float(loss.detach())
+            first = first if first is not None else value
+            below = below + 1 if value < 0.3 * first else 0
+            if below == 10:
+                break
             opt.zero_grad()
             loss.backward()
             opt.step()
-        self.assertLess(float(loss.detach()), 0.3 * first)
+        self.assertEqual(below, 10, f"loss {value:.4f} after 150 steps, start {first:.4f}")
 
     def test_short_loso_run(self):
         res = TRN.run_loso(self.sessions, self.c, torch.device("cpu"), epochs=4, patience=10, max_folds=2,

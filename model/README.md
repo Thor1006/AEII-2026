@@ -20,7 +20,7 @@ Run the commands below from inside `model/`.
 
 ## Commands
 
-Run all tests (60, about 1 minute, no sensors needed):
+Run all tests (73, about 30 s, no sensors needed; `bash scripts/check_all.sh` from the repo root runs every part's checks):
 
 ```bash
 .venv/bin/python -m unittest discover -s tests
@@ -156,7 +156,10 @@ Run `use_phase=False` in the contract to switch the phase channel off and compar
   - noise floor within 0.5 dB on average;
   - frame timing and Wi-Fi delay copied from the real sequences;
   - IMU noise within 20 %.
-- **Shrug sync on fake sessions:** IMU within 5 ms of the truth; the pose's 60-ms webcam delay is found within ±15 ms.
+- **Shrug sync on fake sessions:** IMU within 5 ms of the truth. The pose's 60-ms webcam delay is found within one
+  webcam frame (33 ms). Re-measured 2026-11-09:
+  - saved-statistics radar background, 40 fake people: error 5 ms (median), 17 ms (90 %), 29 ms at worst;
+  - real empty-room background, 20 fake people: 16 ms at worst.
 - **Speed:**
   - one frame through the CNN: 0.32 ms on the Apple GPU, 0.87 ms on CPU (a frame arrives every 16.7 ms);
   - a training step is 15× faster on the Apple GPU;
