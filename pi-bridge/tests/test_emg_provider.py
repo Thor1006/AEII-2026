@@ -131,6 +131,21 @@ class Signal(unittest.TestCase):
         self.assertEqual(h.state, "ok", h.message)
         self.assertIn("clipping in 10% of samples", h.message)
 
+    def test_just_connected_is_waiting_not_an_error(self):
+        """Right after a (re)connect the board's first samples are on their way: "waiting", not the 3-s error, which a
+        dashboard heartbeat could catch after every Wi-Fi reconnect. With nothing for 3 s since connecting: the error."""
+        p = EmgProvider(port="tcp://127.0.0.1:9")
+        p._link, p._connected_at = "up", time.monotonic()
+        h = p.health()["emg"]
+        self.assertEqual((h.state, h.message), ("missing", "Connected, waiting for sEMG samples…"))
+        p._connected_at = time.monotonic() - 3.5
+        h = p.health()["emg"]
+        self.assertEqual(h.state, "error")
+        self.assertIn("no sEMG samples for 3 s", h.message)
+        feed(p, board_lines(self.raw[5000:6000], self.env[5000:6000], start=5000))
+        h = p.health()["emg"]
+        self.assertEqual(h.state, "ok", h.message)
+
     def test_median_frequency_is_announced_as_intermittent(self):
         aux = {a.key: a.wire() for a in EmgProvider(port="tcp://127.0.0.1:9").manifest().aux}
         self.assertEqual(aux["emg_mdf"]["intermittent"], True)          # only during movement: silence isn't a fault

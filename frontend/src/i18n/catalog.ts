@@ -510,6 +510,7 @@ export const catalog: Record<string, readonly [string, string]> = {
   'closed by the board': ['บอร์ดปิดการเชื่อมต่อ', '電路板已中斷連線'],
   'no data for {seconds} s': ['ไม่มีข้อมูล {seconds} วินาที', '{seconds} 秒沒有數據'],
   'Connected, but no sEMG samples for 3 s. Is the board running the record sketch (firmware/myoware_record)?': ['เชื่อมต่อแล้ว แต่ไม่ได้รับสัญญาณ sEMG มา 3 วินาที ตรวจว่าบอร์ดกำลังรันสเก็ตช์บันทึก (firmware/myoware_record)', '已連接，但 3 秒沒有收到 sEMG 樣本。請確認電路板正在執行錄製程式（firmware/myoware_record）。'],
+  'Connected, waiting for sEMG samples…': ['เชื่อมต่อแล้ว กำลังรอสัญญาณ sEMG…', '已連接，正在等候 sEMG 樣本…'],
   '{rate} samples/s': ['{rate} ตัวอย่าง/วินาที', '每秒 {rate} 個樣本'],
   '{count} samples lost': ['ตัวอย่างหาย {count} ตัว', '遺失 {count} 個樣本'],
   'the board dropped {count} lines (Wi-Fi too slow)': ['บอร์ดทิ้งข้อมูล {count} บรรทัด (Wi-Fi ช้าเกินไป)', '電路板捨棄了 {count} 行數據（Wi-Fi 太慢）'],

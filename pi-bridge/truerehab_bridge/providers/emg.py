@@ -210,7 +210,9 @@ class EmgProvider(Provider):
             return {DEVICE: DeviceHealth("error", LABEL, msg)}
         if link != "up":
             return {DEVICE: DeviceHealth("missing", LABEL, msg)}
-        if last is None or now - last > 3:
+        if last is None and since <= 3:             # just (re)connected: the board's first samples are on their way
+            return {DEVICE: DeviceHealth("missing", LABEL, "Connected, waiting for sEMG samples…")}
+        if last is None or now - last > 3:          # (no sample at all: connected more than 3 s ago)
             return {DEVICE: DeviceHealth("error", LABEL, "Connected, but no sEMG samples for 3 s. Is the board "
                                                          "running the record sketch (firmware/myoware_record)?")}
         state, parts = "ok", [f"{n / min(2.0, max(since, 0.25)):.0f} samples/s"]
