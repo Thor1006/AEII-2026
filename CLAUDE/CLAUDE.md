@@ -9,6 +9,9 @@ None yet — no code in the project. Stack to be decided (see CONTEXT.md open qu
 ## Session routine
 1. **Start:** read `CLAUDE/CONTEXT.md` (and `git status -sb` once this is a git repo), then post a short kickoff:
    `Goal:` · `Done means:` · `Plan:` (3–5 lines total).
+   **Inbox:** also check `git config user.email` and `user.name`. If either belongs to a teammate listed in `CLAUDE/inbox/README.md`,
+   first tell them about every file in their inbox folder (not in its `read/` subfolder): name, who it's from and
+   the one-line note from the README, and offer to open it. Kin = `kinkin100254@gmail.com` or `KINKIN-007` → `CLAUDE/inbox/kin/`.
 2. **Before non-trivial work** (new code, multi-file change, anything risky): write a proposal to `CLAUDE/plans/YYYY-MM-DD-<slug>.md` using `_TEMPLATE.md`, status `proposed`, and wait for OK. When a plan-mode plan is approved, copy it there with status `approved`.
 3. **During:** one-line check-ins after each step. Verify before saying done.
 4. **After each loop** (task finished or stopping point): run `/wrap-up` — report to `CLAUDE/output/`, update `CONTEXT.md`, log decisions in `DECISIONS.md`, set the plan's status to `done`.
