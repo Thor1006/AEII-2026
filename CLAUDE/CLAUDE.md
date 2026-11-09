@@ -19,6 +19,7 @@ None yet — no code in the project. Stack to be decided (see CONTEXT.md open qu
 ## Conventions
 - Source docs are mostly Thai; technical terms in English.
 - Code conventions: unknown — set once the stack is chosen.
+- User-facing deliverables must have a numbered filename suffix before the extension: `_v01`, `_v02`, `_v03`, etc. Start a new deliverable series at `_v01`; after each requested edit, save the next available version and retain earlier files. Never overwrite an existing numbered version. When a deck and matching script are delivered together, use the same version number for both. This is the user's standing request from 2026-11-05.
 
 ## Off-limits / ask first
 - **Read-only:** `T-Proposal-Radar (1).docx`, `AEII 2026. TrueRehab-RF Poster.pdf`, `message-2.txt`. Never edit; write derived material elsewhere.

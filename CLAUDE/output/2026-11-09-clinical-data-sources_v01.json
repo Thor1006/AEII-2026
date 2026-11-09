@@ -1,0 +1,113 @@
+{
+  "reviewed_on": "2026-11-09",
+  "project": "TrueRehab-RF",
+  "current_input_contract": "radar H[4,64,32] and D[1,64,16], 128 frames/rep, v1",
+  "datasets": [
+    {
+      "id": "minho-fatigue-v2",
+      "priority": 1,
+      "population": "13 healthy adults",
+      "modalities": [
+        "sEMG",
+        "self-perceived fatigue"
+      ],
+      "labels": "time-stamped perceived fatigue 0,1,2; not mechanical failure or expert compensation",
+      "format": "CSV inside per-subject ZIPs",
+      "emg_hz": 1259,
+      "label_hz": 50,
+      "paper": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11678945/",
+      "data": "https://zenodo.org/records/14182446",
+      "doi": "10.5281/zenodo.14182446",
+      "license": "CC BY 4.0, verified from record API",
+      "download_status": "protocol and full fatigue-label archive downloaded; 3.3 GB raw EMG not downloaded",
+      "direct_current_radar_input": false
+    },
+    {
+      "id": "don-carlo-gnocchi-upper-limb",
+      "priority": 2,
+      "population": "10 post-stroke and 10 healthy participants",
+      "modalities": [
+        "optical marker kinematics",
+        "joint angles",
+        "12-muscle sEMG"
+      ],
+      "tasks": "six functional activities; not a fatigue-curl study",
+      "format": "MATLAB .mat",
+      "emg_hz": 1000,
+      "motion_hz": 125,
+      "paper": "https://www.nature.com/articles/s41597-025-06174-3.pdf",
+      "data": "https://doi.org/10.6084/m9.figshare.c.7720187.v1",
+      "sample": "https://figshare.com/articles/dataset/ST_03/28596086",
+      "license": "CC BY 4.0, verified on ST03 article API",
+      "download_status": "ST03.mat original patient sample downloaded; checksum and MAT header checked; numeric fields not decoded",
+      "direct_current_radar_input": false
+    },
+    {
+      "id": "toronto-rehab-stroke-pose",
+      "priority": 3,
+      "population": "9 stroke survivors and 10 healthy participants",
+      "modalities": [
+        "Kinect v2 joint coordinates"
+      ],
+      "labels": "frame-level posture ratings",
+      "data": "https://www.kaggle.com/datasets/derekdb/toronto-robot-stroke-posture-dataset",
+      "author_repository": "https://github.com/zhiderek/TRSPD",
+      "paper": "https://eudl.eu/doi/10.1145/3154862.3154925",
+      "license": "not independently verified",
+      "download_status": "author data link verified; files not imported",
+      "direct_current_radar_input": false
+    },
+    {
+      "id": "rehab-120",
+      "priority": 4,
+      "population": "120 enrolled post-stroke patients, clinical environments",
+      "modalities": [
+        "IMU kinematics",
+        "flex sensors"
+      ],
+      "labels": "27 motor assessment tasks plus 16 training tasks; therapist-scored assessment, not fatigue ground truth",
+      "format": "NumPy .npy",
+      "motion_hz": 50,
+      "data": "https://doi.org/10.57760/sciencedb.37018",
+      "landing_page": "https://www.scidb.cn/en/s/YrUnie",
+      "paper": "https://www.nature.com/articles/s41597-026-07802-2.pdf",
+      "license": "dataset-specific license not independently verified; do not substitute article license",
+      "download_status": "public availability stated in paper; package not imported",
+      "direct_current_radar_input": false
+    },
+    {
+      "id": "bmfd",
+      "priority": 5,
+      "population": "12 resistance-trained men, 192 isometric holds",
+      "modalities": [
+        "sEMG"
+      ],
+      "labels": "holds end at mechanical failure; not dynamic-curl compensation",
+      "emg_hz": 2000,
+      "data": "https://data.mendeley.com/datasets/5mhj643jtf/1",
+      "license": "CC BY 4.0 stated on Mendeley record",
+      "download_status": "repository description verified; files not imported",
+      "direct_current_radar_input": false
+    }
+  ],
+  "other_evidence": [
+    {
+      "topic": "fatigue-related shoulder changes in curls",
+      "url": "https://arxiv.org/html/2402.11421v1",
+      "population": "12 healthy men; source not a verified open raw dataset"
+    },
+    {
+      "topic": "individual rehabilitation, fatigue and independent exercise support",
+      "url": "https://www.nice.org.uk/guidance/ng236/chapter/Recommendations"
+    }
+  ],
+  "local_samples": "C:\\Users\\chap_\\.codex\\AEII-2026\\model\\data\\external_reference_v01",
+  "not_performed": [
+    "network training",
+    "threshold updates",
+    "presentation edits",
+    "poster edits",
+    "firmware/config changes",
+    "git commit/push"
+  ]
+}

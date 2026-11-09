@@ -2,6 +2,11 @@
 
 <!-- Newest on top. One short entry per decision that someone might later ask "why did we do it this way?" about. -->
 
+## 2026-11-09 - Use public clinical data as references and keep radar training separate
+- The user requested online clinic/research records for both AI and presentation evidence. Prioritized Minho dynamic sEMG plus perceived-fatigue labels, Don Carlo Gnocchi post-stroke kinematics/EMG, Toronto compensation poses and REHAB clinical movement assessments. BMFD is an isometric fallback. [Review](output/2026-11-09-clinical-data-sources_v01.md).
+- Downloaded one original public de-identified stroke MAT sample and Minho's small protocol/label files. Both dataset licenses verified as CC BY 4.0 and source checksums match. Store binary samples in existing git-ignored `model/data/external_reference_v01/`; keep a small source catalog in `CLAUDE/output/`.
+- External signals do not match radar contract v1 and are not synchronized to our radar. No import into the current network, training, threshold changes or claims of clinical validation. Submitted poster and current deck stay unchanged; no commit/push.
+
 ## 2026-11-08 — Model input v1: heatmaps + the radar's own points; a finer range profile to try; radar stays on USB
 - **Decision:**
   - Contract `v1`: H `[4, 64, 32]` = angle-FFT magnitude, phase change, and two point layers (height, presence)

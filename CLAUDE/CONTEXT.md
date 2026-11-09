@@ -1,7 +1,7 @@
 # Context
 
 <!-- Living state. Keep under ~40 lines; reports hold detailed run history. -->
-**Last updated:** 2026-11-08 17:04 (model input v1: radar points + 32 angle bins; finer range profile to try)
+**Last updated:** 2026-11-09 (public clinical and fatigue dataset review)
 
 ## Current focus
 **Plan B is selected and received: AWR2944PEVM, no DCA1000.** The submitted AWR1843BOOST/DCA1000 poster stays frozen. Two independent USB radar demos now coexist; their profiles, outputs and measured limits differ. Run only one serial collector at a time. No raw ADC or validated fatigue/body model is claimed.
@@ -24,6 +24,7 @@
 - **Pi set v0.2** (`deploy/pi/`, [report](output/2026-11-07-1535-semg-support.md)): live radar + MyoWare sEMG (envelope, median frequency) in the dashboard; Start/Stop records both into one folder on one clock. Verified from the PortableSSD install with replayed radar + `fake_myoware.py`, and with the real MyoWare over Wi-Fi (`check_bridge` passes; not worn yet). Not yet run on a real Pi or the live radar. Live model scores need radar-only rep detection.
 
 ## Recent changes
+- 2026-11-09 - Reviewed clinical/public datasets for both AI reference work and presentation evidence. [Sources and use limits](output/2026-11-09-clinical-data-sources_v01.md); [machine-readable catalog](output/2026-11-09-clinical-data-sources_v01.json). CC BY samples (one real stroke MAT file, Minho fatigue labels/protocol) in ignored `model/data/external_reference_v01/`. None is paired radar input; current labels/model/slide content unchanged. No commit/push.
 - 2026-11-08 - Radar points + heatmaps (contract v1), finer profile `fullmap_fine_awr2x44p.cfg` (3.88 cm, not yet on the board), 4th dashboard view "Points (height)". Radar stays on USB (Ethernet demo = bare points). [Report](output/2026-11-08-1704-points-and-finer-heatmap.md).
 - 2026-11-07 - MyoWare: the Wi-Fi record sketch uploaded (Wi-Fi file copied from the IMU's, unopened); real board at 1000/s with 0 gaps over Wi-Fi; Pi bridge check passes. [Report](output/2026-11-07-1601-myoware-upload.md).
 - 2026-11-07 - sEMG support end to end (the IMU is unreliable): MyoWare Wi-Fi firmware, bridge `emg` provider and one shared recording, sEMG-envelope reps, dashboard EN/TH/zh-HK, Pi set v0.2 on the PortableSSD.
