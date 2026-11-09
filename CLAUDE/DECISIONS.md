@@ -2,6 +2,23 @@
 
 <!-- Newest on top. One short entry per decision that someone might later ask "why did we do it this way?" about. -->
 
+## 2026-11-09 — Before collecting data: each run of a board's clock is aligned on its own; the recorder takes codes only
+- **Decision:**
+  - When a sensor board's clock goes back (it restarted), each run is lined up with the host clock on its own
+    (`device_runs`), and the session check names the restart. Sessions without a restart come out identical.
+  - `record.py` accepts only `S01`–`S999` or `TEST` as the subject, checked before anything is written. The Pi bridge
+    keeps its own looser rule.
+  - Board counters in the check count only the recording (last minus first status line), not since the board booted.
+  - See [report](output/2026-11-09-1650-fixes-before-data-collection.md).
+- **Why:**
+  - One restart moved every sEMG time in a fake session by 23-37 s while the check said "ok". The fatigue labels
+    would have been measured against the wrong radar frames.
+  - A name typed by mistake would otherwise land in a folder name and `meta.json` before anyone checked.
+- **Alternatives:**
+  - Drop the samples after a restart: loses data that can be lined up.
+  - A firmware change (reset counter in each line): needs a flash, and isn't needed; the clock going back already
+    shows it.
+
 ## 2026-11-09 — Tests give the same answer on any computer; one command runs every check
 - **Decision:**
   - The model's reps-and-delays test uses its own fake sessions with the saved-statistics radar background, and
