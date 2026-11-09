@@ -33,13 +33,41 @@ class Report:
         return [i for i in self.items if i["level"] == level]
 
 
-def _status_counts(comments):
-    """Board counters from the last '# status ...' line."""
-    last = [txt for _, txt in comments if txt.startswith("# status")]
-    if not last:
-        return {}
-    kv = dict(p.split("=", 1) for p in last[-1][2:].split() if "=" in p)
-    return {k: kv[k] for k in STATUS_KEYS if k in kv}
+def _board_counters(comments, keys):
+    """(counters, number of status lines): each board counter's change during the recording, from the board's
+    '# status ...' lines. The board counts from when it booted, so: last minus first line, or the last value when
+    the board restarted (its counters began again) or only one status line came."""
+    rows = [dict(p.split("=", 1) for p in txt[2:].split() if "=" in p)
+            for _, txt in comments if txt.startswith("# status")]
+    if not rows:
+        return {}, 0
+    out = {}
+    for k in keys:
+        if k in rows[-1]:
+            a, b = _int(rows[0].get(k)), _int(rows[-1][k])
+            out[k] = b - a if len(rows) > 1 and b >= a else b
+    return out, len(rows)
+
+
+def _int(v):
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _clock_report(rep, name, dev_us, t_host_s, t_s):
+    """Board restarts, and whether the device-clock times landed next to the arrival times."""
+    from rec.session import device_runs
+    runs = device_runs(dev_us)
+    if len(runs) > 1:
+        where = ", ".join(f"{t_host_s[a]:.0f} s (~{t_host_s[a] - t_host_s[a - 1]:.1f} s missing)" for a, _ in runs[1:])
+        rep.add(name, "warn", f"the board restarted {len(runs) - 1} time(s), at {where}: each part is lined up on "
+                              "its own; check its battery and wiring")
+    late_ms = float(np.median(t_host_s - t_s)) * 1000
+    if abs(late_ms) > 500:
+        rep.add(name, "fail", f"times don't line up: samples arrive {late_ms:+.0f} ms after their device time "
+                              "(median; 10-20 ms is normal), so this sensor's timing can't be used")
 
 
 def _device_rate(dev_us):
@@ -132,7 +160,8 @@ def check_and_process(path, contract=None):
     port = str((src.get("emg") or {}).get("port", ""))
     if port and not port.startswith("tcp://") and "TrueRehab" not in port and subj != "TEST":
         rep.add("safety", "warn", f"sEMG came over a cable ({port}) with subject {subj}: SparkFun says the MyoWare "
-                                  "shield must not be on a person while USB is plugged in (use battery + Bluetooth)")
+                                  "shield must not be on a person while USB is plugged in (use the battery and the "
+                                  "Wi-Fi link)")
 
     # ---------------------------------------------------------- files and line formats
     for name in src:
@@ -203,8 +232,8 @@ def check_and_process(path, contract=None):
     if p.imu is not None:
         imu = p.imu
         hz, n_gaps, lost = _device_rate(imu.dev_us)
-        status = _status_counts(TR.comment_lines(s, "imu"))
-        bad = {k: v for k, v in status.items() if v not in ("0", "")}
+        status, _ = _board_counters(TR.comment_lines(s, "imu"), STATUS_KEYS)
+        bad = {k: v for k, v in status.items() if v}
         rep.add("imu", "ok" if abs(hz - 200) < 2 and lost <= 2 else "warn",
                 f"{len(imu.t_s)} samples at {hz:.1f} Hz" + _gaps_text(n_gaps, lost, hz))
         rep.add("imu", "warn" if bad else "ok", "board counters: " + (", ".join(f"{k}={v}" for k, v in status.items())
@@ -222,6 +251,7 @@ def check_and_process(path, contract=None):
             rep.add("imu", "warn", f"Wi-Fi link dropped {drops} time(s); the recorder reconnected")
         dl = (imu.t_host_s - (imu.t_s - applied.get("imu", 0.0))) * 1000
         rep.add("imu", "info", f"delivery after the device clock: median {np.median(dl):.1f} ms, p99 {np.percentile(dl, 99):.1f} ms")
+        _clock_report(rep, "imu", imu.dev_us, imu.t_host_s, imu.t_s - applied.get("imu", 0.0))
         stills = CB._still_windows(imu)
         if stills:
             noise = float(np.median([imu.acc_g[w].std(0).mean() for w in stills]))
@@ -242,6 +272,19 @@ def check_and_process(path, contract=None):
             rep.add("emg", "warn", f"signal flat in {flat:.0%} of seconds: electrodes or cable?")
         if clip > 0.001:
             rep.add("emg", "warn", f"{clip:.1%} of samples clipped at 0/4095: lower the gain")
+        _clock_report(rep, "emg", emg.dev_us, emg.t_host_s, emg.t_s)
+        comments = TR.comment_lines(s, "emg")
+        status, n_status = _board_counters(comments, ("skipped", "link_dropped", "link_send_fails", "link_clients"))
+        clients = status.pop("link_clients", 0)
+        if status:
+            rep.add("emg", "warn" if any(status.values()) else "ok",
+                    "board counters: " + ", ".join(f"{k}={v}" for k, v in status.items()))
+        if n_status > 1 and str((src.get("emg") or {}).get("port", "")).startswith("tcp://"):
+            others = clients - sum("link back" in txt for _, txt in comments)   # our own reconnects don't count
+            if others > 0:
+                rep.add("emg", "warn", f"another program connected to the MyoWare {others} time(s) while recording: it "
+                                       "serves one reader at a time, so both lost data; close the Pi bridge or the "
+                                       "other recorder")
     elif "emg" in src and not any(i["section"] == "files" and i["text"].startswith("emg.csv") and i["level"] == "fail"
                                   for i in rep.items):
         rep.add("emg", "fail", "no usable sEMG (E,) data")

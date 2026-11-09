@@ -81,12 +81,14 @@ git-ignored. The fake sessions take ~270 MB and the cache ~60 MB. Delete them an
 
 ## What a recording needs (the protocol the pipeline expects)
 
-1. Subject **code** (`S01`, `S02`…), never a name. Raw video off unless the person agreed in writing.
+1. Subject **code** (`S01`, `S02`…), never a name; the recorder refuses anything else (`TEST` for trials). Raw video
+   off unless the person agreed in writing.
 2. Stand still for **5 s**: this is the reference for the radar levels and the shoulder position.
 3. Press **`s`**, then do **3 quick shoulder shrugs**. They are used to line up the sensors' clocks.
 4. **Elbow flexion sets**: press **space** at the start of each rep. Rest at least 8 s between sets.
-5. MyoWare on **battery + Bluetooth** while on a person (SparkFun: never with USB plugged in).
-6. Run `check_session.py` right away.
+5. MyoWare on **battery, over Wi-Fi** (`--emg tcp://truerehab-myoware.local:3334`) while on a person (SparkFun: never
+   with USB plugged in).
+6. Run `check_session.py` right away, and `recorder/link_report.py` for the Wi-Fi sensors.
 
 ## How it works
 

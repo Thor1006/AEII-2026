@@ -1,6 +1,7 @@
 import csv
 import os
 import socket
+import subprocess
 import sys
 import tempfile
 import threading
@@ -119,6 +120,21 @@ class AlignTest(unittest.TestCase):
         self.assertLess(np.percentile(err_ms, 99) - np.percentile(err_ms, 1), 1.0)  # no tilt: a constant offset
         self.assertAlmostEqual(float(np.median(err_ms)), 4.0, delta=1.0)  # = the least delay
 
+    def test_a_board_restart_is_lined_up_on_its_own(self):
+        """A board that restarts mid-recording starts its clock again near 0. One line through both runs put every
+        sample tens of seconds off (2026-11-09); each run now gets its own fit."""
+        rng = np.random.default_rng(1)
+        n = 60_000                                                   # 60 s at 1 kHz, a 2-s reboot, 60 s more
+        true_s = np.r_[np.arange(n), 62_000 + np.arange(n)] / 1000
+        dev_us = np.r_[5_000_000 + np.arange(n) * 1000, 300_000 + np.arange(n) * 1000]
+        host = (true_s + 0.010 + rng.exponential(0.003, 2 * n)) * 1e9  # arrives 10 ms + jitter after it was made
+        self.assertEqual(S.device_runs(dev_us), [(0, n), (n, 2 * n)])
+        err_ms = (S.align_device_time(dev_us, host) / 1e9 - true_s) * 1000
+        self.assertLess(np.abs(err_ms - 10).max(), 2)                # only the 10-ms delivery delay is left
+
+    def test_a_wrap_is_not_a_restart(self):
+        self.assertEqual(S.device_runs([4_294_966_000, 4_294_967_000, 704, 1704]), [(0, 4)])
+
 
 class SessionTest(unittest.TestCase):
     def test_repeated_lines_dropped(self):
@@ -234,6 +250,32 @@ class SessionTest(unittest.TestCase):
             gaps_ms = np.diff(e["t_s"]) * 1e3
             self.assertAlmostEqual(float(np.median(gaps_ms)), 1.0, delta=0.05)  # device clock, not batches
             self.assertEqual(e["values"].shape[1], 2)  # raw, env
+
+
+class RecorderSafetyTest(unittest.TestCase):
+    def test_a_name_is_refused_before_anything_is_written(self):
+        record = Path(__file__).resolve().parents[1] / "record.py"
+        with tempfile.TemporaryDirectory() as d:
+            r = subprocess.run([sys.executable, str(record), "--subject", "Alice", "--exercise", "demo", "--radar-sim",
+                                "--duration", "1", "--out", d], capture_output=True, text=True, timeout=60)
+            self.assertEqual(r.returncode, 2, r.stderr)
+            self.assertIn("never a name", r.stderr)
+            self.assertEqual(list(Path(d).iterdir()), [])            # no session folder, no meta.json with the name
+
+    def test_radar_status_warns_before_its_frame_limit(self):
+        with tempfile.TemporaryDirectory() as d:
+            sess = S.SessionWriter(d, "TEST", "demo")
+            radar = RadarSource(sess, sim_fps=60, frame_limit=65535, fps=60.0)
+            try:
+                radar.last_no = 1000
+                self.assertNotIn("left", radar.status())
+                radar.last_no = 65535 - 60 * 90                      # 90 s before the radar stops by itself
+                self.assertIn("(90 s of radar left)", radar.status())
+                radar.last_no = 65535
+                self.assertIn("FINISHED", radar.status())
+            finally:
+                radar.close()
+                sess.close({})
 
 
 if __name__ == "__main__":

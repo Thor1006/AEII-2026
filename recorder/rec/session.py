@@ -24,7 +24,8 @@ import numpy as np
 FORMAT = "truerehab-session/1"
 now_ns = time.perf_counter_ns
 MARKER_KEYS = {" ": "rep start", "s": "sync shrugs", "t": "feels tired", "c": "compensating", "x": "note"}
-SUBJECT_RE = re.compile(r"^[A-Za-z0-9_-]{1,12}$")
+SUBJECT_RE = re.compile(r"^[A-Za-z0-9_-]{1,12}$")   # any session folder (the Pi bridge also writes KIT)
+CODE_RE = re.compile(r"^(S\d{2,3}|TEST)$")          # what record.py accepts; model/trnet/check.py checks the same
 EXERCISE_RE = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
 
 
@@ -119,6 +120,19 @@ def _window_minima(x, resid, window):
     return np.array([order[s + np.argmin(resid[order[s:e]])] for s, e in zip(starts, ends)])
 
 
+def device_runs(dev_us):
+    """[(start, stop)] row ranges, one per run of the device's clock.
+
+    A board that restarts (battery dip, brown-out, watchdog) starts micros() again near 0, so its clock goes
+    back; a 32-bit wrap never does once unwrapped. Each run has its own offset to the host clock.
+    """
+    d = unwrap_u32(dev_us)
+    if len(d) == 0:
+        return []
+    edges = np.r_[0, np.flatnonzero(np.diff(d) < 0) + 1, len(d)]
+    return [(int(a), int(b)) for a, b in zip(edges[:-1], edges[1:])]
+
+
 def align_device_time(dev_us, host_ns, window_s=2.0):
     """Put device timestamps on the host clock.
 
@@ -128,10 +142,23 @@ def align_device_time(dev_us, host_ns, window_s=2.0):
     lower edge of the arrivals, and the offset is taken from that edge. A fit through all samples gets
     tilted by delay bursts: on a real 2-min Wi-Fi recording (2026-11-05) the Wi-Fi-aligned times then
     wandered by 37 ms against the USB copy of the same samples; with the lower edge, by 0.0 ms (a constant
-    4.1 ms apart). Returns host-clock nanoseconds for each sample.
+    4.1 ms apart).
+
+    Each run of the device clock (device_runs: the board restarted in between) gets its own fit. One line through
+    both runs put every sample tens of seconds off (a fake session with one restart halfway, 2026-11-09: 23 s
+    before the restart, 37 s after). Without a restart the result is the same as before. Returns host-clock
+    nanoseconds for each sample.
     """
     d = unwrap_u32(dev_us).astype(np.float64) * 1e3  # -> ns
     h = np.asarray(host_ns, dtype=np.float64)
+    out = h.copy()
+    for a, b in device_runs(dev_us):
+        out[a:b] = _align_run(d[a:b], h[a:b], window_s)
+    return out
+
+
+def _align_run(d, h, window_s):
+    """align_device_time for one run of the device clock (both in ns)."""
     if len(d) < 2:
         return h.copy()
     x = d - d[0]

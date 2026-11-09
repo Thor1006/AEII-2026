@@ -120,6 +120,21 @@ def angles(world):
 
 # ---------------------------------------------------------------- recorder source
 
+def read_frame(cap, halt=None, give_up_s=3.0, nap_s=0.01):
+    """The camera's next frame (BGR), or None once halt is set. Between failed reads it naps instead of spinning at
+    full speed next to the radar thread; a camera that sends nothing for give_up_s (unplugged, or another app took
+    it) raises, so the status line shows pose ERROR and the other sensors keep recording."""
+    t0 = time.perf_counter()
+    while halt is None or not halt.is_set():
+        ok, bgr = cap.read()
+        if ok:
+            return bgr
+        if time.perf_counter() - t0 > give_up_s:
+            raise RuntimeError(f"the camera sent no picture for {give_up_s:.0f} s (unplugged, or taken by another app?)")
+        time.sleep(nap_s)
+    return None
+
+
 class PoseSource(Source):
     """Camera frames -> MediaPipe pose -> pose.csv, stamped with the session clock on arrival."""
 
@@ -143,9 +158,9 @@ class PoseSource(Source):
     def loop(self):
         frame_no, last_flush = 0, time.perf_counter()
         while not self.halt.is_set():
-            ok, bgr = self.cap.read()
-            if not ok:
-                continue
+            bgr = read_frame(self.cap, self.halt)
+            if bgr is None:
+                break
             t = self.session.t()
             img, world = self.est(bgr, t / 1e6)
             if self.writer is not None:

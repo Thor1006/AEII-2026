@@ -5,9 +5,10 @@ same Mac clock, so they can be lined up afterwards. Plan: [`CLAUDE/plans/2026-11
 
 ```
 AWR2944PEVM (USB, 60 fps) ──┐
-MyoWare sEMG (Bluetooth) ───┼─► record.py ─► data/sessions/<date>_<time>_<subject>_<exercise>/
-MPU6050 IMU (optional) ─────┘        ▲                meta.json, radar.bin, radar_index.csv,
-           keys: rep, tired, ... ────┘                emg.csv, imu.csv, markers.csv
+MyoWare sEMG (Wi-Fi) ───────┤
+MPU6050 IMU (optional) ─────┼─► record.py ─► data/sessions/<date>_<time>_<subject>_<exercise>/
+Webcam pose (optional) ─────┘        ▲                meta.json, radar.bin, radar_index.csv,
+           keys: rep, tired, ... ────┘                emg.csv, imu.csv, pose.csv, markers.csv
 ```
 
 Recordings stay on this Mac: `data/` is git-ignored. Use subject **codes** (S01), never names.
@@ -19,13 +20,21 @@ cd recorder
 ```
 
 ```bash
-.venv/bin/python record.py --subject S01 --exercise elbow_flexion --radar-data /dev/cu.usbmodemRA29P0554 --radar-cli /dev/cu.usbmodemRA29P0551 --emg /dev/cu.TrueRehab-MyoWare
+.venv/bin/python record.py --subject S01 --exercise elbow_flexion --radar-data /dev/cu.usbmodemRA29P0554 --radar-cli /dev/cu.usbmodemRA29P0551 --emg tcp://truerehab-myoware.local:3334
 ```
 
 1. The recorder starts the radar at 60 fps (it keeps the radar's command port open and stops the radar at the end).
-2. **Start with 3 quick shoulder shrugs and press `s`.** All sensors see them, so their offsets can be checked.
-3. Keys: `space` rep start · `s` sync shrugs · `t` feels tired · `c` compensating · `x` note · `q` stop.
-4. The status line shows each sensor's rate. A sensor that stops shows `0/s` or `ERROR`.
+2. **Stand still for 5 s, then press `s` and do 3 quick shoulder shrugs.** All sensors see them, so their clocks can
+   be lined up afterwards. The sync looks from 1 s before `s` to 10 s after it: shrugs done before `s` are missed.
+3. **Press `space` at the start of each rep.** Other keys: `t` feels tired · `c` compensating · `x` note · `q` stop.
+4. The status line shows each sensor's rate. A sensor that stops shows `0/s` or `ERROR`. In the last 2 minutes before
+   the radar's frame limit (~18 min at 60 fps), it shows how many seconds of radar are left.
+5. Subjects are codes: `S01`–`S999`, or `TEST` for a trial. Anything else (a name) is refused before a file is written.
+6. On a Mac the recorder keeps the computer awake while it records (macOS `caffeinate`). Keep it plugged in.
+7. One reader per board. The MyoWare serves one client, so turn the Pi bridge's sEMG off while recording here, and
+   never run radar-lab at the same time.
+8. Straight after: `../model/.venv/bin/python ../model/check_session.py data/sessions/<folder>` and
+   `.venv/bin/python link_report.py data/sessions/<folder>`.
 
 Without hardware: `.venv/bin/python record.py --subject TEST --exercise demo --radar-sim --duration 10`
 
@@ -36,9 +45,10 @@ port doesn't answer, press the board's reset button and start again.
 
 Upload [`firmware/myoware_record/myoware_record.ino`](../firmware/myoware_record/myoware_record.ino) (Arduino IDE,
 board "ESP32 Dev Module"). It sends `E,<micros>,<raw>,<env>` at 1 kHz with the ESP32's own clock, so the
-recorder removes Bluetooth jitter. RAW is what fatigue analysis (median frequency) needs; the demo sketch only
+recorder removes Wi-Fi delivery jitter. RAW is what fatigue analysis (median frequency) needs; the demo sketch only
 sends the envelope 50×/s. Set `USE_IMU 1` and the I2C pins to add the MPU6050 as `I,<micros>,ax,ay,az,gx,gy,gz` at 200 Hz.
-**Not compiled or run yet.** Safety: no USB cable while the sensor is on a person; record over Bluetooth.
+On the board since 2026-11-07 and read over Wi-Fi: `--emg tcp://truerehab-myoware.local:3334` (1000 samples/s, 0 gaps
+on the bench). **Safety:** no USB cable while the sensor is on a person: run it on the battery and record over Wi-Fi.
 
 The demo sketch still records (lines saved as received), just without device timestamps.
 
@@ -63,6 +73,9 @@ The name is looked up over IPv4: macOS otherwise waits 5 s for an IPv6 address t
   delivers the backlog at once, and Bluetooth arrives in bursts. On a real 2-min Wi-Fi recording, the old fit
   wandered 37 ms against the USB copy; the edge fit stayed a constant 4.1 ms apart.
 - Recordings shorter than ~6 s fall back to the old fit.
+- A board that restarts mid-recording (battery dip, brown-out) starts its clock again near 0. Each run of its clock
+  is lined up on its own (`device_runs`), and the session check names the restart. One line through both runs put
+  every sample tens of seconds off (2026-11-09).
 
 ## Video pose (ground truth only)
 
@@ -156,5 +169,7 @@ How often a Wi-Fi sensor's data paused in a recording, and why (recorder or Pi b
 
 - Video pose inside `record.py` alongside the radar: not recorded together yet. iPhone camera: only ~11 fps in the
   list check; it needs to be on a stand and reach ~30 fps before it is used.
-- MyoWare record sketch: not run on hardware yet.
+- MyoWare record sketch: runs over Wi-Fi since Nov 7 (on the bench); not yet worn.
+- A 5-min dress rehearsal with every sensor at once, before the first volunteer: video pose next to the
+  60-fps radar and the 1-kHz sEMG in one process has never been recorded.
 - IMU board on a moving arm: not recorded yet. Its wiring dropped out when the board moved on Nov 4 (see the IMU README).

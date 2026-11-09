@@ -2,6 +2,7 @@ import csv
 import importlib.util
 import sys
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 
@@ -74,6 +75,32 @@ class ReaderTest(unittest.TestCase):
             self.assertTrue(np.allclose(p["world"][0], world, atol=1e-5))
             self.assertTrue(np.isnan(p["world"][1]).all())
             self.assertAlmostEqual(float(P.angles(p["world"])["trunk_lean_side"][0]), 5, delta=0.5)
+
+
+class ReadFrameTest(unittest.TestCase):
+    class Cap:
+        """A camera that fails `fails` times, then delivers."""
+
+        def __init__(self, fails):
+            self.fails, self.reads = fails, 0
+
+        def read(self):
+            self.reads += 1
+            return (True, "frame") if self.reads > self.fails else (False, None)
+
+    def test_a_few_failed_reads_are_waited_out(self):
+        self.assertEqual(P.read_frame(self.Cap(fails=3), give_up_s=1.0, nap_s=0.001), "frame")
+
+    def test_a_dead_camera_raises_instead_of_spinning(self):
+        cap = self.Cap(fails=10 ** 9)
+        with self.assertRaises(RuntimeError):
+            P.read_frame(cap, give_up_s=0.2, nap_s=0.01)
+        self.assertLess(cap.reads, 50)                    # ~20 reads in 0.2 s, not a busy loop
+
+    def test_stops_when_the_recording_stops(self):
+        halt = threading.Event()
+        halt.set()
+        self.assertIsNone(P.read_frame(self.Cap(fails=10 ** 9), halt))
 
 
 if __name__ == "__main__":

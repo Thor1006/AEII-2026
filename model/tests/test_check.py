@@ -122,6 +122,74 @@ class FakeSessionsTest(unittest.TestCase):
         self.assertFalse(r["usable"])
         self.assertTrue(has(r, "no frames could be read", "fail"))
 
+    def test_a_board_restart_is_found_and_lined_up(self):
+        """A MyoWare that restarts halfway starts its clock again near 0: the check names the restart, and the sEMG
+        times stay where they were (one line through both runs put them 23-37 s off, 2026-11-09)."""
+        import csv
+        from rec import session as S
+        from trnet import truth as TR
+        d = self.tmp / "restart" / self.good.name
+        shutil.copytree(self.good, d)
+        with open(d / "emg.csv", newline="") as f:
+            rows = list(csv.reader(f))
+        data = [i for i, r in enumerate(rows) if i > 0 and len(r) == 2 and r[1].startswith("E,")]
+        mid = data[len(data) // 2]
+        dev_mid = int(rows[mid][1].split(",")[1])
+        kept = []
+        for i, r in enumerate(rows):
+            if i >= mid and len(r) == 2 and r[1].startswith("E,"):
+                p = r[1].split(",")
+                dev = (int(p[1]) - dev_mid) & 0xFFFFFFFF
+                if dev < 2_000_000:                                   # rebooting for 2 s: nothing sent
+                    continue
+                p[1] = str(dev - 2_000_000 + 300_000)                 # its clock starts again at 0.3 s
+                r = [r[0], ",".join(p)]
+            kept.append(r)
+        with open(d / "emg.csv", "w", newline="") as f:
+            csv.writer(f).writerows(kept)
+        before, after = TR.load_emg(S.load(self.good)), TR.load_emg(S.load(d))
+        n1 = len(data) // 2
+        n2 = len(after.t_s) - n1
+        self.assertLess(abs(after.t_s[:n1] - before.t_s[:n1]).max(), 0.002)
+        self.assertLess(abs(after.t_s[n1:] - before.t_s[-n2:]).max(), 0.002)
+        r = check_session(d)
+        self.assertTrue(has(r, "the board restarted 1 time(s)", "warn"), texts(r))
+        self.assertFalse(has(r, "times don't line up"))
+
+    def test_another_program_on_the_myoware_is_named(self):
+        import csv
+        import json
+        d = self.tmp / "other" / self.emg_only.name
+        shutil.copytree(self.emg_only, d)
+        meta = json.loads((d / "meta.json").read_text())
+        meta["sources"]["emg"]["port"] = "tcp://truerehab-myoware.local:3334"
+        (d / "meta.json").write_text(json.dumps(meta))
+        with open(d / "emg.csv", newline="") as f:
+            last_t = int(list(csv.reader(f))[-1][0])
+        with open(d / "emg.csv", "a", newline="") as f:                 # 2 more clients, none of them ours
+            w = csv.writer(f)
+            for k, clients in ((1, 1), (2, 3)):
+                w.writerow([last_t + k, f"# status up_s={100 + k} emg_hz=1000.0 skipped=0 link_clients={clients} "
+                                        "link_dropped=0 link_send_fails=0"])
+        r = check_session(d)
+        self.assertTrue(has(r, "another program connected to the MyoWare 2 time(s)", "warn"), texts(r))
+        self.assertTrue(has(r, "board counters: skipped=0, link_dropped=0, link_send_fails=0", "ok"), texts(r))
+
+    def test_board_counters_count_only_the_recording(self):
+        from trnet import check as CK
+        lines = [(0.0, "# status up_s=100 skipped=3 link_clients=4 link_dropped=10"),
+                 (5.0, "# recorder: link back"),
+                 (9.0, "# status up_s=109 skipped=3 link_clients=6 link_dropped=12")]
+        self.assertEqual(CK._board_counters(lines, ("skipped", "link_dropped", "link_clients")),
+                         ({"skipped": 0, "link_dropped": 2, "link_clients": 2}, 2))
+        restarted = [(0.0, "# status up_s=900 skipped=7"), (9.0, "# status up_s=4 skipped=1")]
+        self.assertEqual(CK._board_counters(restarted, ("skipped",))[0], {"skipped": 1})
+
+    def test_subject_code_rule_is_the_recorders(self):
+        from rec import session as S
+        from trnet import check as CK
+        self.assertEqual(CK.CODE_RE.pattern, S.CODE_RE.pattern)
+
     def test_command_line_exit_codes(self):
         cmd = [sys.executable, str(MODEL_DIR / "check_session.py"), "--no-save"]
         ok = subprocess.run(cmd + [str(self.good)], capture_output=True, text=True)

@@ -1,16 +1,20 @@
-"""Record one session: radar + sEMG (+ IMU) on one clock, into recorder/data/sessions/<...>/.
+"""Record one session: radar + sEMG (+ IMU, + webcam pose) on one clock, into recorder/data/sessions/<...>/.
 
   .venv/bin/python record.py --subject S01 --exercise elbow_flexion \\
       --radar-data /dev/cu.usbmodemRA29P0554 --radar-cli /dev/cu.usbmodemRA29P0551 \\
-      --emg /dev/cu.TrueRehab-MyoWare
+      --emg tcp://truerehab-myoware.local:3334
 
   .venv/bin/python record.py --subject TEST --exercise demo --radar-sim --duration 10   # no hardware
 
-Start every session with 3 quick shoulder shrugs (press s), so the sensors can be lined up afterwards.
+Protocol: stand still for 5 s, then press s and do 3 quick shoulder shrugs (they line the sensors up afterwards),
+then press space at the start of each rep.
 Keys while recording: space rep start · s sync shrugs · t feels tired · c compensating · x note · q stop
 """
 import argparse
+import os
 import select
+import shutil
+import subprocess
 import sys
 import termios
 import time
@@ -18,7 +22,7 @@ import tty
 from pathlib import Path
 
 from rec import radar_lab
-from rec.session import MARKER_KEYS, SessionWriter
+from rec.session import CODE_RE, MARKER_KEYS, SessionWriter
 from rec.sources import RadarSource, SerialLineSource
 
 HERE = Path(__file__).resolve().parent
@@ -49,9 +53,20 @@ class Keys:
         return sys.stdin.read(1) if ready else None
 
 
+def keep_awake():
+    """macOS: no idle sleep while recording (the session clock and every sensor would stop). Ends with the recorder."""
+    if sys.platform != "darwin" or not shutil.which("caffeinate"):
+        return None
+    try:
+        return subprocess.Popen(["caffeinate", "-i", "-w", str(os.getpid())],
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError:
+        return None
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--subject", required=True, help="a code like S01, never a name")
+    p.add_argument("--subject", required=True, help="a code: S01-S999, or TEST for a trial (never a name)")
     p.add_argument("--exercise", required=True, help="e.g. elbow_flexion")
     p.add_argument("--notes", default="")
     p.add_argument("--out", default=str(HERE / "data" / "sessions"))
@@ -65,7 +80,8 @@ def main():
     g.add_argument("--period-ms", type=float, default=16.667, help="16.667 = 60 fps (measured stable)")
     g.add_argument("--frames", type=int, default=65535, help="the most the firmware accepts (~18 min at 60 fps)")
     g = p.add_argument_group("ground truth")
-    g.add_argument("--emg", help="MyoWare port, e.g. /dev/cu.TrueRehab-MyoWare (Bluetooth)")
+    g.add_argument("--emg", help="MyoWare: its Wi-Fi link tcp://truerehab-myoware.local:3334 (on a person: battery "
+                                 "and Wi-Fi only), or its USB port on the bench")
     g.add_argument("--emg-baud", type=int, default=921600, help="only matters for USB; the record sketch uses 921600")
     g.add_argument("--imu", help="IMU board: its serial port (/dev/cu.usbserial-0001) or its Wi-Fi link "
                                  "(tcp://truerehab-imu.local:3333)")
@@ -76,12 +92,17 @@ def main():
 
     if not (args.radar_sim or args.radar_data or args.emg or args.imu or args.camera is not None):
         p.error("nothing to record: give --radar-data or --radar-sim, and/or --emg / --imu / --camera")
+    if not CODE_RE.match(args.subject):  # checked before anything is written: a name never reaches the disk
+        p.error(f"--subject {args.subject!r}: use a code like S01 (S01-S999), or TEST for a trial; never a name")
 
+    awake = keep_awake()
     session = SessionWriter(args.out, args.subject, args.exercise, args.notes)
     sources, cli = [], None
     try:
         if args.radar_sim or args.radar_data:
-            radar = RadarSource(session, args.radar_data, args.radar_baud, sim_fps=60 if args.radar_sim else None)
+            started_here = bool(args.radar_cli) and not args.radar_sim     # then we know when it will stop by itself
+            radar = RadarSource(session, args.radar_data, args.radar_baud, sim_fps=60 if args.radar_sim else None,
+                                frame_limit=args.frames if started_here else None, fps=1000 / args.period_ms)
             layout = radar_lab.cfg.load(args.radar_cfg)
             info = {"kind": "sim" if args.radar_sim else "AWR2944PEVM mmWave demo (UART)",
                     "port": args.radar_data, "baud": args.radar_baud,
@@ -118,7 +139,8 @@ def main():
             sources.append(pose)
 
         print(f"\nRecording to {session.dir}")
-        print("Start with 3 quick shoulder shrugs and press s. Keys: space rep · t tired · c compensating · x note · q stop\n")
+        print("Stand still for 5 s. Then press s and do 3 quick shoulder shrugs. Then press space at the start of "
+              "each rep.\nKeys: space rep start · s sync shrugs · t tired · c compensating · x note · q stop\n")
         t_end = time.time() + args.duration if args.duration else None
         last_marker = ""
         with Keys(enabled=True) as keys:
@@ -145,6 +167,8 @@ def main():
         summary = {s.key: s.summary() for s in sources}
         summary["markers"] = session.n_markers
         session.close(summary)
+        if awake is not None:
+            awake.terminate()
         print(f"Saved {session.dir}")
         for name, s in summary.items():
             print(f"  {name}: {s}")

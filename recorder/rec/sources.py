@@ -58,8 +58,10 @@ class RadarSource(Source):
 
     unit = " fps"
 
-    def __init__(self, session, data_port=None, baud=3125000, sim_fps=None):
+    def __init__(self, session, data_port=None, baud=3125000, sim_fps=None, frame_limit=None, fps=60.0):
         super().__init__(session, "radar")
+        # The radar stops by itself after frame_limit frames (65535 = ~18 min at 60 fps): the status line warns.
+        self.frame_limit, self.fps = frame_limit, fps
         self.sim = radar_lab.sim.Room(fps=sim_fps) if sim_fps else None
         self.sim_fps = sim_fps
         self.port = None if self.sim else radar_lab.open_serial(data_port, baud)
@@ -104,8 +106,14 @@ class RadarSource(Source):
             self.port.close()
 
     def status(self):
-        s = super().status()
-        return s + (f" (lost {self.missing})" if self.missing else "")
+        s = super().status() + (f" (lost {self.missing})" if self.missing else "")
+        if self.frame_limit and self.last_no is not None:
+            left_s = (self.frame_limit - self.last_no) / self.fps
+            if left_s <= 0:
+                s += " FINISHED: the radar sent all its frames; press q and start a new session"
+            elif left_s <= 120:
+                s += f" ({left_s:.0f} s of radar left)"
+        return s
 
     def summary(self):
         return {"frames": self.count, "first_frame": self.first_no, "last_frame": self.last_no,
