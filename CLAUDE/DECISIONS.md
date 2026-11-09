@@ -2,6 +2,36 @@
 
 <!-- Newest on top. One short entry per decision that someone might later ask "why did we do it this way?" about. -->
 
+## 2026-11-09 — At the radar's frame limit the bridge restarts it in place, and frame numbers count on
+- **Decision:**
+  - After the radar's last frames and 0.25 s of quiet, the Pi bridge sends the profile again on the command port
+    that is still open.
+  - Frame numbers count on across every restart (the frame limit, or the supervisor's restart after an error), plus
+    the frames the pause would have held.
+  - See [report](output/2026-11-09-1955-radar-frame-limit-restart.md).
+- **Why:**
+  - The board stops after 65,535 frames, and a count of 0 crashes `sensorStart`. A booth demo needs a restart about
+    every 18 min, without an error message.
+  - Closing the command port while the radar runs silences it until a reset, so the restart keeps the port open.
+  - The model's `load_radar` sorts frames by number: two runs that both begin at frame 1 would be mixed. Counting on
+    keeps `frame_no × period` a clock, and the pause shows as missing frames.
+- **Alternatives:**
+  - Leave it to the supervisor's restart after 3 s of quiet: a misleading "Check the cables" message, and the numbers
+    jump back.
+  - A frame count of 0 ("forever"): it crashes this board.
+
+## 2026-11-09 — Build the Pi set from this branch's tip, not by moving `wifi-pause-fixes`
+- **Decision:** the Pi set `truerehab-pi-0.3.0-20261109-2440d3b` is built from the pushed tip of
+  `claude/codebase-audit-diagram-786f9c`: v0.3 plus the sEMG-health fix, Phase 1 and the 9 Nov fixes. It sits in that
+  branch's folder. The main folder's `wifi-pause-fixes` stays at `b1cd6f3`. See
+  [report](output/2026-11-09-1925-autopilot-pi-set-demo-day.md).
+- **Why:**
+  - The tip has every fix, including the restart alignment that the bridge's recordings use, and all checks pass on
+    it (also on a clean copy).
+  - It was built on autopilot: moving a branch in the main folder while the user was away was the riskier step.
+- **Alternatives:** move `wifi-pause-fixes` up to `aff91a9` and build there (the earlier plan in CONTEXT). That gives
+  only the sEMG fix, and changes git in the main folder.
+
 ## 2026-11-09 — Before collecting data: each run of a board's clock is aligned on its own; the recorder takes codes only
 - **Decision:**
   - When a sensor board's clock goes back (it restarted), each run is lined up with the host clock on its own
