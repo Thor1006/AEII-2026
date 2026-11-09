@@ -4,7 +4,8 @@
 @CONTEXT.md
 
 ## Commands
-None yet — no code in the project. Stack to be decided (see CONTEXT.md open questions).
+- Every check, one table: `bash scripts/check_all.sh`. Add `--clean` to run on a fresh copy without git-ignored files (recordings, models, caches), or `--only model,frontend` for some groups.
+- Each part's own commands are in its README (`model/`, `recorder/`, `radar-lab/`, `pi-bridge/`, `frontend/`, `deploy/pi/`).
 
 ## Session routine
 1. **Start:** read `CLAUDE/CONTEXT.md` (and `git status -sb` once this is a git repo), then post a short kickoff:

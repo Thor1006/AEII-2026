@@ -2,6 +2,22 @@
 
 <!-- Newest on top. One short entry per decision that someone might later ask "why did we do it this way?" about. -->
 
+## 2026-11-09 — Tests give the same answer on any computer; one command runs every check
+- **Decision:**
+  - The model's reps-and-delays test uses its own fake sessions with the saved-statistics radar background, and
+    accepts the webcam delay within one webcam frame (33 ms). The fake-data generator is unchanged.
+  - A test that needs something git-ignored or not installed (the pose model, websockets) skips and says why.
+  - `scripts/check_all.sh` runs every suite with each part's own Python. `--clean` runs on a copy without git-ignored
+    files. See [report](output/2026-11-09-1525-phase1-honest-tests.md).
+- **Why:**
+  - A test that passes only because local recordings exist hides failures from every other computer: the teammate's,
+    the Pi, a future CI.
+  - Over 40 fake people the sync error reaches 29 ms, so the old 15-ms limit only held for a lucky three.
+- **Alternatives:**
+  - A separate random stream for the fake radar background (the plan's first idea): it changes every fake session
+    (version bump; demo and export need `train.py` first), and the input would still differ by computer.
+  - Widening the limit without pinning the background: the input would still depend on local files.
+
 ## 2026-11-08 — Wi-Fi pauses: hide them in the dashboard, measure them, keep TCP for now (Pi set v0.3)
 - **Decision:**
   - The live reference-signal charts run on the Pi's clock, 0.25–1.5 s behind (adaptive, gradual), and keep moving
