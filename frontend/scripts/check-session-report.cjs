@@ -96,7 +96,7 @@ const duplicateScores = new SensorStore(); const duplicateSession = start(duplic
 const duplicateScore = message({ type: 'scores', t: 1100, scores: { fatigue: { value: .5 } } });
 duplicateScores.ingest(duplicateScore); duplicateScores.ingest(duplicateScore);
 assert.equal(stop(duplicateScores, duplicateSession, 1200, 0).scores[0].samples, 1);
-for (const language of ['en', 'th', 'zh-HK']) {
+for (const language of ['en', 'th', 'zh-HK', 'ja', 'ko']) {
   const t = createTranslator(language);
   assert.ok(reportCsv(report,t).includes(`"${t('Completed reps')}"`));
   assert.notEqual(language === 'en' ? 'translated' : t('Session summary'), 'Session summary');
@@ -155,7 +155,7 @@ assert.deepEqual(loadReportHistory(denied), { records: [], warning: 'unavailable
 assert.equal(saveReportHistory(restored.records, denied), false);
 assert.equal(saveReportHistory(restored.records, () => ({ ...memoryStorage, setItem: () => { throw new Error('Quota exceeded'); } })), false);
 assert.equal(JSON.stringify(historyStore.reports.records), historySnapshot);
-for (const language of ['en', 'th', 'zh-HK']) {
+for (const language of ['en', 'th', 'zh-HK', 'ja', 'ko']) {
   const t = createTranslator(language);
   if (language !== 'en') assert.notEqual(t('Saved sessions'), 'Saved sessions');
   assert.ok(!t('Open saved session {number}: {exercise}, {date}', { number: 1, exercise: 'test', date: 'today' }).includes('{number}'));
@@ -210,7 +210,7 @@ const afterEmpty = start(deletionStore, 'after-empty', 96000);
 stop(deletionStore, afterEmpty, 97000, 0);
 assert.equal(deletionStore.reports.records.length, 1);
 unsubscribeDeletion();
-for (const language of ['th', 'zh-HK']) {
+for (const language of ['th', 'zh-HK', 'ja', 'ko']) {
   const t = createTranslator(language);
   for (const key of ['Delete', 'Delete this saved session?', 'Yes, delete', 'Session deleted. A slot is now available.']) assert.notEqual(t(key), key);
 }

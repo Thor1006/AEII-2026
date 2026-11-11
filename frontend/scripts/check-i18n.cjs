@@ -18,10 +18,20 @@ function load(file) {
 }
 const { catalog } = load('src/i18n/catalog.ts');
 const { dictionaries, createTranslator } = load('src/i18n/messages.ts');
-const { localizeUi } = load('src/i18n/I18n.tsx');
+const { localizeUi, I18nProvider, useI18n, languages } = load('src/i18n/I18n.tsx');
+const { renderToStaticMarkup } = require('react-dom/server');
 const placeholders = (text) => [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
 assert.deepEqual(Object.keys(dictionaries.en), Object.keys(dictionaries.th));
 assert.deepEqual(Object.keys(dictionaries.en), Object.keys(dictionaries['zh-HK']));
+assert.deepEqual(languages.map(item => item.code), ['en', 'th', 'zh-HK', 'ja', 'ko']);
+assert.deepEqual(languages.slice(-2).map(item => item.name), ['日本語', '한국어']);
+for (const language of languages.map(item => item.code)) {
+  assert.deepEqual(Object.keys(dictionaries[language]).sort(), Object.keys(catalog).sort(), `Missing/extra messages: ${language}`);
+  for (const [key, message] of Object.entries(dictionaries[language])) {
+    assert.ok(typeof message === 'string' && message.trim(), `Empty message: ${language}: ${key}`);
+    assert.deepEqual(placeholders(message), placeholders(key), `Placeholder mismatch: ${language}: ${key}`);
+  }
+}
 for (const [key, translations] of Object.entries(catalog)) {
   for (const text of translations) {
     assert.ok(text.trim(), `Empty translation: ${key}`);
@@ -44,6 +54,39 @@ assert.equal(t('Patient note: felt better today'), 'Patient note: felt better to
 assert.equal(t('constructor'), 'constructor');
 assert.equal(t('{constructor}'), '{constructor}');
 assert.equal(createTranslator('en')('{constructor}'), '{constructor}');
+for (const language of ['ja', 'ko']) {
+  const translate = createTranslator(language);
+  assert.equal(translate('Start session'), language === 'ja' ? 'セッションを開始' : '세션 시작');
+  assert.equal(translate('Points (height)'), language === 'ja' ? '検出点（高さ）' : '감지점(높이)');
+  assert.equal(translate('Rep 7 done · ROM 85°'), language === 'ja' ? '7回目の動作を完了 · ROM 85°' : '7번째 동작 완료 · ROM 85°');
+  assert.equal(translate('sEMG envelope (ADC)'), language === 'ja' ? 'sEMG包絡線 (ADC)' : 'sEMG 포락선 (ADC)');
+  assert.equal(translate('Last session: Elbow flexion (bicep curl), 1:25.'), language === 'ja' ? '前回のセッション：肘の屈曲（アームカール）、1:25。' : '최근 세션: 팔꿈치 굽히기(바이셉스 컬), 1:25.');
+  assert.equal(translate('DCA1000EVM · 77 GHz · 1.35 m · 0.2 m/s'), 'DCA1000EVM · 77 GHz · 1.35 m · 0.2 m/s');
+  assert.equal(translate('Patient note: felt better today'), 'Patient note: felt better today');
+  assert.equal(translate('constructor'), 'constructor');
+  for (const key of ['Session summary', 'Delete', 'Help & Guide', 'Kit key', 'Could not open this source.']) assert.notEqual(translate(key), key);
+  assert.equal(translate('Open saved session {number}: {exercise}, {date}', { number: 2, exercise: 'EXERCISE-ID', date: 'DATE' }).includes('EXERCISE-ID'), true);
+}
+// Read the saved preference through the real provider initializer. Invalid/blocked storage defaults to English.
+function LanguageProbe() {
+  const { language, t } = useI18n();
+  return React.createElement('p', { 'data-language': language }, t('Start session'));
+}
+const storageDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+try {
+  for (const saved of ['en', 'th', 'zh-HK', 'ja', 'ko', 'invalid', 'constructor', null]) {
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: key => { assert.equal(key, 'trf-language'); return saved; } } });
+    const expected = languages.some(item => item.code === saved) ? saved : 'en';
+    const html = renderToStaticMarkup(React.createElement(I18nProvider, null, React.createElement(LanguageProbe)));
+    assert.ok(html.includes(`data-language="${expected}"`));
+    assert.ok(html.includes(createTranslator(expected)('Start session')));
+  }
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, get() { throw new Error('Storage blocked'); } });
+  assert.ok(renderToStaticMarkup(React.createElement(I18nProvider, null, React.createElement(LanguageProbe))).includes('data-language="en"'));
+} finally {
+  if (storageDescriptor) Object.defineProperty(globalThis, 'localStorage', storageDescriptor);
+  else delete globalThis.localStorage;
+}
 // Radar points view (contract v1, 2026-11-08)
 assert.equal(createTranslator('th')('Points (height)'), 'จุดที่เรดาร์ตรวจพบ (ความสูง)');
 assert.equal(t('Points (height)'), '雷達偵測點（高度）');
@@ -72,6 +115,14 @@ const thaiSiblings = localizeUi(siblings, createTranslator('th'));
 assert.equal(chineseSiblings[0].key, 'patient');
 assert.equal(chineseSiblings[1].key, thaiSiblings[1].key);
 assert.equal(chineseSiblings[0].props.value, 'S001');
+for (const language of ['ja', 'ko']) {
+  const translated = localizeUi(React.createElement('input', { value: 'U-0007', onChange, ref, placeholder: 'Pi address' }), createTranslator(language));
+  assert.equal(translated.props.value, 'U-0007');
+  assert.equal(translated.props.onChange, onChange);
+  assert.equal(translated.ref, ref);
+  assert.equal(translated.props.placeholder, createTranslator(language)('Pi address'));
+  assert.equal(localizeUi(React.createElement('span', { translate: 'no' }, 'Rest'), createTranslator(language)).props.children, 'Rest');
+}
 const intentionalText = new Set(['TrueRehab-RF', 'TrueRehab-RF · AEII 2026', 'Aa', 's', 'ms', '°', '%', '/s', '.local', 'RMS', 'sEMG RMS']);
 function checkUiText(directory) {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
@@ -94,4 +145,4 @@ function checkUiText(directory) {
   }
 }
 checkUiText(path.resolve(__dirname, '../src'));
-console.log(`PASS: ${Object.keys(catalog).length} translation pairs, UI copy coverage, placeholders, dynamic messages, stable React keys, and unchanged input values/events/refs/units.`);
+console.log(`PASS: ${Object.keys(catalog).length} messages across ${languages.length} languages, dictionary parity, placeholders, dynamic text, saved preference/fallbacks, and unchanged values/events/refs/units.`);

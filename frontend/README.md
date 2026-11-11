@@ -63,13 +63,13 @@ Run `node scripts/check-session-report.cjs` for aggregation, long-session, dupli
 
 ## Languages
 
-The header selector supports English (default), ไทย, and 繁體中文（香港）. The preference is saved as `trf-language` in localStorage, and `<html lang>` follows the selected language. Switching languages does not reconnect the data source or reset sessions.
+The header selector supports English (default), ไทย, 繁體中文（香港）, 日本語 (`ja`), and 한국어 (`ko`). Each option has a small inline SVG flag: US, Thailand, Hong Kong, Japan, or South Korea. The preference is saved as `trf-language` in localStorage, and `<html lang>` follows the selected language. Switching languages does not reconnect the data source or reset sessions. Keyboard navigation supports arrows, Home/End, Enter/Space and Escape.
 
-`src/i18n/catalog.ts` contains canonical English messages and their Thai/Hong Kong Traditional Chinese translations; `messages.ts` provides the three dictionaries and interpolation. Each display component calls `useI18n()` and wraps its JSX output in `ui(...)`. This translates text, placeholders, tooltips and screen-reader labels while preserving input values, refs, handlers and sensor payloads. Canvas text calls `t(...)` directly. For a new component, follow that pattern and add its English text to the catalog. For a dynamic message, use named `{placeholders}`; never translate protocol keys or numerical units.
+`src/i18n/catalog.ts` contains canonical English messages and their Thai/Hong Kong Traditional Chinese translations. `src/i18n/eastAsianCatalog.ts` supplies the matching Japanese/Korean translations; keep both catalogs aligned when adding messages. `messages.ts` provides all five dictionaries and interpolation. Each display component calls `useI18n()` and wraps its JSX output in `ui(...)`. This translates text, placeholders, tooltips and screen-reader labels while preserving input values, refs, handlers and sensor payloads. Canvas text calls `t(...)` directly. For a new component, follow that pattern and add its English text to both catalogs. For a dynamic message, use named `{placeholders}`; never translate protocol keys or numerical units.
 
 Run `node scripts/check-i18n.cjs` to check dictionary parity, placeholders, dynamic messages, preserved form values, event handlers, refs, code snippets and scientific units.
 
-Product/hardware names, identifiers, scientific units, filenames, user-written markers and unrecognised custom text supplied by external kits remain as supplied. Chinese font fallbacks use installed Traditional Chinese fonts without downloading extra fonts. The interface continues to work when localStorage is unavailable (the preference then lasts only for the open page).
+Product/hardware names, identifiers, scientific units, filenames, user-written markers and unrecognised custom text supplied by external kits remain as supplied. Chinese, Japanese and Korean use appropriate installed font fallbacks without downloading extra fonts. The interface continues to work when localStorage is unavailable (the preference then lasts only for the open page). Tests check full message/placeholder parity across all five languages and valid, invalid or blocked stored preferences.
 
 Localization file inventory:
 

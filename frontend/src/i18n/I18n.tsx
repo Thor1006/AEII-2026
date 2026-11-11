@@ -7,6 +7,8 @@ export const languages = [
   { code: 'en', name: 'English' },
   { code: 'th', name: 'ไทย' },
   { code: 'zh-HK', name: '繁體中文（香港）' },
+  { code: 'ja', name: '日本語' },
+  { code: 'ko', name: '한국어' },
 ] as const;
 const STORAGE_KEY = 'trf-language';
 export type Translator = (message: string, values?: Record<string, string | number>) => string;
@@ -26,7 +28,7 @@ const I18nContext = createContext<I18nValue>({
 function readLanguage(): Language {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved === 'th' || saved === 'zh-HK' ? saved : 'en';
+    return languages.find(item => item.code === saved)?.code ?? 'en';
   } catch { return 'en'; }
 }
 

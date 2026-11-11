@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { languages, useI18n } from './I18n.tsx';
 import type { Language } from './messages.ts';
@@ -18,6 +18,24 @@ function Flag({ language }: { language: Language }) {
         <path fill="#a51931" d="M0 0h30v20H0z" />
         <path fill="#fff" d="M0 3.33h30v13.34H0z" />
         <path fill="#2d2a4a" d="M0 6.67h30v6.66H0z" />
+      </> : language === 'ja' ? <>
+        <path fill="#fff" d="M0 0h30v20H0z" />
+        <circle cx="15" cy="10" r="6" fill="#bc002d" />
+      </> : language === 'ko' ? <>
+        <path fill="#fff" d="M0 0h30v20H0z" />
+        <g transform="rotate(33.7 15 10)">
+          <circle cx="15" cy="10" r="5" fill="#cd2e3a" />
+          <path fill="#0047a0" d="M10 10a5 5 0 0 0 10 0a2.5 2.5 0 0 0-5 0a2.5 2.5 0 0 1-5 0Z" />
+        </g>
+        {[{ x: 6, y: 5, angle: -56.3, broken: [false, false, false] },
+          { x: 24, y: 15, angle: -56.3, broken: [true, true, true] },
+          { x: 24, y: 5, angle: 56.3, broken: [true, false, true] },
+          { x: 6, y: 15, angle: 56.3, broken: [false, true, false] }].map((trigram,index) =>
+          <g key={index} fill="#000" transform={`translate(${trigram.x} ${trigram.y}) rotate(${trigram.angle})`}>
+            {trigram.broken.map((broken,row) => broken
+              ? <path key={row} d={`M-2.5 ${row * 1.1 - 1.5}h2.1v.7h-2.1zM.4 ${row * 1.1 - 1.5}h2.1v.7H.4z`} />
+              : <rect key={row} x="-2.5" y={row * 1.1 - 1.5} width="5" height=".7" />)}
+          </g>)}
       </> : <>
         <path fill="#de2910" d="M0 0h30v20H0z" />
         {Array.from({ length: 5 }, (_, petal) => <g key={petal} transform={`rotate(${petal * 72} 15 10)`}>
@@ -34,11 +52,27 @@ export function LanguageSelector() {
   const { language, setLanguage, t } = useI18n();
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
+  const [menuOffset, setMenuOffset] = useState(0);
   const container = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const id = useId();
   const selected = languages.find((item) => item.code === language)!;
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    // Short selected labels still open the full five-language list. Keep it inside the viewport.
+    const position = () => {
+      if (!list.current || !container.current) return;
+      const width = list.current.offsetWidth;
+      const naturalLeft = container.current.getBoundingClientRect().right - width;
+      const left = Math.max(8, Math.min(naturalLeft, document.documentElement.clientWidth - width - 8));
+      setMenuOffset(left - naturalLeft);
+    };
+    position();
+    window.addEventListener('resize', position);
+    return () => window.removeEventListener('resize', position);
+  }, [open, language]);
 
   useEffect(() => {
     if (!open) return;
@@ -95,7 +129,7 @@ export function LanguageSelector() {
         <Flag language={language} /><span lang={language}>{selected.name}</span>
         <svg className={s.chevron} width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" aria-hidden="true"><path d="m3 4.5 3 3 3-3" /></svg>
       </button>
-      <div ref={list} id={id} className={s.options} data-motion="popup" hidden={!open} aria-hidden={!open} role="listbox" tabIndex={-1}
+      <div ref={list} id={id} className={s.options} style={{ translate: `${menuOffset}px 0` }} data-motion="popup" hidden={!open} aria-hidden={!open} role="listbox" tabIndex={-1}
         aria-label={t('Language')} aria-activedescendant={`${id}-${active}`} onKeyDown={handleKey}>
         {languages.map((item, index) => <div key={item.code} id={`${id}-${index}`} role="option"
           aria-selected={language === item.code} className={`${s.option} ${active === index ? s.active : ''}`}

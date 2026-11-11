@@ -1,9 +1,12 @@
 import { catalog } from './catalog.ts';
-export type Language = 'en' | 'th' | 'zh-HK';
+import { eastAsianCatalog } from './eastAsianCatalog.ts';
+export type Language = 'en' | 'th' | 'zh-HK' | 'ja' | 'ko';
 export const dictionaries: Record<Language, Record<string, string>> = {
   en: Object.fromEntries(Object.keys(catalog).map((key) => [key, key])),
   th: Object.fromEntries(Object.entries(catalog).map(([key, value]) => [key, value[0]])),
   'zh-HK': Object.fromEntries(Object.entries(catalog).map(([key, value]) => [key, value[1]])),
+  ja: Object.fromEntries(Object.entries(eastAsianCatalog).map(([key, value]) => [key, value[0]])),
+  ko: Object.fromEntries(Object.entries(eastAsianCatalog).map(([key, value]) => [key, value[1]])),
 };
 const escape = (text: string) => text.replace(/[.*+?^$()|[\]\\]/g, '\\$&');
 const patterns = Object.keys(catalog).filter((key) => /\{\w+\}/.test(key)).sort((a,b) => b.length-a.length).map((key) => {
