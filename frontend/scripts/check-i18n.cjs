@@ -145,4 +145,22 @@ function checkUiText(directory) {
   }
 }
 checkUiText(path.resolve(__dirname, '../src'));
+// Dynamic guide copy must have complete translations, not just literal JSX coverage.
+const { bicepsCurlGuide } = load('src/config/bicepsCurlGuide.ts');
+assert.equal(bicepsCurlGuide.steps.length, 5);
+const curlCopy = [bicepsCurlGuide.label, bicepsCurlGuide.title, bicepsCurlGuide.intro, bicepsCurlGuide.reminder, bicepsCurlGuide.safety,
+  ...bicepsCurlGuide.steps.flatMap(step => [step.title, step.body])];
+for (const language of languages.map(item => item.code)) {
+  const translate = createTranslator(language);
+  for (const key of curlCopy) {
+    assert.ok(Object.hasOwn(dictionaries[language], key), `Missing curl instruction: ${language}: ${key}`);
+    if (language !== 'en') assert.notEqual(translate(key), key);
+  }
+  const steps = localizeUi(React.createElement('ol', null, bicepsCurlGuide.steps.map((step, index) =>
+    React.createElement('li', { key: index }, React.createElement('strong', null, step.title), React.createElement('p', null, step.body)))), translate);
+  const markup = renderToStaticMarkup(steps);
+  assert.equal((markup.match(/<li>/g) ?? []).length, 5);
+  assert.ok(markup.includes(translate(bicepsCurlGuide.steps[2].body)));
+  assert.ok(markup.includes(translate(bicepsCurlGuide.steps[4].body)));
+}
 console.log(`PASS: ${Object.keys(catalog).length} messages across ${languages.length} languages, dictionary parity, placeholders, dynamic text, saved preference/fallbacks, and unchanged values/events/refs/units.`);

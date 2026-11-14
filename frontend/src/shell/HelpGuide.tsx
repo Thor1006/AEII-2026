@@ -2,12 +2,14 @@ import { useI18n } from '../i18n/I18n.tsx';
 import { useEffect, useId, useRef, useState } from 'react';
 import { MockSource } from '../sensor/sources/MockSource.ts';
 import { useSensor } from '../state/SensorContext.tsx';
+import { bicepsCurlGuide } from '../config/bicepsCurlGuide.ts';
 import s from './HelpGuide.module.css';
 
 const topics = [
   { key: 'start', label: 'Get started' },
   { key: 'screen', label: 'Read the screen' },
   { key: 'kit', label: 'Use a kit' },
+  { key: 'curl', label: bicepsCurlGuide.label },
   { key: 'help', label: 'Fix a problem' },
 ] as const;
 
@@ -137,6 +139,25 @@ export function HelpGuide() {
                   <li><strong>Choose “Stop session” when finished.</strong><p>Select “Yes, stop” to confirm. Opening this guide does not pause or stop an exercise session.</p></li>
                 </ol>
                 <p className={s.note}>Follow your physiotherapist’s exercise instructions. The current prototype’s simulated scores are for demonstration.</p>
+              </>
+            )}
+
+            {topic === 'curl' && (
+              <>
+                <h3 id={`${titleId}-curl`}>{bicepsCurlGuide.title}</h3>
+                <p>{bicepsCurlGuide.intro}</p>
+                <ol className={s.steps}>
+                  {bicepsCurlGuide.steps.map((step, index) => (
+                    <li key={index}><strong>{step.title}</strong><p>{step.body}</p></li>
+                  ))}
+                </ol>
+                <p className={s.note}><strong>Remember:</strong> {bicepsCurlGuide.reminder}</p>
+                <p className={s.note}>{bicepsCurlGuide.safety}</p>
+                <p className={s.references}>
+                  <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10054060/" target="_blank" rel="noopener noreferrer">Research: exercise technique (section 2.3)</a>
+                  {' · '}
+                  <a href="https://www.boxrox.com/3-best-types-of-bicep-curls-for-beginners-that-want-jacked-arms/#how-to-do-it" target="_blank" rel="noopener noreferrer">Beginner dumbbell curl guide</a>
+                </p>
               </>
             )}
 

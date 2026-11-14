@@ -61,6 +61,12 @@ Records can contain the optional patient code and are visible to anyone using th
 
 Run `node scripts/check-session-report.cjs` for aggregation, long-session, duplicate, partial-data, reset, CSV, five-record eviction, deletion/free-slot behavior, active-session isolation, persistence and damaged/unavailable storage tests.
 
+## Help & Guide
+
+The header guide is shared by the homepage and dashboard. Its **Biceps curl** topic contains five simple technique steps, a short reminder, a rehabilitation-specific safety note and links to the supplied references. The guidance does not prescribe weights, repetitions or a personalized rehabilitation plan. Opening it does not start, pause or stop a session.
+
+Canonical exercise copy lives in `src/config/bicepsCurlGuide.ts`; all five languages are supplied by the existing translation catalogs. The guide retains keyboard-accessible topic buttons, large-text mode and existing transitions. `scripts/check-i18n.cjs` verifies every exercise message and all five rendered steps in each language.
+
 ## Languages
 
 The header selector supports English (default), ไทย, 繁體中文（香港）, 日本語 (`ja`), and 한국어 (`ko`). Each option has a small inline SVG flag: US, Thailand, Hong Kong, Japan, or South Korea. The preference is saved as `trf-language` in localStorage, and `<html lang>` follows the selected language. Switching languages does not reconnect the data source or reset sessions. Keyboard navigation supports arrows, Home/End, Enter/Space and Escape.
