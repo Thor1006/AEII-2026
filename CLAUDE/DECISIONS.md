@@ -2,6 +2,27 @@
 
 <!-- Newest on top. One short entry per decision that someone might later ask "why did we do it this way?" about. -->
 
+## 2026-11-14 — For AEII the radar counts reps with fixed signal processing, not a learned model
+- **Decision:** `trnet/armtrack.py` finds the arm's range and counts curls from the Doppler velocity with fixed rules;
+  the dashboard's `--radar-arm` replay shows that instead of the network's scores. See
+  [report](output/2026-11-14-1530-radar-arm-tracking.md).
+- **Why:** the fatigue network can't beat the mean with 3–4 people, while the radar's velocity follows the IMU at
+  |r| 0.74–0.96 and counts 537 of 537 reps with no training, so nothing needs to generalise from few people.
+- **Alternatives:** a learned angle model (plan step 2): skipped, the counting already works and degrees need more
+  data and time; showing the network's scores: not validated.
+- **Cost:** no angle in degrees or top/bottom; the few fixed numbers were chosen on the same sessions.
+
+## 2026-11-14 — With fewer than 5 people, validate on sessions, not on a whole person
+- **Decision:** `train.py --val auto` stops training on the last session of each training person when there are
+  fewer than 5 people; from 5 it uses a whole other person as before. The test person is never used either way.
+  See [report](output/2026-11-14-1305-first-real-training.md).
+- **Why:** with 3 people a whole validation person left one person to train on; every fold overfit that one person
+  within 1–3 epochs.
+- **Alternatives:** a fixed number of epochs with no validation (guessing the count from test results would leak);
+  splitting by sets inside a session (neighbouring reps leak).
+- **Cost:** stopping on familiar people is easier than on a new one, so early stopping may favour them; the test score
+  stays honest.
+
 ## 2026-11-09 — At the radar's frame limit the bridge restarts it in place, and frame numbers count on
 - **Decision:**
   - After the radar's last frames and 0.25 s of quiet, the Pi bridge sends the profile again on the command port

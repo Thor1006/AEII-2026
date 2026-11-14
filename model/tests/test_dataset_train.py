@@ -1,3 +1,4 @@
+import dataclasses
 import shutil
 import tempfile
 import unittest
@@ -7,6 +8,7 @@ import numpy as np
 import torch
 
 from _util import small_contract
+from trnet import baseline_ridge as RB
 from trnet import calibrate as CB
 from trnet import dataset as DS
 from trnet import synth
@@ -63,6 +65,49 @@ class DatasetTrainTest(unittest.TestCase):
             self.assertEqual(sorted(train + [test, val]), subj)
         with self.assertRaises(ValueError):
             DS.loso_splits(["F01", "F02"])
+
+    def test_session_validation_never_leaks(self):
+        fake = lambda subj, name, reps=10: DS.SessionData(name, subj, True, *([None] * 4),  # noqa: E731
+                                                         np.zeros(reps), *([None] * 5))
+        ss = [fake("A", "2026-01-01_a1"), fake("A", "2026-01-02_a2"), fake("A", "2026-01-03_a3"),
+              fake("B", "2026-01-01_b1"), fake("B", "2026-01-02_b2"),
+              fake("C", "2026-01-01_c1"),                         # one session only: trains, never validates
+              fake("C", "2026-01-09_c2", reps=3)]                 # too few reps to make a sample: ignored
+        splits = DS.session_val_splits(ss)
+        self.assertEqual([t for t, _, _ in splits], ["A", "B", "C"])
+        subj = {s.name: s.subject for s in ss}
+        for test, val, train in splits:
+            self.assertNotIn(test, {subj[n] for n in val + train})
+            self.assertFalse(set(val) & set(train))
+            vs = [subj[n] for n in val]
+            self.assertEqual(len(vs), len(set(vs)))               # at most one session per training person
+        test_c = dict((t, (v, tr)) for t, v, tr in splits)["C"]
+        self.assertEqual(test_c, (["2026-01-03_a3", "2026-01-02_b2"], ["2026-01-01_a1", "2026-01-02_a2",
+                                                                      "2026-01-01_b1"]))
+        self.assertEqual(dict((t, v) for t, v, _ in splits)["A"], ["2026-01-02_b2"])   # C's only session trains
+        self.assertNotIn("2026-01-09_c2", sum((v + tr for _, v, tr in splits), []))
+        with self.assertRaises(ValueError):                       # nobody has a second session to validate on
+            DS.session_val_splits([fake("A", "a1"), fake("B", "b1"), fake("C", "c1")])
+
+    def test_folds_use_every_other_session_once(self):
+        two_each = self.sessions + [dataclasses.replace(s, name=s.name + "_later") for s in self.sessions]
+        for val in ("person", "sessions"):
+            for test, _, tr, va, te in TRN.loso_folds(two_each, val):
+                self.assertEqual({s.subject for s in te}, {test})
+                self.assertNotIn(test, {s.subject for s in tr + va})
+                self.assertFalse({s.name for s in tr} & {s.name for s in va})
+        with self.assertRaises(ValueError):
+            TRN.loso_folds(self.sessions, "nobody")
+
+    def test_ridge_baseline_runs_and_reports_every_feature_set(self):
+        res = RB.evaluate(self.sessions[:3], self.sessions[3:], self.c)
+        for h in ("fatigue", "quality"):
+            self.assertEqual(set(res[h]), {"baseline", "timing", "radar", "timing+radar", "n"})
+            self.assertTrue(all(0 <= res[h][k] <= 1 for k in ("baseline", "timing", "radar", "timing+radar")))
+        X = np.random.default_rng(0).normal(size=(200, 3))
+        y = np.clip(0.5 + 0.1 * X[:, 0], 0, 1)
+        p = RB.ridge_fit_predict(X, y, X, lam=1e-6)
+        self.assertLess(np.abs(p - y).mean(), 1e-3)               # recovers an exact linear rule
 
     def test_augmentation_hides_frames_and_keeps_ranges(self):
         ds = DS.SetDataset(self.sessions, self.c, augment=True, seed=1)

@@ -50,6 +50,26 @@ Train and test on real recordings (only sessions that pass the check are used; n
 .venv/bin/python train.py --sessions ../recorder/data/sessions
 ```
 
+Each left-out person is tested by a model that never saw them. To decide when to stop training, `--val` picks:
+`person` (a whole other person; needs 3+ people) or `sessions` (every other person trains, and the last session of
+each validates; needs 2+ sessions for someone). The default `auto` uses `sessions` below 5 people, because with 3
+people a whole validation person leaves only one person to train on. Reports show people as S01, S02 … (names are
+printed once on screen, never saved), the label spread per person, and a tiny ridge model on a few hand-made
+radar numbers next to the network (if even that beats the mean, the radar carries the information).
+
+Count curls from the radar alone (no learning, no wearable) and score them against the IMU's reps
+(`trnet/armtrack.py`; report in `runs/arm_<date>_<time>/`):
+
+```bash
+.venv/bin/python armtrack.py --sessions /Volumes/PortableSSD/truerehab-sessions
+```
+
+It finds the arm's range from the radar (the range whose Doppler velocity repeats at curl pace), integrates that
+velocity into an arm signal with no unit, and cuts reps from it with the IMU's own rep rule. On the 19 sessions of
+10–14 Nov it counted 537 reps where the IMU counted 537. It can't give degrees or tell the top of a curl from the
+bottom (Doppler sees speed toward the radar, not the angle). Its few fixed numbers were chosen on those same
+sessions. For the dashboard: `export_dashboard.py --session <folder> --radar-arm`.
+
 Measure the real recordings again (after new real sessions, so the fake data copies them):
 
 ```bash

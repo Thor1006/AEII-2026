@@ -171,6 +171,39 @@ def loso_splits(subjects):
     return out
 
 
+def session_val_splits(sessions):
+    """Leave one subject out, validating on sessions instead of a whole person (for few people):
+    [(test subject, val session names, train session names)].
+
+    Every other person trains; each of them with 2+ usable sessions gives their LAST one (by folder name, which
+    starts with the date) to validation. The test person is never in train or val. Sessions with too few reps to
+    make a sample (<= the 3 baseline reps) are ignored, as SetDataset ignores them."""
+    by = {}
+    for s in sessions:
+        if s is not None and len(s.set_id) > N_BASE:
+            by.setdefault(s.subject, []).append(s.name)
+    subjects = sorted(by)
+    if len(subjects) < 2:
+        raise ValueError(f"leave-one-subject-out needs at least 2 people, got {len(subjects)}")
+    out = []
+    for test in subjects:
+        val, train = [], []
+        for subj in subjects:
+            if subj == test:
+                continue
+            names = sorted(by[subj])
+            if len(names) >= 2:
+                val.append(names[-1])
+                train += names[:-1]
+            else:
+                train += names
+        if not val:
+            raise ValueError(f"testing {test}: no training person has 2+ sessions to validate on; "
+                             "use person validation (--val person)")
+        out.append((test, val, train))
+    return out
+
+
 def summary(sessions):
     rows = [s for s in sessions if s is not None]
     return {"sessions": len(rows), "subjects": sorted({s.subject for s in rows}),

@@ -13,7 +13,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from .dataset import SetDataset, collate, loso_splits
+from .dataset import SetDataset, collate, loso_splits, session_val_splits
 from .network import HEADS, TrueRehabNet
 
 REGRESSION = ("fatigue", "quality")
@@ -171,20 +171,43 @@ def evaluate_loss(model, ds, device, pw):
     return float(np.mean(losses)) if losses else float("nan")
 
 
-def run_loso(sessions, contract, device, epochs=40, patience=8, out_dir=None, log=print, max_folds=None):
-    subjects = sorted({s.subject for s in sessions if s is not None})
-    folds = loso_splits(subjects)[:max_folds] if max_folds else loso_splits(subjects)
+def loso_folds(sessions, val="person"):
+    """[(test subject, val label, train sessions, val sessions, test sessions)].
+
+    val="person": a whole other person validates (early stopping), the rest train (loso_splits).
+    val="sessions": every other person trains, minus their last session, which validates
+    (session_val_splits; for few people, where a whole validation person leaves too few to train on)."""
+    usable = [s for s in sessions if s is not None]
+    folds = []
+    if val == "person":
+        for test, v, train in loso_splits(sorted({s.subject for s in usable})):
+            folds.append((test, v, [s for s in usable if s.subject in train],
+                          [s for s in usable if s.subject == v], [s for s in usable if s.subject == test]))
+    elif val == "sessions":
+        for test, vn, tn in session_val_splits(usable):
+            folds.append((test, "last session of " + ", ".join(sorted({s.subject for s in usable if s.name in vn})),
+                          [s for s in usable if s.name in tn], [s for s in usable if s.name in vn],
+                          [s for s in usable if s.subject == test]))
+    else:
+        raise ValueError(f"val must be 'person' or 'sessions', got {val!r}")
+    return folds
+
+
+def run_loso(sessions, contract, device, epochs=40, patience=8, out_dir=None, log=print, max_folds=None,
+             val="person"):
+    folds = loso_folds(sessions, val)
+    folds = folds[:max_folds] if max_folds else folds
     results = []
-    for test, val, train in folds:
-        log(f"  fold: test {test}, validate {val}, train {', '.join(train)}")
-        part = lambda names, aug: SetDataset([s for s in sessions if s is not None and s.subject in names],  # noqa: E731
-                                             contract, augment=aug)
-        tr, va, te = part(train, True), part([val], False), part([test], False)
+    for test, val_label, tr_s, va_s, te_s in folds:
+        train = sorted({s.subject for s in tr_s})
+        log(f"  fold: test {test}, validate {val_label}, train {', '.join(train)}")
+        tr, va, te = SetDataset(tr_s, contract, augment=True), SetDataset(va_s, contract), SetDataset(te_s, contract)
         model, hist = train_fold(tr, va, contract, device, epochs, patience, log=log)
         m = metrics(predict_all(model, te, device), tr)
-        results.append({"test": test, "val": val, "train": train, "metrics": m, "history": hist})
+        results.append({"test": test, "val": val_label, "val_sessions": [s.name for s in va_s], "train": train,
+                        "metrics": m, "history": hist})
         if out_dir is not None:
-            model.to("cpu").save(out_dir / f"fold_{test}.pt", extra={"test": test, "val": val})
+            model.to("cpu").save(out_dir / f"fold_{test}.pt", extra={"test": test, "val": val_label})
     return results
 
 
