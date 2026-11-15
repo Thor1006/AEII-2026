@@ -2,6 +2,17 @@
 
 <!-- Newest on top. One short entry per decision that someone might later ask "why did we do it this way?" about. -->
 
+## 2026-11-15 — Every session folder carries SHA-256 checksums, written at Stop
+- **Decision:** `SessionWriter.close()` writes `checksums.sha256` (one line per file, the format `shasum -a 256 -c`
+  reads); `recorder/checksums.py` adds them to old sessions (never replacing one) and verifies copies; the session
+  check reports a mismatch as a warning, not a refusal. See [report](output/2026-11-15-1151-recording-checksums.md).
+- **Why:** "did a file get corrupted?" had no answer: a damaged `radar.bin` still loads. Sessions move between
+  the Pi, the SSD and the Mac, and the SSD has unmounted on its own.
+- **Alternatives:** hashes inside `meta.json` (then meta can't cover itself, and macOS tools can't read it); a
+  per-frame CRC (more work, and the radar's frames already carry their own header).
+- **Cost:** ~1 s at Stop for ~100 MB; detects damage but can't repair it; old sessions' hashes date from when they
+  were added.
+
 ## 2026-11-14 — For AEII the radar counts reps with fixed signal processing, not a learned model
 - **Decision:** `trnet/armtrack.py` finds the arm's range and counts curls from the Doppler velocity with fixed rules;
   the dashboard's `--radar-arm` replay shows that instead of the network's scores. See

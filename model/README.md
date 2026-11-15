@@ -20,7 +20,7 @@ Run the commands below from inside `model/`.
 
 ## Commands
 
-Run all tests (73, about 30 s, no sensors needed; `bash scripts/check_all.sh` from the repo root runs every part's checks):
+Run all tests (86, about 30 s, no sensors needed; `bash scripts/check_all.sh` from the repo root runs every part's checks):
 
 ```bash
 .venv/bin/python -m unittest discover -s tests
@@ -31,6 +31,9 @@ Check a recording straight after you make it (it prints what's fine, what to loo
 ```bash
 .venv/bin/python check_session.py ../recorder/data/sessions/<session folder>
 ```
+
+It also says whether the session's checksums still match (`files: checksums ok`), so a changed or damaged file
+shows up (see `recorder/README.md`, Checksums).
 
 Check every recording:
 

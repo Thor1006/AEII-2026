@@ -134,6 +134,10 @@ class ReplayTest(unittest.TestCase):
         self.assertEqual(s.meta["summary"]["bridge_session"], "S-test")
         self.assertEqual(s.meta["sources"]["radar"]["cfg_lines"][0], "sensorStop")
         self.assertIn(("x", "halfway"), [(k, lbl) for _, k, lbl in s.markers])
+        from rec import checksums                 # written at Stop, after the radar closed its files
+        sums = checksums.verify(folders[0])
+        self.assertEqual((sums["status"], sums["extra"]), ("ok", []))
+        self.assertIn("radar.bin", checksums.read(folders[0]))
         rec = R.load_radar(s)                     # the model's own reader takes it as it is
         self.assertEqual(int(rec.valid.sum()), self.n_frames)
         self.assertEqual(rec.contract.az_cols, (0, 2, 7, 9, 3, 5, 10, 12))

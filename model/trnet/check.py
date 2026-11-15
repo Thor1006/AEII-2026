@@ -164,6 +164,18 @@ def check_and_process(path, contract=None):
                                   "Wi-Fi link)")
 
     # ---------------------------------------------------------- files and line formats
+    from rec import checksums
+    cs = checksums.verify(s.dir)
+    if cs["status"] == "ok":
+        rep.add("files", "ok", f"checksums ok ({cs['files']} files)"
+                + (f"; added since: {', '.join(cs['extra'])}" if cs["extra"] else ""))
+    elif cs["status"] == "changed":
+        what = [f"changed: {', '.join(cs['changed'])}"] if cs["changed"] else []
+        what += [f"missing: {', '.join(cs['missing'])}"] if cs["missing"] else []
+        rep.add("files", "warn", "checksums don't match (" + "; ".join(what) + "): the file differs from when it "
+                                 "was hashed; use a backup copy if there is one")
+    elif not fake:
+        rep.add("files", "info", "no checksum (recorded before 15 Nov 2026; recorder/checksums.py add)")
     for name in src:
         if name == "radar":
             missing = [f for f in ("radar.bin", "radar_index.csv") if not (s.dir / f).exists()]

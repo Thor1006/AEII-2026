@@ -34,7 +34,8 @@ cd recorder
 7. One reader per board. The MyoWare serves one client, so turn the Pi bridge's sEMG off while recording here, and
    never run radar-lab at the same time.
 8. Straight after: `../model/.venv/bin/python ../model/check_session.py data/sessions/<folder>` and
-   `.venv/bin/python link_report.py data/sessions/<folder>`.
+   `.venv/bin/python link_report.py data/sessions/<folder>`. The session's checksums are written at Stop (see
+   [Checksums](#checksums-is-a-recording-still-the-one-we-recorded)).
 
 Without hardware: `.venv/bin/python record.py --subject TEST --exercise demo --radar-sim --duration 10`
 
@@ -133,9 +134,26 @@ How often a Wi-Fi sensor's data paused in a recording, and why (recorder or Pi b
 - Several sessions: a comparison table at the end. On the Nov 5 bench session it finds the two ~1.1-s pauses (both ended
   by the resend timer) and the Mac's 0.52-s pattern.
 
+## Checksums: is a recording still the one we recorded?
+
+At Stop, the recorder and the Pi bridge write `checksums.sha256` into the session folder: a SHA-256 fingerprint of
+every file. If one byte changes, its fingerprint no longer matches. A damaged `radar.bin` can still load, so "it
+opens" proves nothing. `check_session.py` reports it: `checksums ok`, or which file changed. After copying sessions
+(off the SSD, off the Pi), verify the copy:
+
+```bash
+.venv/bin/python checksums.py verify /Volumes/PortableSSD/truerehab-sessions
+```
+
+Sessions recorded before 15 Nov 2026 have none. `checksums.py add <folder>` adds one where it's missing, and never
+replaces one. Those fingerprints describe the files as they are now, not as they were recorded. Inside one folder,
+macOS checks it without Python: `shasum -a 256 -c checksums.sha256`. A checksum shows that a file changed, not why,
+and it can't repair it: keep a second copy of anything that matters. Hidden files (`.DS_Store`, `._*`) are skipped.
+
 ## Files
 
 - `record.py` — the recorder (status line, keys, starts/stops the radar)
+- `checksums.py`, `rec/checksums.py` — add / verify the session folders' checksums
 - `rec/session.py` — session folder writer, reader, device-clock alignment
 - `rec/sources.py` — radar and serial-line sensors, one thread each
 - `rec/pose.py` — camera + MediaPipe source, joint angles

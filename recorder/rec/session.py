@@ -21,6 +21,8 @@ from pathlib import Path
 
 import numpy as np
 
+from . import checksums
+
 FORMAT = "truerehab-session/1"
 now_ns = time.perf_counter_ns
 MARKER_KEYS = {" ": "rep start", "s": "sync shrugs", "t": "feels tired", "c": "compensating", "x": "note"}
@@ -94,6 +96,12 @@ class SessionWriter:
         self.meta["summary"] = summary
         self.write_meta()
         self._markers_file.close()
+        # last: every sensor has closed its file by now (recorder and Pi bridge both stop them first)
+        try:
+            self.n_checksummed = checksums.write(self.dir, overwrite=True)
+        except OSError as e:  # e.g. disk full: the recording itself is already saved
+            self.n_checksummed = None
+            print(f"checksums not written: {e}", file=sys.stderr)
 
     def write_meta(self):
         tmp = self.dir / "meta.json.tmp"

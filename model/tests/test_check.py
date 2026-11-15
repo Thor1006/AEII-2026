@@ -175,6 +175,23 @@ class FakeSessionsTest(unittest.TestCase):
         self.assertTrue(has(r, "another program connected to the MyoWare 2 time(s)", "warn"), texts(r))
         self.assertTrue(has(r, "board counters: skipped=0, link_dropped=0, link_send_fails=0", "ok"), texts(r))
 
+    def test_checksums_are_reported(self):
+        from rec import checksums
+        d = self.tmp / "sums" / self.good.name
+        shutil.copytree(self.good, d)
+        self.assertFalse(has(check_session(d), "checksum"))  # fake sessions: no "no checksum" line
+        checksums.write(d)
+        r = check_session(d)
+        self.assertTrue(has(r, "checksums ok (", "ok"), texts(r))
+        with open(d / "radar.bin", "r+b") as f:  # one byte inside a frame: the session still loads
+            f.seek(1000)
+            b = f.read(1)
+            f.seek(1000)
+            f.write(bytes([b[0] ^ 0xFF]))
+        r = check_session(d)
+        self.assertTrue(has(r, "checksums don't match (changed: radar.bin)", "warn"), texts(r))
+        self.assertTrue(r["usable"])
+
     def test_board_counters_count_only_the_recording(self):
         from trnet import check as CK
         lines = [(0.0, "# status up_s=100 skipped=3 link_clients=4 link_dropped=10"),
