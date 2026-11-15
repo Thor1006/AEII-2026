@@ -23,8 +23,8 @@ const { renderToStaticMarkup } = require('react-dom/server');
 const placeholders = (text) => [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
 assert.deepEqual(Object.keys(dictionaries.en), Object.keys(dictionaries.th));
 assert.deepEqual(Object.keys(dictionaries.en), Object.keys(dictionaries['zh-HK']));
-assert.deepEqual(languages.map(item => item.code), ['en', 'th', 'zh-HK', 'ja', 'ko']);
-assert.deepEqual(languages.slice(-2).map(item => item.name), ['日本語', '한국어']);
+assert.deepEqual(languages.map(item => item.code), ['en', 'th', 'zh-HK', 'ja', 'ko', 'zh-CN', 'vi', 'id', 'fr', 'es']);
+assert.deepEqual(languages.slice(-5).map(item => item.name), ['简体中文', 'Tiếng Việt', 'Bahasa Indonesia', 'Français', 'Español']);
 for (const language of languages.map(item => item.code)) {
   assert.deepEqual(Object.keys(dictionaries[language]).sort(), Object.keys(catalog).sort(), `Missing/extra messages: ${language}`);
   for (const [key, message] of Object.entries(dictionaries[language])) {
@@ -68,13 +68,29 @@ for (const language of ['ja', 'ko']) {
   assert.equal(translate('Open saved session {number}: {exercise}, {date}', { number: 2, exercise: 'EXERCISE-ID', date: 'DATE' }).includes('EXERCISE-ID'), true);
 }
 // Read the saved preference through the real provider initializer. Invalid/blocked storage defaults to English.
+const newStarts = { 'zh-CN': '开始训练', vi: 'Bắt đầu buổi tập', id: 'Mulai sesi', fr: 'Démarrer une séance', es: 'Iniciar sesión de ejercicio' };
+for (const [language, startLabel] of Object.entries(newStarts)) {
+  const translate = createTranslator(language);
+  assert.equal(translate('Start session'), startLabel);
+  assert.equal(translate('DCA1000EVM · 77 GHz · 1.35 m · 0.2 m/s'), 'DCA1000EVM · 77 GHz · 1.35 m · 0.2 m/s');
+  assert.equal(translate('Patient note: felt better today'), 'Patient note: felt better today');
+  assert.equal(translate('constructor'), 'constructor');
+  assert.ok(translate('Rep 7 done · ROM 85°').includes('7'));
+  assert.ok(translate('Rep 7 done · ROM 85°').includes('ROM 85°'));
+  assert.ok(translate('sEMG envelope (ADC)').endsWith('(ADC)'));
+  assert.ok(translate('Open saved session {number}: {exercise}, {date}', { number: 2, exercise: 'EXERCISE-ID', date: 'DATE' }).includes('EXERCISE-ID'));
+  for (const key of ['Session summary', 'Delete', 'Help & Guide', 'Kit key', 'Could not open this source.']) assert.notEqual(translate(key), key);
+}
+assert.equal(createTranslator('zh-CN')('Language'), '语言');
+assert.equal(createTranslator('zh-HK')('Language'), '語言');
+assert.notEqual(createTranslator('zh-CN')('Help & Guide'), createTranslator('zh-HK')('Help & Guide'));
 function LanguageProbe() {
   const { language, t } = useI18n();
   return React.createElement('p', { 'data-language': language }, t('Start session'));
 }
 const storageDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
 try {
-  for (const saved of ['en', 'th', 'zh-HK', 'ja', 'ko', 'invalid', 'constructor', null]) {
+  for (const saved of [...languages.map(item => item.code), 'invalid', 'constructor', null]) {
     Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: key => { assert.equal(key, 'trf-language'); return saved; } } });
     const expected = languages.some(item => item.code === saved) ? saved : 'en';
     const html = renderToStaticMarkup(React.createElement(I18nProvider, null, React.createElement(LanguageProbe)));
@@ -115,7 +131,7 @@ const thaiSiblings = localizeUi(siblings, createTranslator('th'));
 assert.equal(chineseSiblings[0].key, 'patient');
 assert.equal(chineseSiblings[1].key, thaiSiblings[1].key);
 assert.equal(chineseSiblings[0].props.value, 'S001');
-for (const language of ['ja', 'ko']) {
+for (const language of ['ja', 'ko', 'zh-CN', 'vi', 'id', 'fr', 'es']) {
   const translated = localizeUi(React.createElement('input', { value: 'U-0007', onChange, ref, placeholder: 'Pi address' }), createTranslator(language));
   assert.equal(translated.props.value, 'U-0007');
   assert.equal(translated.props.onChange, onChange);

@@ -36,6 +36,27 @@ function Flag({ language }: { language: Language }) {
               ? <path key={row} d={`M-2.5 ${row * 1.1 - 1.5}h2.1v.7h-2.1zM.4 ${row * 1.1 - 1.5}h2.1v.7H.4z`} />
               : <rect key={row} x="-2.5" y={row * 1.1 - 1.5} width="5" height=".7" />)}
           </g>)}
+      </> : language === 'zh-CN' ? <>
+        <path fill="#de2910" d="M0 0h30v20H0z" />
+        <path fill="#ffde00" d="m5 2 1 3 3.2 0-2.6 1.9 1 3-2.6-1.9-2.6 1.9 1-3L.8 5H4Z" />
+        {[{x:10,y:2.4,r:20},{x:12,y:4.5,r:45},{x:12,y:7.5,r:0},{x:10,y:9.6,r:20}].map((star,index) =>
+          <path key={index} fill="#ffde00" d="M0-1.2.28-.37 1.14-.37.46.14.71.97 0 .46-.71.97-.46.14-1.14-.37-.28-.37Z" transform={`translate(${star.x} ${star.y}) rotate(${star.r})`} />)}
+      </> : language === 'vi' ? <>
+        <path fill="#da251d" d="M0 0h30v20H0z" />
+        <path fill="#ff0" d="m15 4 1.8 4.4 4.7.3-3.7 3 1.2 4.6-4-2.6-4 2.6 1.2-4.6-3.7-3 4.7-.3Z" />
+      </> : language === 'id' ? <>
+        <path fill="#fff" d="M0 0h30v20H0z" />
+        <path fill="#ff0000" d="M0 0h30v10H0z" />
+      </> : language === 'fr' ? <>
+        <path fill="#fff" d="M0 0h30v20H0z" />
+        <path fill="#002395" d="M0 0h10v20H0z" />
+        <path fill="#ed2939" d="M20 0h10v20H20z" />
+      </> : language === 'es' ? <>
+        <path fill="#aa151b" d="M0 0h30v20H0z" />
+        <path fill="#f1bf00" d="M0 5h30v10H0z" />
+        <path fill="#aa151b" stroke="#fff" strokeWidth=".3" d="M8.5 8h4v3.5a2 2 0 0 1-4 0Z" />
+        <path fill="#f1bf00" d="M8.2 6.6 9 7.2l1.5-1 1.5 1 .8-.6-.3 1.6H8.5Z" />
+        <path stroke="#aa151b" strokeWidth=".6" d="M7 8.5v4m7-4v4" />
       </> : <>
         <path fill="#de2910" d="M0 0h30v20H0z" />
         {Array.from({ length: 5 }, (_, petal) => <g key={petal} transform={`rotate(${petal * 72} 15 10)`}>
@@ -53,6 +74,7 @@ export function LanguageSelector() {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [menuOffset, setMenuOffset] = useState(0);
+  const [menuMaxHeight, setMenuMaxHeight] = useState(450);
   const container = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLDivElement>(null);
@@ -61,22 +83,34 @@ export function LanguageSelector() {
 
   useLayoutEffect(() => {
     if (!open) return;
-    // Short selected labels still open the full five-language list. Keep it inside the viewport.
+    // Keep all language options reachable without letting the menu leave the viewport.
     const position = () => {
       if (!list.current || !container.current) return;
       const width = list.current.offsetWidth;
-      const naturalLeft = container.current.getBoundingClientRect().right - width;
+      const bounds = container.current.getBoundingClientRect();
+      const naturalLeft = bounds.right - width;
       const left = Math.max(8, Math.min(naturalLeft, document.documentElement.clientWidth - width - 8));
       setMenuOffset(left - naturalLeft);
+      setMenuMaxHeight(Math.max(44, Math.min(450, document.documentElement.clientHeight - bounds.bottom - 12)));
     };
     position();
     window.addEventListener('resize', position);
     return () => window.removeEventListener('resize', position);
   }, [open, language]);
 
+  useLayoutEffect(() => {
+    const menu = list.current;
+    const option = menu?.children.item(active) as HTMLElement | null;
+    if (!open || !menu || !option) return;
+    // Scroll only the option list, never the page behind it.
+    if (option.offsetTop < menu.scrollTop) menu.scrollTop = option.offsetTop;
+    else if (option.offsetTop + option.offsetHeight > menu.scrollTop + menu.clientHeight)
+      menu.scrollTop = option.offsetTop + option.offsetHeight - menu.clientHeight;
+  }, [open, active, menuMaxHeight]);
+
   useEffect(() => {
     if (!open) return;
-    list.current?.focus();
+    list.current?.focus({ preventScroll: true });
     const dismiss = (event: PointerEvent) => {
       if (!container.current?.contains(event.target as Node)) setOpen(false);
     };
@@ -129,7 +163,7 @@ export function LanguageSelector() {
         <Flag language={language} /><span lang={language}>{selected.name}</span>
         <svg className={s.chevron} width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" aria-hidden="true"><path d="m3 4.5 3 3 3-3" /></svg>
       </button>
-      <div ref={list} id={id} className={s.options} style={{ translate: `${menuOffset}px 0` }} data-motion="popup" hidden={!open} aria-hidden={!open} role="listbox" tabIndex={-1}
+      <div ref={list} id={id} className={s.options} style={{ translate: `${menuOffset}px 0`, maxHeight: `${menuMaxHeight}px` }} data-motion="popup" hidden={!open} aria-hidden={!open} role="listbox" tabIndex={-1}
         aria-label={t('Language')} aria-activedescendant={`${id}-${active}`} onKeyDown={handleKey}>
         {languages.map((item, index) => <div key={item.code} id={`${id}-${index}`} role="option"
           aria-selected={language === item.code} className={`${s.option} ${active === index ? s.active : ''}`}

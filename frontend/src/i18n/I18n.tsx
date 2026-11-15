@@ -9,6 +9,11 @@ export const languages = [
   { code: 'zh-HK', name: '繁體中文（香港）' },
   { code: 'ja', name: '日本語' },
   { code: 'ko', name: '한국어' },
+  { code: 'zh-CN', name: '简体中文' },
+  { code: 'vi', name: 'Tiếng Việt' },
+  { code: 'id', name: 'Bahasa Indonesia' },
+  { code: 'fr', name: 'Français' },
+  { code: 'es', name: 'Español' },
 ] as const;
 const STORAGE_KEY = 'trf-language';
 export type Translator = (message: string, values?: Record<string, string | number>) => string;

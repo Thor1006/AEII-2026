@@ -4,6 +4,12 @@
  * Inter and Noto Sans Thai are bundled (@fontsource, see main.tsx), so fonts work offline.
  * Palette: neutral greys + one blue accent (Fluent-style), muted status colours.
  */
+:root:lang(vi) {
+  --font-sans: 'Inter', 'Segoe UI', Arial, ui-sans-serif, sans-serif;
+}
+:root:lang(zh-CN) {
+  --font-sans: 'Inter', 'Noto Sans SC', 'Noto Sans CJK SC', 'Microsoft YaHei', 'PingFang SC', ui-sans-serif, sans-serif;
+}
 :root:lang(ja) {
   --font-sans: 'Inter', 'Noto Sans JP', 'Noto Sans CJK JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', Meiryo, 'MS PGothic', ui-sans-serif, sans-serif;
 }

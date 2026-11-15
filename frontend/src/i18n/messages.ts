@@ -1,12 +1,18 @@
 import { catalog } from './catalog.ts';
 import { eastAsianCatalog } from './eastAsianCatalog.ts';
-export type Language = 'en' | 'th' | 'zh-HK' | 'ja' | 'ko';
+import { additionalCatalog } from './additionalCatalog.ts';
+export type Language = 'en' | 'th' | 'zh-HK' | 'ja' | 'ko' | 'zh-CN' | 'vi' | 'id' | 'fr' | 'es';
 export const dictionaries: Record<Language, Record<string, string>> = {
   en: Object.fromEntries(Object.keys(catalog).map((key) => [key, key])),
   th: Object.fromEntries(Object.entries(catalog).map(([key, value]) => [key, value[0]])),
   'zh-HK': Object.fromEntries(Object.entries(catalog).map(([key, value]) => [key, value[1]])),
   ja: Object.fromEntries(Object.entries(eastAsianCatalog).map(([key, value]) => [key, value[0]])),
   ko: Object.fromEntries(Object.entries(eastAsianCatalog).map(([key, value]) => [key, value[1]])),
+  'zh-CN': Object.fromEntries(Object.entries(additionalCatalog).map(([key, value]) => [key, value[0]])),
+  vi: Object.fromEntries(Object.entries(additionalCatalog).map(([key, value]) => [key, value[1]])),
+  id: Object.fromEntries(Object.entries(additionalCatalog).map(([key, value]) => [key, value[2]])),
+  fr: Object.fromEntries(Object.entries(additionalCatalog).map(([key, value]) => [key, value[3]])),
+  es: Object.fromEntries(Object.entries(additionalCatalog).map(([key, value]) => [key, value[4]])),
 };
 const escape = (text: string) => text.replace(/[.*+?^$()|[\]\\]/g, '\\$&');
 const patterns = Object.keys(catalog).filter((key) => /\{\w+\}/.test(key)).sort((a,b) => b.length-a.length).map((key) => {
