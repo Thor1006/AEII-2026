@@ -231,14 +231,14 @@ def _dump(obj, indent=0):
 
 def save(stats, path=paths.CALIB):
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(_dump(stats) + "\n")
+    path.write_text(_dump(stats) + "\n", encoding="utf-8")
     return path
 
 
 def load_stats(path=paths.CALIB):
     if not path.exists():
         raise FileNotFoundError(f"{path} missing: run `python -m trnet.calibrate` on a computer with the recordings")
-    s = json.loads(path.read_text())
+    s = json.loads(path.read_text(encoding="utf-8"))
     if s.get("format") != FORMAT:
         raise ValueError(f"{path} is not {FORMAT}")
     return s

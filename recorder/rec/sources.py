@@ -67,7 +67,7 @@ class RadarSource(Source):
         self.port = None if self.sim else radar_lab.open_serial(data_port, baud)
         self.reader = radar_lab.FrameReader()
         self.bin = open(session.dir / "radar.bin", "wb")
-        self.idx_file = open(session.dir / "radar_index.csv", "w", newline="")
+        self.idx_file = open(session.dir / "radar_index.csv", "w", newline="", encoding="utf-8")
         self.idx = csv.writer(self.idx_file)
         self.idx.writerow(["frame_no", "t_ns", "offset", "length"])
         self.offset = 0
@@ -162,7 +162,7 @@ class SerialLineSource(Source):
             # line ~50 times, the last copy spliced onto a new one. Drop everything that arrived before now.
             time.sleep(0.05)
             self.port.reset_input_buffer()
-        self.file = open(session.dir / f"{name}.csv", "w", newline="")
+        self.file = open(session.dir / f"{name}.csv", "w", newline="", encoding="utf-8")
         self.out = csv.writer(self.file)
         self.out.writerow(["t_ns", "line"])
         self.buf = b""

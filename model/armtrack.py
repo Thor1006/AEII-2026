@@ -87,7 +87,7 @@ def write_report(out, rows, skipped, total, data):
           "- Which turning point is the top of the curl (the sign); so no range of motion per rep either.",
           f"- Anything beyond these {len({r['subject'] for r in rows})} people, this room and this radar position "
           "(~1.7-2.0 m, facing the radar)."]
-    (out / "report.md").write_text("\n".join(L) + "\n")
+    (out / "report.md").write_text("\n".join(L) + "\n", encoding="utf-8")
 
 
 def main(argv=None):
@@ -121,9 +121,9 @@ def main(argv=None):
              "within1": sum(abs(r["count_error"]) <= 1 for r in rows)}
     out = paths.RUNS / ("arm_" + datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S"))
     out.mkdir(parents=True)
-    (out / "results.json").write_text(json.dumps({"total": total, "sessions": rows, "skipped": skipped}, indent=1))
+    (out / "results.json").write_text(json.dumps({"total": total, "sessions": rows, "skipped": skipped}, indent=1), encoding="utf-8")
     write_report(out, rows, skipped, total, str(root))
-    print((out / "report.md").read_text())
+    print((out / "report.md").read_text(encoding="utf-8"))
     print(f"saved in {out}")
 
 

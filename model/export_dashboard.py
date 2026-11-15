@@ -216,7 +216,7 @@ def export(run, out_path, arm=None):
     for i, m in enumerate(msgs):          # numbered in time order, as a live sender would (gaps = lost messages)
         m["seq"] = i
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, "w") as f:
+    with open(out_path, "w", encoding="utf-8") as f:
         f.write(json.dumps(hello, separators=(",", ":"), allow_nan=False) + "\n")
         for m in msgs:
             f.write(json.dumps(m, separators=(",", ":"), allow_nan=False) + "\n")   # NaN would break the browser

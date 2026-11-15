@@ -22,7 +22,7 @@ def comment_lines(session, name):
     p = session.dir / f"{name}.csv"
     if not p.exists():
         return out
-    with open(p, newline="") as f:
+    with open(p, newline="", encoding="utf-8") as f:
         r = csv.reader(f)
         next(r, None)
         for row in r:
@@ -37,7 +37,7 @@ def line_tags(session, name, limit=None):
     p = session.dir / f"{name}.csv"
     if not p.exists():
         return None
-    with open(p, newline="") as f:
+    with open(p, newline="", encoding="utf-8") as f:
         r = csv.reader(f)
         next(r, None)
         for k, row in enumerate(r):

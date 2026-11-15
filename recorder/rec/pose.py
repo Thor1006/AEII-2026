@@ -144,7 +144,7 @@ class PoseSource(Source):
         super().__init__(session, "pose")
         self.cap = open_camera(camera, width, height, fps)
         self.est = PoseEstimator(model)
-        self.file = open(session.dir / "pose.csv", "w", newline="")
+        self.file = open(session.dir / "pose.csv", "w", newline="", encoding="utf-8")
         self.out = csv.writer(self.file)
         self.out.writerow(HEADER)
         self.with_person = 0

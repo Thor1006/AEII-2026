@@ -70,7 +70,7 @@ class SessionWriter:
             "sources": {},
             "markers_legend": {("space" if k == " " else k): v for k, v in MARKER_KEYS.items()},
         }
-        self._markers_file = open(self.dir / "markers.csv", "w", newline="")
+        self._markers_file = open(self.dir / "markers.csv", "w", newline="", encoding="utf-8")
         self._markers = csv.writer(self._markers_file)
         self._markers.writerow(["t_ns", "key", "label"])
         self.n_markers = 0
@@ -105,7 +105,7 @@ class SessionWriter:
 
     def write_meta(self):
         tmp = self.dir / "meta.json.tmp"
-        tmp.write_text(json.dumps(self.meta, indent=2))
+        tmp.write_text(json.dumps(self.meta, indent=2), encoding="utf-8")
         tmp.replace(self.dir / "meta.json")  # never leave a half-written meta.json
 
 
@@ -188,7 +188,7 @@ class Session:
 
     def radar_index(self):
         """Empty arrays when no frame was saved (e.g. Start/Stop with the radar unplugged)."""
-        lines = (self.dir / "radar_index.csv").read_text().splitlines()[1:]
+        lines = (self.dir / "radar_index.csv").read_text(encoding="utf-8").splitlines()[1:]
         a = np.array([[int(x) for x in ln.split(",")] for ln in lines if ln.strip()], dtype=np.int64).reshape(-1, 4)
         return {"frame_no": a[:, 0], "t_s": a[:, 1] / 1e9, "offset": a[:, 2], "length": a[:, 3]}
 
@@ -206,7 +206,7 @@ class Session:
     def serial_lines(self, name):
         """(host t_s array, list of lines) for a serial source, comment lines dropped."""
         t, lines = [], []
-        with open(self.dir / f"{name}.csv", newline="") as f:
+        with open(self.dir / f"{name}.csv", newline="", encoding="utf-8") as f:
             r = csv.reader(f)
             next(r)
             for row in r:
@@ -239,7 +239,7 @@ class Session:
         """Video pose: {"t_s", "person" (bool), "image" [n, 33, 4], "world" [n, 33, 3]}; NaN where no person."""
         n_lm = 33
         t, person, rows = [], [], []
-        with open(self.dir / "pose.csv", newline="") as f:
+        with open(self.dir / "pose.csv", newline="", encoding="utf-8") as f:
             r = csv.reader(f)
             next(r)
             for row in r:
@@ -253,11 +253,11 @@ class Session:
 
 def load(path):
     path = Path(path)
-    meta = json.loads((path / "meta.json").read_text())
+    meta = json.loads((path / "meta.json").read_text(encoding="utf-8"))
     if meta.get("format") != FORMAT:
         raise ValueError(f"{path} is not a {FORMAT} session")
     markers = []
-    with open(path / "markers.csv", newline="") as f:
+    with open(path / "markers.csv", newline="", encoding="utf-8") as f:
         r = csv.reader(f)
         next(r)
         markers = [(int(t) / 1e9, k, lbl) for t, k, lbl in r]

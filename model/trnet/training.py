@@ -24,8 +24,11 @@ TO_DEVICE = ("H", "D", "fmask", "feats", "rmask", "base_H", "base_D", "base_fmas
 
 
 def pick_device(name="auto"):
+    """auto: an NVIDIA GPU (cuda) if there is one, else Apple's GPU (mps), else the CPU."""
     if name != "auto":
         return torch.device(name)
+    if torch.cuda.is_available():
+        return torch.device("cuda")
     return torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
 

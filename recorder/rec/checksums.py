@@ -40,7 +40,7 @@ def write(folder, overwrite=False):
     names = _files(folder)
     lines = [f"{sha256(folder / n)}  {n}\n" for n in names]
     tmp = folder / (NAME + ".tmp")
-    tmp.write_text("".join(lines))
+    tmp.write_text("".join(lines), encoding="utf-8")
     tmp.replace(target)  # never leave a half-written checksum file
     return len(names)
 
@@ -51,7 +51,7 @@ def read(folder):
     if not target.exists():
         return None
     out = {}
-    for line in target.read_text().splitlines():
+    for line in target.read_text(encoding="utf-8").splitlines():
         if line.strip():
             digest, _, name = line.partition("  ")
             out[name.lstrip("*")] = digest.strip().lower()

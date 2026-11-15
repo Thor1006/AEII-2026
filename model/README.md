@@ -20,7 +20,7 @@ Run the commands below from inside `model/`.
 
 ## Commands
 
-Run all tests (86, about 30 s, no sensors needed; `bash scripts/check_all.sh` from the repo root runs every part's checks):
+Run all tests (89, about 30 s, no sensors needed; `bash scripts/check_all.sh` from the repo root runs every part's checks):
 
 ```bash
 .venv/bin/python -m unittest discover -s tests
@@ -72,6 +72,36 @@ velocity into an arm signal with no unit, and cuts reps from it with the IMU's o
 10–14 Nov it counted 537 reps where the IMU counted 537. It can't give degrees or tell the top of a curl from the
 bottom (Doppler sees speed toward the radar, not the angle). Its few fixed numbers were chosen on those same
 sessions. For the dashboard: `export_dashboard.py --session <folder> --radar-arm`.
+
+### On Windows
+
+Training and the rep counter run on a Windows PC too, reading the sessions from the PortableSSD (exFAT works
+there as it is). It uses an NVIDIA GPU if there is one, else the CPU (about 1–2 h instead of ~7 min).
+
+1. On the Mac, put the committed code on the SSD as one zip (no recordings, no `.venv`, no old runs):
+
+   ```bash
+   git archive --format=zip -o /Volumes/PortableSSD/truerehab-train-$(git rev-parse --short HEAD).zip HEAD model recorder radar-lab
+   ```
+
+2. On the PC: unzip it to e.g. `C:\truerehab`. Install Python 3.12 from python.org first if it isn't there (tick
+   "Add python.exe to PATH"). Then double-click `model\windows\setup.cmd`. It makes `model\.venv`, installs numpy and
+   PyTorch (the CUDA build if `nvidia-smi` finds an NVIDIA card; about 2.5 GB, or about 200 MB for the CPU build)
+   and runs the tests. It ends with `SETUP OK`. Delete `model\.venv` to undo it.
+3. Train (in a terminal in that folder; use the SSD's drive letter):
+
+   ```bat
+   model\windows\train.cmd E:\truerehab-sessions -CopyFirst
+   ```
+
+   `-CopyFirst` copies the sessions to `model\data\sessions` first, so a drive that drops out can't break the run.
+   It runs `train.py` and `armtrack.py`, then copies the new run folders to `E:\truerehab-runs\`. `-Device cpu` and
+   `-Epochs N` are passed on to `train.py`.
+
+The `.cmd` files run their `.ps1` with `-ExecutionPolicy Bypass` for that one run only; no Windows setting is changed.
+
+If an AI agent runs this on the PC (e.g. Phisit's), point it to `model\windows\AGENTS.md`: the same steps, what to
+report, and its rules (recordings read-only, no names, no installs or code changes, no hardware, no git).
 
 Measure the real recordings again (after new real sessions, so the fake data copies them):
 

@@ -82,8 +82,8 @@ def main(argv=None):
     }
     out_dir = paths.RUNS / "demo"
     out_dir.mkdir(parents=True, exist_ok=True)
-    html = (Path(__file__).parent / "demo_page.html").read_text().replace("__DATA__", json.dumps(payload))
-    (out_dir / "index.html").write_text(html)
+    html = (Path(__file__).parent / "demo_page.html").read_text(encoding="utf-8").replace("__DATA__", json.dumps(payload))
+    (out_dir / "index.html").write_text(html, encoding="utf-8")
     print(f"wrote {out_dir / 'index.html'} ({(out_dir / 'index.html').stat().st_size // 1024} KB): "
           f"{len(p.reps)} reps, {len(sel)} frames, model {weights.relative_to(paths.MODEL_DIR)}")
 

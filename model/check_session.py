@@ -50,7 +50,7 @@ def main(argv=None):
         all_ok &= r["usable"]
         if not a.no_save:
             out_dir.mkdir(parents=True, exist_ok=True)
-            (out_dir / f"{r['session']}.json").write_text(json.dumps(_json_safe(r), indent=1))
+            (out_dir / f"{r['session']}.json").write_text(json.dumps(_json_safe(r), indent=1), encoding="utf-8")
     if len(folders) > 1:
         print(f"{sum(1 for _ in folders)} sessions checked; reports in {out_dir}" if not a.no_save else "")
     return 0 if all_ok else 1

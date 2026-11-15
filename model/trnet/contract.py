@@ -101,7 +101,7 @@ class InputContract:
         from radarlab import cfg as radar_cfg
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp) / "profile.cfg"
-            p.write_text("\n".join(cfg_lines) + "\n")
+            p.write_text("\n".join(cfg_lines) + "\n", encoding="utf-8")
             layout = _quiet(radar_cfg.load, p)
         fps = 60.0
         for line in cfg_lines:

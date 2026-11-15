@@ -470,7 +470,7 @@ def _u32(us):
 
 
 def _write_lines(path, rows):
-    with open(path, "w", newline="") as f:
+    with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["t_ns", "line"])
         w.writerows(rows)
@@ -513,7 +513,7 @@ def make_session(root, person: Person, plan: Plan = Plan(), seed=None, stats=Non
                 count += 1
                 nos.append(no)
         arr = _monotonic(np.array([r[1] for r in rows], float))
-        with open(d / "radar_index.csv", "w", newline="") as f:
+        with open(d / "radar_index.csv", "w", newline="", encoding="utf-8") as f:
             w = csv.writer(f)
             w.writerow(["frame_no", "t_ns", "offset", "length"])
             for r, a in zip(rows, arr):
@@ -602,7 +602,7 @@ def make_session(root, person: Person, plan: Plan = Plan(), seed=None, stats=Non
         for k in range(1, len(arrive)):                 # frames are read one after another: strictly increasing
             arrive[k] = max(arrive[k], arrive[k - 1] + 0.002)
         from rec.pose import HEADER
-        with open(d / "pose.csv", "w", newline="") as f:
+        with open(d / "pose.csv", "w", newline="", encoding="utf-8") as f:
             w = csv.writer(f)
             w.writerow(HEADER)
             for k in range(len(t)):
@@ -614,7 +614,7 @@ def make_session(root, person: Person, plan: Plan = Plan(), seed=None, stats=Non
         summary["pose"] = {"frames": len(t), "with_person": len(t), "error": None}
         offsets["pose_latency_ms"] = p["latency_ms"]
 
-    with open(d / "markers.csv", "w", newline="") as f:
+    with open(d / "markers.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["t_ns", "key", "label"])
         for t_m, key, label in tl.markers:
@@ -630,7 +630,7 @@ def make_session(root, person: Person, plan: Plan = Plan(), seed=None, stats=Non
                                              for r in tl.reps],
                                     "shrug_starts": [round(s, 3) for s in tl.shrug_starts],
                                     "delays": offsets}}})
-    (d / "meta.json").write_text(json.dumps(meta, indent=2))
+    (d / "meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     return d
 
 

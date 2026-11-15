@@ -14,6 +14,13 @@ SYNTH_VERSION = 2                              # bump when trnet.synth changes w
 FAKE = DATA / f"fake_v{SYNTH_VERSION}"         # train.py's fake people; older versions' folders are never reused
 RUNS = MODEL_DIR / "runs"                      # training runs, session checks (git-ignored)
 
+if sys.platform == "win32":  # an old Windows console can't print ≈ or ±: print UTF-8, never crash on a character
+    for _s in (sys.stdout, sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
 for _p in (RECORDER, RADAR_LAB):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))

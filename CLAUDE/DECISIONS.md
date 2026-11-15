@@ -2,6 +2,17 @@
 
 <!-- Newest on top. One short entry per decision that someone might later ask "why did we do it this way?" about. -->
 
+## 2026-11-15 — Train on the Windows PC from a git-archive zip and two PowerShell scripts
+- **Decision:** the PC gets the committed `model/`, `recorder/`, `radar-lab/` as one `git archive` zip on the SSD;
+  `model/windows/setup.cmd` makes `model\.venv` (PyTorch CUDA build if `nvidia-smi` finds a card, else CPU) and
+  `train.cmd` runs training and the rep counter. All text I/O is UTF-8, and a test keeps it so.
+  See [report](output/2026-11-15-1205-train-on-windows.md).
+- **Why:** the Mac was unstable on 14 Nov; the PC has no git login for this private repo; numpy + torch are the
+  only packages; the zip carries the exact commit, with no recordings or names.
+- **Alternatives:** clone with git on the PC (needs a GitHub login there and a push first); copy the whole repo
+  folder (would carry `.venv`, caches and old runs); WSL (more to install).
+- **Cost:** untested on Windows until the first run; the zip must be rebuilt after each commit that matters.
+
 ## 2026-11-15 — Every session folder carries SHA-256 checksums, written at Stop
 - **Decision:** `SessionWriter.close()` writes `checksums.sha256` (one line per file, the format `shasum -a 256 -c`
   reads); `recorder/checksums.py` adds them to old sessions (never replacing one) and verifies copies; the session

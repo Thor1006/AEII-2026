@@ -79,7 +79,7 @@ def write_report(out, results, summary, info):
     lines += [f"- Data: {info['data']}", f"- People: {', '.join(info['dataset']['subjects'])}; "
               f"{info['dataset']['reps']} reps ({info['dataset']['cropped_reps']} cropped to "
               f"{info['frames_per_rep']} frames)", f"- Network: {info['params']:,} parameters, contract "
-              f"{info['contract_version']} (key {info['contract_key']})", f"- Device: {info['device']}; "
+              f"{info['contract_version']} (key {info['contract_key']})", f"- Device: {info['device']} (torch {info.get('torch', '?')}); "
               f"{info['epochs']} epochs max, patience {info['patience']}; {info['minutes']:.1f} min",
               f"- Validation (early stopping): {info['val_desc']}", "",
               "## Mean over the left-out people", "", "| Head | Model | Majority/mean baseline | Labelled reps |",
@@ -121,7 +121,7 @@ def write_report(out, results, summary, info):
                          f"{v['radar']:.3f} | {v['timing+radar']:.3f} |")
     lines += ["", f"With {len(results)} left-out people, differences of a few thousandths are not distinguishable",
               "from the baseline: read them as \"no better\", not as a gain."]
-    (out / "report.md").write_text("\n".join(lines) + "\n")
+    (out / "report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def main(argv=None):
@@ -133,7 +133,7 @@ def main(argv=None):
     ap.add_argument("--fake-reps", type=int, default=8)
     ap.add_argument("--epochs", type=int, default=40)
     ap.add_argument("--patience", type=int, default=8)
-    ap.add_argument("--device", default="auto", help="auto (Apple GPU if available), cpu or mps")
+    ap.add_argument("--device", default="auto", help="auto (NVIDIA GPU, else Apple GPU, else CPU), cuda, mps or cpu")
     ap.add_argument("--frames-per-rep", type=int, default=None, help="override T (quick runs only)")
     ap.add_argument("--no-points", action="store_true", help="leave out the point layers (to compare)")
     ap.add_argument("--angle-bins", type=int, choices=(16, 32, 64), help="angle grid (default: the contract's)")
@@ -175,12 +175,12 @@ def main(argv=None):
     out.mkdir(parents=True)
     info = {"data": data_desc, "fake": any(s.fake for s in usable), "dataset": DS.summary(usable),
             "frames_per_rep": contract.frames_per_rep, "params": count_params(TrueRehabNet(contract)),
-            "contract_version": contract.version, "contract_key": contract.key(), "device": str(device),
+            "contract_version": contract.version, "contract_key": contract.key(), "device": str(device), "torch": TRN.torch.__version__,
             "epochs": a.epochs, "patience": a.patience, "val": val,
             "val_desc": ("a whole other person" if val == "person" else
                          "the last session of each training person (the test person is never used)"),
             "label_spread": label_spread(usable)}
-    (out / "dataset.json").write_text(json.dumps(info["dataset"], indent=1))
+    (out / "dataset.json").write_text(json.dumps(info["dataset"], indent=1), encoding="utf-8")
     print(f"training on {device}: {info['dataset']['reps']} reps from {len(info['dataset']['subjects'])} people")
     t0 = time.time()
     results = TRN.run_loso(usable, contract, device, a.epochs, a.patience, out_dir=out, max_folds=a.max_folds,
@@ -191,9 +191,9 @@ def main(argv=None):
         r["ridge"] = RB.evaluate(tr_s, te_s, contract)
     info["minutes"] = (time.time() - t0) / 60
     summary = TRN.summarize(results)
-    (out / "results.json").write_text(json.dumps({"info": info, "summary": summary, "folds": results}, indent=1))
+    (out / "results.json").write_text(json.dumps({"info": info, "summary": summary, "folds": results}, indent=1), encoding="utf-8")
     write_report(out, results, summary, info)
-    print((out / "report.md").read_text())
+    print((out / "report.md").read_text(encoding="utf-8"))
     print(f"saved in {out}")
 
 
