@@ -20,7 +20,7 @@ Run the commands below from inside `model/`.
 
 ## Commands
 
-Run all tests (89, about 30 s, no sensors needed; `bash scripts/check_all.sh` from the repo root runs every part's checks):
+Run all tests (90, about 30 s, no sensors needed; `bash scripts/check_all.sh` from the repo root runs every part's checks):
 
 ```bash
 .venv/bin/python -m unittest discover -s tests
