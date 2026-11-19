@@ -1,9 +1,17 @@
 # Context
 
 <!-- Living state. Keep under ~40 lines; reports hold detailed run history. -->
-**Last updated:** 2026-11-09 (public clinical and fatigue dataset review)
+**Last updated:** 2026-11-15 (event Q&A evidence refresh; earlier local notes retained)
 
 ## Current focus
+**Evidence refresh, 15 Nov:** main is up to date at `42c8cd8`; experimental results below were read from `origin/radar-rep-counter` at `c909d1b`, not merged into main. [Review](output/2026-11-15-1505-event-qa-review_v01.md) records sources and limits.
+- Real data report: 30 sessions, five recorded participant IDs, 687 repetitions in the fatigue-training run. Confirm whether the test-like ID is a participant before claiming five volunteers. No patient validation established.
+- Radar-only counter: 653 vs 657 IMU reps over 23 eligible sessions; 80% temporal matches within 0.25 s, chance 44%. New person not used for tuning: 116 vs 120 reps, 67% temporal matches. Offline/replay only; no joint angles in degrees.
+- Fatigue proxy: reported MAE 0.193 vs 0.217 mean baseline, better for 3/5 people; placeholder MDF-derived labels remain unvalidated. Quality/ROM no better than baseline; shrug/lean not validated. No clinical accuracy claim.
+- Pi acquisition and its 14 Nov update/check are reported working; full live neural inference and Pi latency are not benchmarked. Older statements below about no human recordings/no Pi use are historical and superseded by these dated reports.
+- Current working tree still preserves the local Supabase reference playground notes. No firmware, hardware, database, poster, deck, model or dashboard changes this turn; no commit/push.
+
+## Earlier implementation snapshot (2026-11-09)
 **Plan B is selected and received: AWR2944PEVM, no DCA1000.** The submitted AWR1843BOOST/DCA1000 poster stays frozen. Two independent USB radar demos now coexist; their profiles, outputs and measured limits differ. Run only one serial collector at a time. No raw ADC or validated fatigue/body model is claimed.
 - Windows browser viewer: `sandbox/radar-live-viewer/`, AWR2X44P TDM / SDK 04.07.02.01, COM5 115200 / COM6 3125000. Selected `tdm-wide-points-40hz.cfg`: 40-Hz target, nominal 3.88-cm radial separation, point/health output. [Measured limits and rollback](output/2026-11-03-radar-rate-resolution.md); extended runs had occasional sequence gaps. Last recorded server PID 36636 is historical, not a current health check.
 - Browser Room map http://127.0.0.1:8766/ and separate Drive view http://127.0.0.1:8766/drive/ share that collector. [Room map](output/2026-11-03-fixed-radar-room-map.md): fixed-board, 30-s RAM window, 10-cm display cells, >=3-frame persistence. [Drive](output/2026-11-03-car-style-radar-demo.md): illustrative car and measured reflection groups; no vehicle/person/lane/path recognition.
@@ -24,6 +32,8 @@
 - **Pi set v0.2** (`deploy/pi/`, [report](output/2026-11-07-1535-semg-support.md)): live radar + MyoWare sEMG (envelope, median frequency) in the dashboard; Start/Stop records both into one folder on one clock. Verified from the PortableSSD install with replayed radar + `fake_myoware.py`, and with the real MyoWare over Wi-Fi (`check_bridge` passes; not worn yet). Not yet run on a real Pi or the live radar. Live model scores need radar-only rep detection.
 
 ## Recent changes
+- 2026-11-15 - Pulled main (Already up to date) and reviewed newer remote experimental reports for all 24 event answers. Real rep-counting results and preliminary MDF-proxy training are distinguished; no branch merge or hardware runs. [Review](output/2026-11-15-1505-event-qa-review_v01.md).
+- 2026-11-09 - Public-data database trial is live in existing Supabase **AEII - 2026**, schema `reference_playground` (user explicitly chose existing project). [Open tables](https://supabase.com/dashboard/project/dpzmtmgfqudhfgykkcbf/editor?schema=reference_playground): 5 sources, 4 file refs, 12 trials, 36 label segments / 200,581 observations. [Report](output/2026-11-09-public-data-playground_v01.md); source in `sandbox/public-data-playground/`. Logical schema isolation, RLS on, no anonymous/app-user access, no model integration or push.
 - 2026-11-09 - Reviewed clinical/public datasets for both AI reference work and presentation evidence. [Sources and use limits](output/2026-11-09-clinical-data-sources_v01.md); [machine-readable catalog](output/2026-11-09-clinical-data-sources_v01.json). CC BY samples (one real stroke MAT file, Minho fatigue labels/protocol) in ignored `model/data/external_reference_v01/`. None is paired radar input; current labels/model/slide content unchanged. No commit/push.
 - 2026-11-08 - Radar points + heatmaps (contract v1), finer profile `fullmap_fine_awr2x44p.cfg` (3.88 cm, not yet on the board), 4th dashboard view "Points (height)". Radar stays on USB (Ethernet demo = bare points). [Report](output/2026-11-08-1704-points-and-finer-heatmap.md).
 - 2026-11-07 - MyoWare: the Wi-Fi record sketch uploaded (Wi-Fi file copied from the IMU's, unopened); real board at 1000/s with 0 gaps over Wi-Fi; Pi bridge check passes. [Report](output/2026-11-07-1601-myoware-upload.md).
@@ -71,6 +81,12 @@
 - Repo instructions describe macOS/zsh, but Windows work also exists. Home copy/font license and the poster's "oral health" wording remain open; submitted sources stay unchanged.
 
 ## Next steps
+1. Rehearse the updated event Q&A; confirm the five IDs and participant group before reporting a volunteer count.
+2. Present the actual radar-only counter as a recorded-data replay; do not describe 653 vs 657 total counts as accuracy or the proxy MAE as clinical validation.
+3. Agree whether to merge experimental work separately; preserve the Pi-only IMU changes before any future update. No merge was performed for this review.
+4. Add independent participants/control conditions, validate MDF labels and compensation ground truth, and benchmark live Pi processing before extending claims.
+
+## Earlier next steps (2026-11-09 snapshot)
 0. **Radar points decision:** keep the point layers on for the model, or off until real sessions show a benefit (fake data: off is better).
 0. **Finer profile on the board** (radar plugged in, power first): 60 fps, 0 missing, temperature, two metal objects ~5 cm apart; then switch `paths.RADAR_CFG`, the recorder and the bridge to it.
 0. **MyoWare:** wear it on battery (switch ON, USB out, fresh pads on the biceps) and record curls with the radar over Wi-Fi; then `check_session.py`, `python -m trnet.calibrate`, and check the sEMG thresholds on the real signal.

@@ -1,0 +1,36 @@
+{
+  "verified_on": "2026-11-09",
+  "status": "live_verified",
+  "provider": "Supabase",
+  "project_name": "AEII - 2026",
+  "project_id": "dpzmtmgfqudhfgykkcbf",
+  "organization_name": "GI 04",
+  "schema": "reference_playground",
+  "isolation": "dedicated schema in the existing PostgreSQL project; not physical database isolation",
+  "table_editor_url": "https://supabase.com/dashboard/project/dpzmtmgfqudhfgykkcbf/editor/17646?schema=reference_playground",
+  "schema_editor_url": "https://supabase.com/dashboard/project/dpzmtmgfqudhfgykkcbf/editor?schema=reference_playground",
+  "row_counts": {
+    "datasets": 5,
+    "file_references": 4,
+    "fatigue_trials": 12,
+    "fatigue_segments": 36
+  },
+  "source_fingerprints": {
+    "segments_md5": "7ad4497513e4b9cdbc28405885a81f73",
+    "trials_md5": "ed131d37d5eb332e94a4a954505bb6c2",
+    "file_references_md5": "3532778761ace9b8bcb8b3e9018b8ed3",
+    "label_observations": 200581
+  },
+  "verified_controls": {
+    "rls_enabled_tables": 4,
+    "anon_schema_usage": false,
+    "authenticated_schema_usage": false,
+    "training_eligible_rows": 0,
+    "public_tables_before": 0,
+    "public_tables_after": 0
+  },
+  "sharing": "Existing authorized organization/project dashboard access only; no new invitations or public API access",
+  "binary_storage": "source URLs and local copies only; no raw binaries uploaded",
+  "main_application_integration": false,
+  "other_project_modified": false
+}

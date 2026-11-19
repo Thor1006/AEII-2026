@@ -2,6 +2,16 @@
 
 <!-- Newest on top. One short entry per decision that someone might later ask "why did we do it this way?" about. -->
 
+## 2026-11-15 - Use dated real-data reports for event Q&A without merging experimental code
+- The user asked to git pull and revise all 24 answers. Main was already current at 42c8cd8. Read the newer radar-rep-counter branch at c909d1b without switching/merging it; preserve local Supabase work and avoid unrequested deployment or pushes.
+- Describe separately the offline radar-only counter, preliminary learned MDF-proxy scores, and live Pi acquisition. Total rep-count agreement is not accuracy; the MDF-derived training labels and all clinical/compensation claims remain unvalidated.
+- The latest data has five recorded subject IDs; the branch still asks whether one ID is a person or a test. Confirm that before claiming five healthy volunteers or any patient count. [Review](output/2026-11-15-1505-event-qa-review_v01.md).
+
+## 2026-11-09 - Keep the online data trial in a dedicated Supabase schema
+- The user wanted a shared online database experiment separate from real project data. They then explicitly chose their existing AEII - 2026 Supabase project because they could not create another project. Created/seeded only schema `reference_playground`; this is logical isolation in the same database, with shared project resources and organization administrators.
+- Imported 5 public source records, 4 original-file references, 12 trials and 36 constant-label segments from published Minho subject 1 (200,581 source labels). Source fingerprints and live PostgreSQL counts match. Four RLS-enabled tables, no anonymous/app-user schema USAGE, reference-only constraint; `public` table count stayed zero. [Report](output/2026-11-09-public-data-playground_v01.md).
+- Existing project members can inspect the tables in Supabase. No new invitations, public policies, credentials or paid changes; no integration with main recordings/model/frontend. Numbered reproducibility files are in `sandbox/public-data-playground/`; raw binaries remain local. No commit/push.
+
 ## 2026-11-09 - Use public clinical data as references and keep radar training separate
 - The user requested online clinic/research records for both AI and presentation evidence. Prioritized Minho dynamic sEMG plus perceived-fatigue labels, Don Carlo Gnocchi post-stroke kinematics/EMG, Toronto compensation poses and REHAB clinical movement assessments. BMFD is an isometric fallback. [Review](output/2026-11-09-clinical-data-sources_v01.md).
 - Downloaded one original public de-identified stroke MAT sample and Minho's small protocol/label files. Both dataset licenses verified as CC BY 4.0 and source checksums match. Store binary samples in existing git-ignored `model/data/external_reference_v01/`; keep a small source catalog in `CLAUDE/output/`.
